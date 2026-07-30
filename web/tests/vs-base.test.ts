@@ -16,6 +16,7 @@ describe("buildVsBaseComparison", () => {
           bestRunId: "base-run",
           composite: { point: 83.44, lo: 82.44, hi: 84.44 },
           diagnosticComposite: null,
+          executionProfileId: "generic_think_tags_8192_v1",
           axes: { knowledge: score(83.44), instruction: score(67), coding: score(20) },
           lane: "bounded-final-v2",
           origin: "project_anchor",
@@ -32,6 +33,7 @@ describe("buildVsBaseComparison", () => {
           bestRunId: "fine-run",
           composite: { point: 87.36, lo: 86.36, hi: 88.36 },
           diagnosticComposite: null,
+          executionProfileId: "generic_think_tags_8192_v1",
           axes: { knowledge: score(87.36), instruction: score(64), tool_calling: score(50) },
           lane: "bounded-final-v2",
           origin: "project_anchor",
@@ -49,6 +51,52 @@ describe("buildVsBaseComparison", () => {
       ["knowledge", 87.36, 83.44, 4],
       ["instruction", 64, 67, -3],
     ]);
+  });
+
+  it.each([
+    ["different", "answer_only_8192_v1"],
+    ["unknown", undefined],
+  ] as const)("withholds deltas when execution profiles are %s", (_case, derivativeProfileId) => {
+    // Given: measured rows from the same scoring season but non-comparable renderers.
+    const comparison = buildVsBaseComparison({
+      base: {
+        catalogId: "base",
+        displayName: "Base",
+        slug: "base",
+        row: {
+          axes: { knowledge: score(70) },
+          bestRunId: "base-run",
+          composite: { point: 44.62, lo: 43, hi: 46 },
+          diagnosticComposite: null,
+          executionProfileId: "generic_think_tags_8192_v1",
+          indexVersion: "index-v4.2",
+          lane: "bounded-final-v2",
+          ranked: true,
+          scoreStatus: "measured",
+        },
+      },
+      derivative: {
+        catalogId: "tune",
+        displayName: "Tune",
+        slug: "tune",
+        row: {
+          axes: { knowledge: score(80) },
+          bestRunId: "tune-run",
+          composite: { point: 52, lo: 51, hi: 53 },
+          diagnosticComposite: null,
+          executionProfileId: derivativeProfileId,
+          indexVersion: "index-v4.2",
+          lane: "bounded-final-v2",
+          ranked: true,
+          scoreStatus: "measured",
+        },
+      },
+    });
+
+    // When/Then: profile mismatch suppresses every delta with an explicit reason.
+    expect(comparison.compositeDelta).toBeNull();
+    expect(comparison.axes).toEqual([]);
+    expect(comparison.missing).toEqual(["different execution profiles"]);
   });
 
   it("reports honest missing states instead of fake deltas", () => {

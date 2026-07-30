@@ -99,6 +99,12 @@ All spacing derives from 4px.
 - States: missing values render neutral text, not warning colors.
 - Accessibility: preserve visible numbers; bars are supporting context only.
 
+### Execution Profile Badge
+
+- Structure: one compact mono label beside the row identity, with the exact profile ID in its title.
+- Tone: low-emphasis cyan using the existing accent border and surface tokens.
+- Content: show a short reasoning-mode label; keep template hashes and renderer internals in the structured row data.
+
 ## 6. Motion & Interaction
 
 ### Timing

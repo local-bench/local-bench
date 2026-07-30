@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import type { AdaptedBoardRow } from "./board-adapter";
+import type { CommunityExecutionProfileFields } from "./execution-profile";
 import { mergeCommunityEnvironment, type MaintainerEnvBackfill } from "./community-env";
 import { communityRowsForModel } from "./community-family";
 import { huggingFaceRepoUrl } from "./community-links";
@@ -168,7 +169,7 @@ export type CommunityBoardRow = {
   readonly submitterKeyFingerprint?: string | null;
   readonly timestamps?: AdaptedBoardRow["timestamps"];
   readonly trust?: AdaptedBoardRow["trust"] | null;
-};
+} & CommunityExecutionProfileFields;
 
 export type CommunityModelTarget = {
   readonly artifactSha256s?: readonly string[];

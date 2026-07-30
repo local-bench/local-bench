@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { MouseEvent } from "react";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
+import { ExecutionProfileBadge } from "@/components/execution-profile-badge";
 import { ProjectRunAttribution, SubmissionIdentity } from "@/components/leaderboard-provenance";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { RuntimeCell, SeasonBadge } from "@/components/leaderboard-table-cells";
@@ -78,6 +79,9 @@ export function CommunityLeaderboardRow({
             </Link>
           )}
           {row.indexVersion === null ? null : <SeasonBadge indexVersion={row.indexVersion} />}
+          {row.executionProfile === undefined ? null : (
+            <ExecutionProfileBadge profile={row.executionProfile} />
+          )}
         </span>
         {showDeclaredName ? (
           <div className="mt-0.5 font-mono text-[11px] text-bench-muted">declared as {row.displayName}</div>

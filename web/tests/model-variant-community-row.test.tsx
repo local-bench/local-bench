@@ -57,6 +57,31 @@ describe("CommunityVariantTableRow", () => {
     expect(variantCell).toContain(">Qwen3.6 27B</a>");
     expect(variantCell).toContain(">Q6_K</span>");
   });
+
+  it("shows the server-derived execution profile badge", () => {
+    // Given: a published row with a structured execution profile.
+    const html = renderCommunityRow({
+      row: communityRow({
+        executionProfile: { id: "generic_think_tags_8192_v1" },
+      }),
+    });
+
+    // When/Then: the row discloses the profile without exposing internal template detail.
+    expect(html).toContain("execution profile: generic_think_tags_8192_v1");
+    expect(html).toContain(">generic think</span>");
+  });
+
+  it("links a rerun row to the receipt it supersedes", () => {
+    // Given: a rerun with a server-maintained supersedes relation.
+    const priorSubmissionId = "ticket_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const html = renderCommunityRow({
+      row: communityRow({ supersedesSubmissionId: priorSubmissionId }),
+    });
+
+    // When/Then: the row keeps the prior immutable receipt reachable.
+    expect(html).toContain(`href="/submission/?id=${priorSubmissionId}"`);
+    expect(html).toContain(`title="supersedes ${priorSubmissionId}"`);
+  });
 });
 
 function renderCommunityRow({

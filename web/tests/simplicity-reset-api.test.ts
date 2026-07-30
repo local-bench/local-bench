@@ -141,7 +141,12 @@ describe("simplicity reset publish-on-submit API", () => {
     expect(storedRow).toMatchObject({ projection_sha256: storedProjection.artifact_hashes.projection_sha256 });
     const board = await getBoard({ env, request: new Request("https://local-bench.ai/api/board/community.json") });
     expect(await board.json()).toMatchObject({
-      rows: [{ model: { hf: storedProjection.model.hf }, ranked: true, scores: { headline_score: 0.7275 } }],
+      rows: [{
+        model: { hf: storedProjection.model.hf },
+        moderation_queue_marker: "legacy_execution_profile_review",
+        ranked: false,
+        scores: { headline_score: 0.7275 },
+      }],
     });
   });
 

@@ -331,6 +331,7 @@ function toVsBaseBoardRow(row: IndexModel | null): VsBaseBoardRow | null {
     bestRunId: row.best_run_id,
     composite: row.composite,
     diagnosticComposite: row.diagnostic_composite ?? null,
+    executionProfileId: row.execution_profile_id,
     indexVersion: row.index_version,
     lane: row.lane,
     origin: row.origin,

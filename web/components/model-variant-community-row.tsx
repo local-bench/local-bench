@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AgenticProvenanceChip } from "@/components/leaderboard-provenance";
+import { ExecutionProfileBadge } from "@/components/execution-profile-badge";
 import { RuntimeCell } from "@/components/leaderboard-table-cells";
 import { ArtifactProvenanceLine, VariantBadge } from "@/components/model-variant-cell-metadata";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
@@ -81,6 +82,9 @@ export function CommunityVariantTableRow({
       ) : null}
       {row.origin === "project_anchor" ? null : (
         <AgenticProvenanceChip value="self-reported" />
+      )}
+      {row.executionProfile === undefined ? null : (
+        <ExecutionProfileBadge profile={row.executionProfile} />
       )}
       {complete ? null : (
         <VariantBadge tone="muted" title="Partial measurement; missing one or more headline modules">
@@ -171,9 +175,20 @@ export function CommunityVariantTableRow({
       </td>
       <td className="px-3 py-3"><RuntimeCell runtime={row.runtime} /></td>
       <td className="px-3 py-3">
-        <Link href={submissionHref(row.submissionId)} className="font-mono text-xs text-bench-accent hover:underline">
-          receipt
-        </Link>
+        <div className="flex flex-col items-start gap-1">
+          <Link href={submissionHref(row.submissionId)} className="font-mono text-xs text-bench-accent hover:underline">
+            receipt
+          </Link>
+          {row.supersedesSubmissionId === undefined ? null : (
+            <Link
+              href={submissionHref(row.supersedesSubmissionId)}
+              className="font-mono text-[10px] text-bench-muted hover:text-bench-accent"
+              title={`supersedes ${row.supersedesSubmissionId}`}
+            >
+              supersedes
+            </Link>
+          )}
+        </div>
       </td>
     </tr>
   );

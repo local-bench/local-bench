@@ -190,11 +190,10 @@ describe("static data access", () => {
     expect(qwenComparison).toMatchObject({
       base: { catalogId: "Qwen/Qwen3.6-27B", displayName: "Qwen3.6 27B" },
       derivative: { displayName: "Qwopus 3.6 27B v2 MTP" },
-      // Both halves landed ranked bounded-final-v2 rows on 2026-07-08, so the comparison
-      // now carries real same-index axes instead of the withheld placeholder state.
-      missing: [],
+      missing: ["different execution profiles"],
     });
-    expect(qwenComparison?.axes.length).toBeGreaterThan(0);
+    expect(qwenComparison?.compositeDelta).toBeNull();
+    expect(qwenComparison?.axes).toEqual([]);
 
     const phi = await getModelPageData("phi-4-reasoning");
     expect(phi.vsBaseComparisons[0]).toMatchObject({

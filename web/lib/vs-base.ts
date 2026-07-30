@@ -10,6 +10,7 @@ export type VsBaseBoardRow = {
   readonly bestRunId: string | null;
   readonly composite: Score | null;
   readonly diagnosticComposite: Score | null;
+  readonly executionProfileId?: string | undefined;
   readonly indexVersion?: string | undefined;
   readonly lane: string | null;
   readonly origin?: string | undefined;
@@ -60,8 +61,16 @@ export function buildVsBaseComparison({
     measuredBase !== null &&
     measuredDerivative !== null &&
     indexVersion(measuredBase) !== indexVersion(measuredDerivative);
+  const differentExecutionProfiles =
+    measuredBase !== null &&
+    measuredDerivative !== null &&
+    (
+      measuredBase.executionProfileId === undefined
+      || measuredDerivative.executionProfileId === undefined
+      || measuredBase.executionProfileId !== measuredDerivative.executionProfileId
+    );
   const axes =
-    measuredBase === null || measuredDerivative === null || differentScoringSeasons
+    measuredBase === null || measuredDerivative === null || differentScoringSeasons || differentExecutionProfiles
       ? []
       : [...AXIS_KEYS, "tool_use" as const].flatMap((axis) => {
           const baseScore = measuredBase.axes[axis];
@@ -77,12 +86,14 @@ export function buildVsBaseComparison({
     base,
     compareHref: compareHref(base, derivative),
     compositeDelta:
-      measuredBase === null || measuredDerivative === null || differentScoringSeasons
+      measuredBase === null || measuredDerivative === null || differentScoringSeasons || differentExecutionProfiles
         ? null
         : displayDelta(measuredDerivative.composite.point, measuredBase.composite.point),
     derivative,
     missing: differentScoringSeasons
       ? ["different scoring seasons — see bridge"]
+      : differentExecutionProfiles
+        ? ["different execution profiles"]
       : [...missingMessages("base", base), ...missingMessages("fine-tune", derivative)],
   };
 }

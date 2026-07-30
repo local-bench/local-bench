@@ -264,6 +264,7 @@ export const IndexModelSchema = z.object({
   best_run_id: RunIdSchema.nullable(),
   composite: ScoreSchema.nullable(),
   diagnostic_composite: ScoreSchema.nullable().optional(),
+  execution_profile_id: z.string().min(1).optional(),
   composite_full: ScoreSchema.nullable().optional(),
   composite_static: ScoreSchema.nullable().optional(),
   legacy_composite: ScoreSchema.nullable().optional(),

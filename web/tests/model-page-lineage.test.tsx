@@ -34,17 +34,13 @@ describe("ModelPage lineage chip", () => {
     expect(headerHtml).not.toContain("Fine-tune of");
   });
 
-  it("renders a base model's measured fine-tune comparison with a real delta", async () => {
-    // Both halves of the Qwopus/Qwen3.6-27B pair landed ranked bounded-final-v2 rows
-    // on 2026-07-08, so the strip now shows the measured comparison instead of the
-    // honest-missing placeholder this test asserted while only legacy runs existed.
+  it("withholds a measured fine-tune delta until both execution profiles are known", async () => {
     const html = await renderModel("qwen3-6-27b");
     expect(html).toContain("vs fine-tunes");
     expect(html).toContain("Qwopus 3.6 27B v2 MTP");
-    expect(html).toContain("composite -");
+    expect(html).toContain("composite n/a");
+    expect(html).toContain("different execution profiles");
     expect(html).toContain("compare to base");
-    // Other catalog derivatives (e.g. the v1 preview) may still carry the honest
-    // missing placeholder; only the measured v2 pair must show a real delta.
   });
 
   it("plots a base model's current-lane measured family fine-tunes with receipt links", async () => {

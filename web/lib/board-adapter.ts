@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PublicExecutionProfileSchema } from "./execution-profile";
 
 const UNSAFE_TEXT_RE = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
 const GROUP_ID_RE = /^community-group:[0-9a-f]{32}$/u;
@@ -157,6 +158,7 @@ export const LiveBoardRowSchema = z.object({
   community_model_group_id: z.string().regex(GROUP_ID_RE).optional(),
   conformance: ConformanceSchema,
   coverage_profile_id: IdSchema,
+  execution_profile: PublicExecutionProfileSchema.optional(),
   group_path: safeText(140, 1).optional(),
   hardware: z.object({
     gpu_name: safeText(160).nullable(),
@@ -195,6 +197,7 @@ export const LiveBoardRowSchema = z.object({
     tokens_to_answer_median: z.number().finite().nonnegative().nullable(),
     wall_time_seconds: z.number().finite().nonnegative().nullable(),
   }).strict().readonly().optional(),
+  moderation_queue_marker: z.literal("legacy_execution_profile_review").optional(),
   provenance_notes: z.array(safeText(300)).max(16).readonly().optional(),
   ranked: z.boolean().optional(),
   receipt_references: z.object({ coding_receipt_sha256: Sha256Schema.nullable() }).strict().readonly(),
@@ -213,6 +216,7 @@ export const LiveBoardRowSchema = z.object({
   scorecard_id: IdSchema,
   scores: ScoresSchema,
   submission_id: z.string().regex(SUBMISSION_ID_RE),
+  supersedes_submission_id: z.string().regex(SUBMISSION_ID_RE).optional(),
   submitter: z.object({
     display_name: safeText(80).nullable().optional(),
     github_login: z.string().regex(GITHUB_LOGIN_RE).nullable().optional(),
@@ -357,6 +361,7 @@ export type AdaptedBoardRow = {
   readonly compositeFull: number | null;
   readonly declaredBaseModels: readonly string[];
   readonly displayName: string;
+  readonly executionProfile: LiveBoardRow["execution_profile"] | undefined;
   readonly family: string | null;
   readonly globalRank: number | null;
   readonly hardware?: NonNullable<LiveBoardRow["hardware"]>;
@@ -365,12 +370,14 @@ export type AdaptedBoardRow = {
   readonly lineageEnrichment: NonNullable<LiveBoardRow["lineage_enrichment"]> | undefined;
   readonly measuredHeadlineWeight: number | null;
   readonly missingHeadlineWeight: number | null;
+  readonly moderationQueueMarker: LiveBoardRow["moderation_queue_marker"] | undefined;
   readonly origin: "community" | "project_anchor";
   readonly perf?: NonNullable<LiveBoardRow["perf"]>;
   readonly quantLabel: string | null;
   readonly ranked: boolean;
   readonly runtime?: NonNullable<LiveBoardRow["runtime"]>;
   readonly submissionId: string;
+  readonly supersedesSubmissionId: string | undefined;
   readonly submitterDisplayName: string | null;
   readonly submitterGithubLogin: string | null;
   readonly submitterKeyFingerprint: string | null;
@@ -451,6 +458,7 @@ function adaptStrictRow(row: LiveBoardRow): AdaptedBoardRow {
     compositeFull: row.scores.composite_full ?? row.scores.headline_score ?? null,
     declaredBaseModels: row.lineage.base_model,
     displayName: row.model.display_name ?? row.model.declared_name ?? "Reported model",
+    executionProfile: row.execution_profile,
     family: row.model.family ?? null,
     globalRank: null,
     ...(row.hardware === undefined ? {} : { hardware: row.hardware }),
@@ -459,12 +467,14 @@ function adaptStrictRow(row: LiveBoardRow): AdaptedBoardRow {
     lineageEnrichment: row.lineage_enrichment,
     measuredHeadlineWeight: row.scores.measured_headline_weight,
     missingHeadlineWeight: row.scores.missing_headline_weight,
+    moderationQueueMarker: row.moderation_queue_marker,
     origin: row.origin,
     ...(row.perf === undefined ? {} : { perf: row.perf }),
     quantLabel: row.model.quant_label ?? null,
     ranked: row.ranked ?? row.headline_complete,
     ...(row.runtime === undefined ? {} : { runtime: row.runtime }),
     submissionId: row.submission_id,
+    supersedesSubmissionId: row.supersedes_submission_id,
     submitterDisplayName: row.submitter.display_name ?? row.submitter.unverified_handle ?? null,
     submitterGithubLogin: row.submitter.github_login ?? null,
     submitterKeyFingerprint: row.submitter.key_fingerprint ?? null,
@@ -482,6 +492,7 @@ function adaptCompatibleRow(row: CompatibleBoardRow): AdaptedBoardRow {
     compositeFull: row.scores.composite_full ?? row.scores.headline_score ?? row.scores.composite ?? null,
     declaredBaseModels: row.lineage?.base_model ?? [],
     displayName: row.model.display_name ?? row.model.declared_name ?? "Reported model",
+    executionProfile: undefined,
     family: row.model.family ?? null,
     globalRank: row.global_rank ?? row.rank ?? null,
     ...(row.hardware === undefined ? {} : { hardware: row.hardware }),
@@ -490,12 +501,14 @@ function adaptCompatibleRow(row: CompatibleBoardRow): AdaptedBoardRow {
     lineageEnrichment: row.lineage_enrichment,
     measuredHeadlineWeight: row.scores.measured_headline_weight ?? null,
     missingHeadlineWeight: row.scores.missing_headline_weight ?? null,
+    moderationQueueMarker: undefined,
     origin: row.origin,
     ...(row.perf === undefined ? {} : { perf: row.perf }),
     quantLabel: row.model.quant_label ?? null,
     ranked: row.ranked ?? row.headline_complete,
     ...(row.runtime === undefined ? {} : { runtime: row.runtime }),
     submissionId: row.submission_id,
+    supersedesSubmissionId: undefined,
     submitterDisplayName: row.submitter.display_name ?? row.submitter.unverified_handle ?? null,
     submitterGithubLogin: row.submitter.github_login ?? null,
     submitterKeyFingerprint: row.submitter.key_fingerprint ?? null,

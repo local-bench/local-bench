@@ -7,25 +7,13 @@ import { projectionKey } from "./submission-storage";
 import { githubAttributionAvailable } from "./github-oauth-store";
 import { isCompleteProjection, projectionComposite } from "./submission-publish-validation";
 import { LiveBoardRowSchema, type LiveBoardRow } from "../../lib/board-adapter";
-import { publicProvenanceNotes, publicRuntime } from "./community-live-board-public-row";
+import { liveBoardRow, type EligibleRow } from "./community-live-board-row";
 
 export const COMMUNITY_LIVE_BOARD_KEY = "board/community-live.json";
+export { relabeledIndexVersion } from "./community-live-board-row";
 const BOARD_CACHE_SECONDS = 60;
 const BOARD_MISSES_PER_IP_PER_MINUTE = 30;
 const BOARD_ROW_LIMIT = 500;
-
-type EligibleRow = {
-  readonly communityModelGroupId: string | null;
-  readonly createdAt: string;
-  readonly githubLogin: string | null;
-  readonly origin: "community" | "project_anchor";
-  readonly projectionObjectSha256: string;
-  readonly publishedAt: string;
-  readonly submissionId: string;
-  readonly submitterDisplayName: string | null;
-  readonly submitterId: string | null;
-  readonly validatedAt: string;
-};
 
 type AcceptedProjection = ReturnType<typeof AcceptedResultProjectionV2Schema.parse>;
 
@@ -140,88 +128,6 @@ async function eligibleRows(env: SubmissionApiEnv): Promise<readonly EligibleRow
   }));
 }
 
-// Maintainer index-version relabels (owner call, 2026-07-22). The immutable projection
-// keeps its submitted label; the public envelope presents the current-season label for
-// rows whose protocol content is identical across the rename (v4.1 -> v4.2 changed the
-// season labeling, not this row's suite content or scoring). Keyed by submission id and
-// gated on the exact stored label so a genuine protocol mismatch can never be masked.
-const INDEX_VERSION_RELABELS: ReadonlyMap<string, { readonly from: string; readonly to: string }> = new Map([
-  ["ticket_cc352811a58d4022b3044eb28abce178", { from: "index-v4.1", to: "index-v4.2" }],
-]);
-
-export function relabeledIndexVersion(submissionId: string, indexVersion: string | null): {
-  readonly note: string | null;
-  readonly value: string | null;
-} {
-  const relabel = INDEX_VERSION_RELABELS.get(submissionId);
-  if (relabel === undefined || indexVersion !== relabel.from) return { note: null, value: indexVersion };
-  return {
-    note: `index_version_relabeled:${relabel.from}->${relabel.to}:maintainer:2026-07-22`,
-    value: relabel.to,
-  };
-}
-
-function liveBoardRow(
-  row: EligibleRow,
-  projection: ReturnType<typeof AcceptedResultProjectionV2Schema.parse>,
-  complete: boolean,
-) {
-  const indexVersion = relabeledIndexVersion(row.submissionId, projection.index_version ?? null);
-  return {
-    axes: projection.axes,
-    ...(row.communityModelGroupId === null ? {} : {
-      community_model_group_id: row.communityModelGroupId,
-      group_path: `community/groups/${row.communityModelGroupId.slice("community-group:".length)}.json`,
-    }),
-    conformance: {
-      ...(projection.conformance.n_scored === undefined ? {} : { n_scored: projection.conformance.n_scored }),
-      ...(projection.conformance.reasons === undefined ? {} : { reasons: projection.conformance.reasons }),
-      ...(projection.conformance.status === undefined ? {} : { status: projection.conformance.status }),
-      ...(projection.conformance.worst_bench === undefined ? {} : { worst_bench: projection.conformance.worst_bench }),
-    },
-    coverage_profile_id: projection.coverage_profile_id,
-    headline_complete: projection.headline_complete,
-    index_version: indexVersion.value,
-    lineage: projection.lineage,
-    ...(projection.runtime === undefined ? {} : { runtime: publicRuntime(projection.runtime) }),
-    ...(projection.hardware === undefined ? {} : { hardware: projection.hardware }),
-    ...(projection.perf === undefined ? {} : { perf: projection.perf }),
-    model: {
-      declared_name: projection.model.declared_name,
-      display_name: projection.model.display_name,
-      family: projection.model.family ?? null,
-      file_sha256: projection.model.file_sha256,
-      ...(projection.model.hf === undefined ? {} : { hf: projection.model.hf }),
-      model_system_key: projection.model.model_system_key,
-      quant_label: projection.model.quant_label ?? null,
-    },
-    origin: row.origin,
-    ...(row.origin === "project_anchor" ? { badge: "project-run" } : {}),
-    normalization_annotations: projection.normalization_annotations ?? [],
-    provenance_notes: publicProvenanceNotes([
-      ...(projection.provenance_notes ?? []),
-      ...(indexVersion.note === null ? [] : [indexVersion.note]),
-    ]),
-    receipt_references: projection.receipt_references,
-    ranked: complete,
-    rescore_modes: projection.rescore_modes,
-    scorecard_id: projection.scorecard_id,
-    scores: projection.scores,
-    submission_id: row.submissionId,
-    submitter: {
-      github_login: row.githubLogin,
-      key_fingerprint: keyFingerprint(row.submitterId),
-      unverified_handle: row.submitterDisplayName,
-    },
-    suite_release_id: projection.suite_release_id,
-    timestamps: {
-      published_at: d1TimestampToIso(row.publishedAt),
-      submitted_at: d1TimestampToIso(row.createdAt),
-      validated_at: d1TimestampToIso(row.validatedAt),
-    },
-  } as const;
-}
-
 function submissionOrigin(row: Record<string, unknown>): "community" | "project_anchor" {
   const value = row["origin"];
   if (value === "community" || value === "project_anchor") return value;
@@ -245,15 +151,6 @@ async function loadProjection(
 function edgeCache(): Cache | null {
   const value = (globalThis as typeof globalThis & { readonly caches?: CacheStorage & { readonly default?: Cache } }).caches;
   return value?.default ?? null;
-}
-
-function keyFingerprint(submitterId: string | null): string | null {
-  if (submitterId === null || !/^public_key:[0-9a-f]{64}$/.test(submitterId)) return null;
-  return submitterId.slice("public_key:".length, "public_key:".length + 12);
-}
-
-function d1TimestampToIso(value: string): string {
-  return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value) ? `${value.slice(0, 10)}T${value.slice(11)}Z` : value;
 }
 
 function numericOrZero(value: unknown): number {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ExecutionProfileSchema } from "../../lib/execution-profile";
 
 export const ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION = "localbench.accepted_result_projection.v2";
 
@@ -178,6 +179,7 @@ const AcceptedResultProjectionV2BaseSchema = z.object({
   verification_level: z.enum(["bundle_rescored", "spot_reproduced", "client_reported"]),
   agentic_provenance: z.enum(["none", "project_attested", "self_reported"]),
   normalization_annotations: z.array(NormalizationAnnotationSchema).max(1).optional(),
+  execution_profile: ExecutionProfileSchema.optional(),
   provenance_notes: z.array(boundedSafeString(300)).max(128).optional(),
   rescore_modes: z.object(AcceptedProjectionRescoreModesShape).strict(),
   validator: z.object({
