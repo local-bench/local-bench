@@ -39,7 +39,6 @@ export function liveBoardRow(
   const indexVersion = relabeledIndexVersion(row.submissionId, projection.index_version ?? null);
   const profilePolicy = executionProfilePolicy({
     complete,
-    hasHfIdentity: projection.model.hf !== undefined,
     runtimeName: projection.runtime?.name ?? null,
     structuredProfile: projection.execution_profile,
     submissionId: row.submissionId,

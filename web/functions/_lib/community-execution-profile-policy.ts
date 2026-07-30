@@ -14,7 +14,6 @@ export const SUPERSEDES: Readonly<Record<string, string>> = Object.freeze({});
 
 type ExecutionProfilePolicyInput = {
   readonly complete: boolean;
-  readonly hasHfIdentity: boolean;
   readonly runtimeName: string | null;
   readonly structuredProfile: PublicExecutionProfile | undefined;
   readonly submissionId: string;
@@ -30,8 +29,13 @@ export function executionProfilePolicy(input: ExecutionProfilePolicyInput): Exec
   const knownId = KNOWN_EXECUTION_PROFILES[input.submissionId];
   const executionProfile = input.structuredProfile
     ?? (knownId === undefined ? undefined : { id: knownId });
+  // B6 admission gate: every COMPLETE llama.cpp row must carry a verified execution
+  // profile (structured field from a 0.4.12+ client, or a maintainer mapping for the
+  // archived rows). HF identity is deliberately NOT part of this predicate — the row
+  // class the gate exists for (pre-0.4.12 --gguf-repo-only submissions, which ran an
+  // unexamined profile) has NO hf identity, so conditioning on hf would exempt exactly
+  // the rows that are not provably ranked-safe.
   const requiresExecutionProfile = input.complete
-    && input.hasHfIdentity
     && input.runtimeName === "llama.cpp";
   return {
     executionProfile,

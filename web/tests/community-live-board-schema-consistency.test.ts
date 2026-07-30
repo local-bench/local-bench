@@ -72,6 +72,27 @@ describe("live-board-function <-> board-adapter schema consistency", () => {
     expect(row.execution_profile).toBeUndefined();
   });
 
+  it("holds an unmapped profile-less row WITHOUT hf identity for moderation (the pre-0.4.12 gguf-repo-only shape)", async () => {
+    // Given: the exact row class B6 exists for - an older client's --gguf-repo-only
+    // submission: complete, llama.cpp, no structured profile, and NO hf identity.
+    const env = await schemaEnv();
+    await insertStoredProjection(env, "octocat", {
+      complete: true,
+      executionProfile: "absent",
+      hfIdentity: "absent",
+      submissionId: "ticket_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    });
+
+    // When: the server materializes the public board.
+    const payload = await rebuildCommunityLiveBoard(env);
+    const row = LiveBoardRowSchema.parse(payload.rows[0]);
+
+    // Then: absence of hf identity must NOT exempt the row from the admission gate.
+    expect(row.ranked).toBe(false);
+    expect(row.moderation_queue_marker).toBe("legacy_execution_profile_review");
+    expect(row.execution_profile).toBeUndefined();
+  });
+
   it("keeps the archived 44.62 base row ranked with its maintained profile mapping", async () => {
     // Given: the archived base submission predates the structured projection field.
     const env = await schemaEnv();
@@ -138,6 +159,7 @@ async function insertStoredProjection(
   fixture: {
     readonly complete?: boolean;
     readonly executionProfile?: "absent" | "present";
+    readonly hfIdentity?: "absent" | "present";
     readonly submissionId?: string;
   } = {},
 ): Promise<void> {
@@ -165,11 +187,13 @@ async function insertStoredProjection(
       ...base.model,
       display_name: "qwen3-5-9b-q4-k-m",
       file_sha256: "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8",
-      hf: {
-        filename: "Qwen3.5-9B-Q4_K_M.gguf",
-        repo: "Qwen/Qwen3.5-9B-GGUF",
-        revision: "a".repeat(40),
-      },
+      ...(fixture.hfIdentity === "absent" ? {} : {
+        hf: {
+          filename: "Qwen3.5-9B-Q4_K_M.gguf",
+          repo: "Qwen/Qwen3.5-9B-GGUF",
+          revision: "a".repeat(40),
+        },
+      }),
       model_system_key: "artifact:03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8",
     },
     provenance_notes: [
