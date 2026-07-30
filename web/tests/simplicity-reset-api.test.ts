@@ -140,11 +140,13 @@ describe("simplicity reset publish-on-submit API", () => {
     }]);
     expect(storedRow).toMatchObject({ projection_sha256: storedProjection.artifact_hashes.projection_sha256 });
     const board = await getBoard({ env, request: new Request("https://local-bench.ai/api/board/community.json") });
+    // The fixture is a current-client projection carrying the structured
+    // execution profile, so the admission gate ranks it immediately.
     expect(await board.json()).toMatchObject({
       rows: [{
+        execution_profile: { id: "generic_think_tags_8192_v1" },
         model: { hf: storedProjection.model.hf },
-        moderation_queue_marker: "legacy_execution_profile_review",
-        ranked: false,
+        ranked: true,
         scores: { headline_score: 0.7275 },
       }],
     });
@@ -501,6 +503,21 @@ function clientProjection(bundleSha: string, options: ClientProjectionOptions = 
     },
     lineage: { base_model: ["Base Model"] },
     runtime: { name: "llama.cpp", version: "b-reset" },
+    // 0.4.12+ clients always emit the structured execution profile; without it a
+    // complete llama.cpp row is held for moderation (legacy_execution_profile_review)
+    // instead of ranking - the no-profile shape is covered in
+    // community-live-board-schema-consistency.test.ts.
+    execution_profile: {
+      answer_stops: ["</think>"],
+      chat_template_kwargs: { enable_thinking: true },
+      id: "generic_think_tags_8192_v1",
+      prompt_renderer_engine: "llama.cpp.apply-template",
+      runtime_probe_passed: true,
+      selection_policy_id: "gguf-effective-template-v1",
+      selection_reason: "gguf_template_thinking_markers",
+      template_sha256: "f".repeat(64),
+      template_source: "gguf-default",
+    },
     suite_release_id: SUITE_RELEASE_ID,
     suite_manifest_sha256: SUITE_MANIFEST_SHA,
     scorecard_id: "local-intelligence-index-v4.1",
