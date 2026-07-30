@@ -250,7 +250,8 @@ export default function SubmitPage() {
             <p>
               The ranked board uses the bounded-final protocol: every model gets the same
               generated-token budget per item, and <code className="font-mono text-bench-text">--profile auto</code>{" "}
-              reads your model&apos;s own chat template to decide whether it thinks (bounded) or answers directly.
+              auto-detects reasoning behavior from the model&apos;s embedded chat template, verifies that behavior
+              against the live runtime before benchmarking, and discloses the selected execution profile on the row.
               A run must pin its sampler settings to be publishable (
               <code className="font-mono text-bench-text">--publishable</code>{" "}
               requires temperature 0, top-k 1, and a seed); the CLI warns up

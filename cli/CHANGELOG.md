@@ -2,6 +2,14 @@
 
 ## 0.4.12 - YYYY-MM-DD
 
+- `--gguf-repo-only` now resolves the frozen `gguf-effective-template-v1`
+  execution policy from the GGUF's embedded effective chat template and verifies
+  its thinking behavior against the live llama.cpp renderer before any benchmark
+  request; unresolved or contradictory templates and failed probes stop the run.
+- The immutable execution contract now reaches static, tool-use, and agentic model
+  requests, resume identity, manifests, signed projections, and board publication.
+  Public projections disclose the structured profile, selection reason, template
+  digest/source, renderer, request kwargs, answer stops, and runtime-probe verdict.
 - `bench` template-introspection failures now exit as curated usage errors (exit 2)
   instead of the raw `LocalEntryNotFoundError` traceback seen when `--hf-model-id`
   pointed at a repo without tokenizer sidecars; new failure paths emit a single
