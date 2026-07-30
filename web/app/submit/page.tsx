@@ -207,7 +207,13 @@ export default function SubmitPage() {
               exact non-GGUF repo exists for your model? Skip this step and pass{" "}
               <code className="font-mono text-bench-text">--gguf-repo-only</code> instead of{" "}
               <code className="font-mono text-bench-text">--hf-model-id</code> in step 4 — the run is
-              then labeled basic identity (tokenizer/template digests null).
+              then labeled basic identity (tokenizer/template digests null). From 0.4.12 the CLI
+              fetches these sidecar files automatically when the machine is online, and a snapshot
+              that cannot back a complete loadable tokenizer (a GGUF-only upload) fails fast with
+              guidance pointing at{" "}
+              <code className="font-mono text-bench-text">--gguf-repo-only</code> — the manual{" "}
+              <code className="font-mono text-bench-text">hf download</code> pre-cache is only
+              needed on fully offline machines.
             </p>
 
             <h3 className="text-base font-semibold text-bench-text">C. Run against your server</h3>

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.12 - YYYY-MM-DD
+
+- `bench` template-introspection failures now exit as curated usage errors (exit 2)
+  instead of the raw `LocalEntryNotFoundError` traceback seen when `--hf-model-id`
+  pointed at a repo without tokenizer sidecars; new failure paths emit a single
+  `error` line.
+- The online tokenizer auto-fetch now works: huggingface_hub latches `HF_HUB_OFFLINE`
+  at import time, so the prefetch runs in a fresh child interpreter (`-E -P`, offline
+  pins stripped, sentinel-framed result) instead of in-process where it could never
+  go online. The bench parent now pins HF offline explicitly at start; a user
+  environment that is already HF-offline suppresses acquisition like `--offline`.
+- Introspection prefetch patterns now include `*.txt` and `*.tiktoken`, so BPE
+  tokenizers (`vocab.txt`/`merges.txt`) can be acquired completely.
+- A fetched snapshot that cannot back a loadable tokenizer at its resolved revision
+  (GGUF-only uploads, incomplete sidecar sets) fails fast with guidance to pass the
+  source safetensors repo as `--hf-model-id` or declare `--gguf-repo-only`; the
+  offline cache-miss message now names `--gguf-repo-only` as well.
+- `cache-tokenizer` loads at the exact snapshot revision it downloaded (closes a
+  mutable `refs/main` race) and prints a parent-owned fetch status line.
+
 ## 0.4.6 - 2026-07-23
 
 - The 0.4.5 cache-off serve policy is now soak-proven: a full 1311-item six-axis run of
