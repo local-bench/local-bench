@@ -69,28 +69,20 @@ class BoundedFinalProfileRequest:
 def resolve_bounded_final_profile(
     request: BoundedFinalProfileRequest,
 ) -> BoundedFinalProfileRuntime:
-    if request.profile == "answer_only_v1":
-        return _answer_only_runtime(
-            (),
-            ExecutionContractContext(
-                selection_policy_id=(
-                    HF_CANONICAL_TEMPLATE_POLICY
-                    if request.hf_model_id is not None
-                    else GGUF_EFFECTIVE_TEMPLATE_POLICY
-                ),
-                selection_reason=ANSWER_ONLY_PROFILE.id,
-                template_source=(
-                    "hf-chat-template"
-                    if request.hf_model_id is not None
-                    else "llama-builtin-chatml"
-                ),
-                raw_template_sha256=None,
-                model_file_sha256=request.model_file_sha256,
-            ),
-        )
     if request.hf_model_id is None:
         if request.gguf_metadata is not None:
             return _resolve_gguf_profile(request, static_profile_candidate(request.gguf_metadata))
+        if request.profile == "answer_only_v1":
+            return _answer_only_runtime(
+                (),
+                ExecutionContractContext(
+                    selection_policy_id=GGUF_EFFECTIVE_TEMPLATE_POLICY,
+                    selection_reason=ANSWER_ONLY_PROFILE.id,
+                    template_source="llama-builtin-chatml",
+                    raw_template_sha256=None,
+                    model_file_sha256=request.model_file_sha256,
+                ),
+            )
         if request.profile == "auto" and not request.gguf_repo_only:
             return _answer_only_runtime(
                 (),
@@ -165,14 +157,22 @@ def resolve_bounded_final_profile_from_introspection(
         model_file_sha256="",
     )
     if profile == "answer_only_v1":
-        return _answer_only_runtime(introspection.answer_stop, context)
+        return _answer_only_runtime(
+            introspection.answer_stop,
+            context,
+            _deactivation_kwargs(introspection),
+        )
     if profile == "auto":
         if introspection.supports_gemma_channel:
             return _gemma_runtime(introspection, prompt_renderer, prompt_renderer_manifest, context)
         if introspection.supports_generic_thinking:
             _require_answer_stop("generic_think_tags_8192_v1", introspection.answer_stop)
             return _generic_runtime(introspection, prompt_renderer, prompt_renderer_manifest, context)
-        return _answer_only_runtime(introspection.answer_stop, context)
+        return _answer_only_runtime(
+            introspection.answer_stop,
+            context,
+            _deactivation_kwargs(introspection),
+        )
     if profile == "generic_think_tags_8192_v1":
         if not introspection.supports_generic_thinking:
             raise _unsupported(profile, "the canonical chat template exposes no native think tags or thinking kwarg")
@@ -191,7 +191,7 @@ def _resolve_gguf_profile(
 ) -> BoundedFinalProfileRuntime:
     if candidate.introspection is None:
         if (
-            request.profile == "auto"
+            request.profile in {"auto", "answer_only_v1"}
             and candidate.reason_code == LLAMA_BUILTIN_CHATML_NONTHINKING
         ):
             return _answer_only_runtime(
@@ -217,6 +217,14 @@ def _resolve_gguf_profile(
         candidate.introspection,
         contract_context=context,
     )
+
+
+def _deactivation_kwargs(
+    introspection: TemplateIntrospection,
+) -> dict[str, bool]:
+    if not introspection.chat_template_kwargs:
+        return {"enable_thinking": False}
+    return {key: False for key in introspection.chat_template_kwargs}
 
 
 def _require_answer_stop(profile: str, answer_stop: tuple[str, ...]) -> None:

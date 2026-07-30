@@ -47,6 +47,7 @@ class BoundedFinalProfileRuntime:
 def answer_only_runtime(
     answer_stop: tuple[str, ...],
     context: ExecutionContractContext,
+    chat_template_kwargs: Mapping[str, bool] | None = None,
 ) -> BoundedFinalProfileRuntime:
     return BoundedFinalProfileRuntime(
         entry=ANSWER_ONLY_PROFILE,
@@ -54,7 +55,11 @@ def answer_only_runtime(
         prompt_renderer=None,
         contract=resolved_execution_contract(
             ANSWER_ONLY_PROFILE,
-            {"enable_thinking": False},
+            (
+                {"enable_thinking": False}
+                if chat_template_kwargs is None
+                else chat_template_kwargs
+            ),
             answer_stop,
             context,
         ),

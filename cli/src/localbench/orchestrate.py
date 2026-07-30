@@ -67,6 +67,8 @@ from localbench.campaign_checkpoints import (
 from localbench.campaign_records import item_hash
 from localbench.execution_contract import (
     ExecutionContractArtifactMismatchError,
+    MissingExecutionContractError,
+    ResolvedExecutionContract,
     execution_contract_record,
 )
 from localbench.lane_conformance import assess_run_conformance
@@ -678,7 +680,7 @@ async def run_localbench(
             execution_profile_id=execution_profile_id,
             chat_template_kwargs=_agentic_chat_template_kwargs_for_profile(
                 config.lane,
-                bounded_profile,
+                None if bounded_profile is None else bounded_profile.contract,
             ),
         )
         if agentic_outcome is None:
@@ -1776,9 +1778,17 @@ def _run_agentic_axis(
     injected = sandbox_factory is not None or model_factory is not None or task_ids is not None
     resolved_sandbox_factory = sandbox_factory
     resolved_model_factory = model_factory
-    resolved_chat_template_kwargs = chat_template_kwargs or _agentic_chat_template_kwargs_for_profile(
-        config.lane,
-        None,
+    resolved_chat_template_kwargs = (
+        chat_template_kwargs
+        if chat_template_kwargs is not None
+        else _agentic_chat_template_kwargs_for_profile(
+            config.lane,
+            (
+                None
+                if config.resolved_bounded_profile is None
+                else config.resolved_bounded_profile.contract
+            ),
+        )
     )
     if injected:
         if resolved_sandbox_factory is None or resolved_model_factory is None:
@@ -1890,12 +1900,12 @@ def _run_agentic_axis(
 
 def _agentic_chat_template_kwargs_for_profile(
     lane: LaneChoice,
-    bounded_profile: BoundedFinalProfileRuntime | None,
+    resolved_contract: ResolvedExecutionContract | None,
 ) -> JsonObject:
     if lane in BOUNDED_FINAL_LANE_SPEC_IDS:
-        if bounded_profile is None:
-            return {"enable_thinking": False}
-        return _json_bool_mapping(bounded_profile.chat_template_kwargs)
+        if resolved_contract is None:
+            raise MissingExecutionContractError("bounded-final agentic execution")
+        return _json_bool_mapping(resolved_contract.chat_template_kwargs)
     if lane == "answer-only":
         return {"enable_thinking": False}
     if lane == "capped-thinking":

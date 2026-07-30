@@ -6,6 +6,10 @@ from pathlib import Path
 from typing import Final
 
 from localbench._types import JsonObject
+from localbench.execution_contract import (
+    MissingExecutionContractError,
+    ResolvedExecutionContract,
+)
 
 AGENTIC_SETUP_MESSAGE: Final = (
     "The agentic axis needs the managed AppWorld harness. "
@@ -13,7 +17,7 @@ AGENTIC_SETUP_MESSAGE: Final = (
 )
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class AgenticSetupError(Exception):
     detail: str
     model_download_started: bool = False
@@ -40,13 +44,14 @@ def configured_agentic_paths(
     return wsl_venv_python, appworld_root
 
 
-def agentic_chat_template_kwargs(lane: str, profile: str) -> JsonObject:
+def agentic_chat_template_kwargs(
+    lane: str,
+    resolved_contract: ResolvedExecutionContract | None,
+) -> JsonObject:
     if lane in {"bounded-final-v1", "bounded-final-v2"}:
-        return (
-            {"enable_thinking": True}
-            if profile in {"generic_think_tags_8192_v1", "gemma4_channel_8192_v1"}
-            else {"enable_thinking": False}
-        )
+        if resolved_contract is None:
+            raise MissingExecutionContractError("bounded-final agentic serving")
+        return dict(resolved_contract.chat_template_kwargs)
     if lane == "answer-only":
         return {"enable_thinking": False}
     return {"enable_thinking": True}

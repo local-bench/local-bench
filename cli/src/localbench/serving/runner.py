@@ -286,7 +286,8 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
                 options.model_id,
                 api_key=api_key,
                 chat_template_kwargs=agentic_chat_template_kwargs(
-                    options.lane, effective_profile
+                    options.lane,
+                    None if resolved_profile is None else resolved_profile.contract,
                 ),
             )
             agentic_task_ids = list(agentic_preflight.task_ids)
@@ -594,7 +595,8 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
                 options.model_id,
                 api_key=api_key,
                 chat_template_kwargs=agentic_chat_template_kwargs(
-                    options.lane, effective_profile
+                    options.lane,
+                    None if resolved_profile is None else resolved_profile.contract,
                 ),
             )
             agentic_task_ids = list(agentic_preflight.task_ids)
@@ -881,7 +883,8 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
                 options.model_id,
                 api_key=api_key,
                 chat_template_kwargs=agentic_chat_template_kwargs(
-                    options.lane, effective_profile
+                    options.lane,
+                    None if resolved_profile is None else resolved_profile.contract,
                 ),
             )
             agentic_task_ids = list(agentic_preflight.task_ids)
