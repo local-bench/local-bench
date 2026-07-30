@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.13 - YYYY-MM-DD
+## 0.4.13 - 2026-07-31
 
 - Generic-thinking `--gguf-repo-only` runs now render every scored raw prompt
   through the pinned llama.cpp server's `/apply-template` endpoint. This Option C
