@@ -616,6 +616,7 @@ async def test_bounded_final_sglang_rejects_answer_only_auto_fallback(
         lane="bounded-final-v2",
         profile="auto",
         seed=1234,
+        suite=STATIC_EXEC_SUITE_ID,
         out=tmp_path / "run",
         wsl_distro="MaintainerDistro",
         sglang_venv="/opt/sglang",
