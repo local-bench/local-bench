@@ -69,10 +69,34 @@ class LlamaStub:
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
                 if self.path == "/props":
-                    self._send({})
+                    self._send(
+                        {
+                            "default_generation_settings": {"n_ctx": 65_536},
+                            "total_slots": 1,
+                            "cache_type_k": "f16",
+                            "cache_type_v": "f16",
+                            "fit": "off",
+                            "flash_attn": "on",
+                        }
+                    )
                     return
                 if self.path == "/v1/models":
-                    self._send({"data": [{"id": "qwopus"}]})
+                    self._send(
+                        {
+                            "data": [
+                                {
+                                    "id": "qwopus",
+                                    "meta": {
+                                        "n_ctx": 65_536,
+                                        "n_ctx_train": 262_144,
+                                    },
+                                }
+                            ]
+                        }
+                    )
+                    return
+                if self.path == "/slots":
+                    self._send([{"id": 0, "n_ctx": 65_536}])
                     return
                 self.send_error(404)
 
@@ -109,7 +133,7 @@ class LlamaStub:
                 assert isinstance(value, dict)
                 return value
 
-            def _send(self, payload: JsonObject) -> None:
+            def _send(self, payload: JsonValue) -> None:
                 body = json.dumps(payload).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")

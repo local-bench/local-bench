@@ -38,6 +38,7 @@ class _StubBehavior:
     tools_prompt: str
     reasoning_content: str | None
     renderer_prompt: str | None = None
+    completion_max_tokens: list[int] | None = None
 
 
 def _runtime(
@@ -94,6 +95,8 @@ def _stub_server(behavior: _StubBehavior) -> Iterator[str]:
                 self._reply({"prompt": prompt})
                 return
             if self.path == "/v1/chat/completions":
+                if behavior.completion_max_tokens is not None:
+                    behavior.completion_max_tokens.append(body["max_tokens"])
                 self._reply(
                     {
                         "choices": [
@@ -162,6 +165,39 @@ async def test_thinking_candidate_with_confirming_probe_proceeds(tmp_path: Path)
     assert confirmed.contract.effective_template_sha256 is not None
     assert execution_contract_resume_identity(confirmed.contract) != provisional_identity
     assert json.loads((tmp_path / "runtime-probe.json").read_text())["passed"] is True
+
+
+@pytest.mark.anyio
+async def test_behavioral_probe_uses_its_small_local_generation_bound(
+    tmp_path: Path,
+) -> None:
+    # Given: a deep-budget profile whose execution caps are much larger than a probe needs.
+    captured: list[int] = []
+    behavior = _StubBehavior(
+        no_tools_prompt="<|im_start|>assistant\n<think>\n",
+        tools_prompt="<|im_start|>assistant\n<think>\n",
+        reasoning_content="bounded reasoning",
+        completion_max_tokens=captured,
+    )
+
+    # When: its template/reasoning behavior is probed.
+    with _stub_server(behavior) as base_url:
+        runtime = _runtime(
+            "{% if enable_thinking %}<think>{% endif %}<|im_end|>",
+            profile="generic_think_tags_32768_v1",
+            base_url=base_url,
+        )
+        await verify_llama_cpp_runtime_profile(
+            base_url=base_url,
+            model_id="fixture-model",
+            api_key="secret",
+            runtime=runtime,
+            llama_build=_BUILD,
+            run_dir=tmp_path,
+        )
+
+    # Then: request capture proves no 32k/49k/64k contract capacity leaked into generation.
+    assert captured == [16]
 
 
 @pytest.mark.anyio

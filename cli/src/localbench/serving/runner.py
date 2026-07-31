@@ -28,6 +28,7 @@ from localbench.runtime_probe import (
     RuntimeProbeMismatchError,
     verify_llama_cpp_runtime_profile,
 )
+from localbench.runtime_capacity_probe import verify_llama_cpp_capacity
 from localbench.run_plan import resolve_run_benches
 from localbench.suite_resolver import STATIC_EXEC_SUITE_ID, resolve_suite_dir
 from localbench.serving.assembly import (
@@ -44,6 +45,7 @@ from localbench.serving.assembly import (
     serving_evidence,
     thread_vllm_model_identity,
     validate_capped_thinking_context,
+    validate_profile_server_context,
 )
 from localbench.serving.agentic_support import (
     AgenticSetupError,
@@ -159,6 +161,8 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         llama_api_key=api_key,
     )
     effective_profile = effective_serving_profile(options, resolved_profile)
+    if resolved_profile is not None:
+        validate_profile_server_context(options.ctx, resolved_profile.contract)
     reasoning_config = llama_cpp_reasoning_for_lane(
         options.lane,
         None if resolved_profile is None else resolved_profile.contract,
@@ -218,6 +222,20 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
             api_key=api_key,
             seed=options.seed,
         )
+        if (
+            resolved_profile is not None
+            and resolved_profile.contract.profile_id
+            == "generic_think_tags_32768_v1"
+        ):
+            budget = resolved_profile.contract.budget
+            if budget is None:
+                raise RuntimeError("deep execution profile omitted its capacity budget")
+            await verify_llama_cpp_capacity(
+                base_url=base_url,
+                api_key=api_key,
+                required_context_tokens=budget.server_context_tokens,
+                run_dir=root,
+            )
         if options.gguf_repo_only and resolved_profile is not None:
             resolved_profile = await verify_llama_cpp_runtime_profile(
                 base_url=base_url,

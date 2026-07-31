@@ -155,7 +155,7 @@ def _cli_args(
         "--server-bin",
         str(server_bin),
         "--ctx",
-        "32768",
+        "65536",
         "--determinism",
         "strict",
         "--tier",

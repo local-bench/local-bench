@@ -17,7 +17,10 @@ from localbench.execution_contract import (
     MissingExecutionContractError,
     ResolvedExecutionContract,
 )
-from localbench.reasoning_registry import ANSWER_ONLY_PROFILE
+from localbench.reasoning_registry import (
+    ANSWER_ONLY_PROFILE,
+    GENERIC_THINK_TAGS_32768_PROFILE,
+)
 from localbench.orchestrate import LaneChoice, UnsafeResumeError
 from localbench.run_plan import resolve_run_benches
 from localbench.serving.bench import BenchRunConfig
@@ -57,6 +60,19 @@ class CappedThinkingContextError(RuntimeError):
             f"capped-thinking --ctx {self.ctx} is too small; minimum ctx is {self.minimum_ctx} "
             f"(reasoning budget {CAPPED_THINKING_REASONING_BUDGET} + max bench max_tokens "
             f"{self.max_decoding_tokens} + prompt headroom {CAPPED_THINKING_PROMPT_HEADROOM})"
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ProfileServerContextMismatchError(RuntimeError):
+    profile_id: str
+    expected: int
+    observed: int | None
+
+    def __str__(self) -> str:
+        return (
+            f"execution profile {self.profile_id} requires exact llama.cpp server "
+            f"context {self.expected}; observed {self.observed!r}"
         )
 
 
@@ -253,6 +269,23 @@ def validate_capped_thinking_context(
             ctx=options.ctx,
             minimum_ctx=minimum_ctx,
             max_decoding_tokens=max_decoding_tokens,
+        )
+
+
+def validate_profile_server_context(
+    ctx: int | None,
+    execution_contract: ResolvedExecutionContract,
+) -> None:
+    if execution_contract.profile_id != GENERIC_THINK_TAGS_32768_PROFILE.id:
+        return
+    budget = execution_contract.budget
+    if budget is None:
+        raise MissingExecutionContractError("profile-owned server context")
+    if ctx != budget.server_context_tokens:
+        raise ProfileServerContextMismatchError(
+            profile_id=execution_contract.profile_id,
+            expected=budget.server_context_tokens,
+            observed=ctx,
         )
 
 

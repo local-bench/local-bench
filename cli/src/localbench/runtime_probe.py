@@ -35,6 +35,7 @@ RUNTIME_PROBE_FILENAME: Final = "runtime-probe.json"
 _THINK_OPEN = re.compile(r"<(?:think|thinking)>", re.IGNORECASE)
 _THINK_CLOSE = re.compile(r"</(?:think|thinking)>", re.IGNORECASE)
 _TIMEOUT = httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=10.0)
+BEHAVIORAL_PROBE_MAX_TOKENS: Final = 16
 _LIMITS = httpx.Limits(
     max_connections=8,
     max_keepalive_connections=4,
@@ -91,7 +92,7 @@ async def verify_llama_cpp_runtime_profile(
         "messages": _MESSAGES,
         "tools": _TOOLS,
         "chat_template_kwargs": kwargs,
-        "completion_max_tokens": 16,
+        "completion_max_tokens": BEHAVIORAL_PROBE_MAX_TOKENS,
     }
     try:
         transport = httpx.AsyncHTTPTransport(retries=3, limits=_LIMITS)
@@ -211,7 +212,7 @@ async def _completion(
     payload: JsonObject = {
         "model": model_id,
         "messages": _MESSAGES,
-        "max_tokens": 16,
+        "max_tokens": BEHAVIORAL_PROBE_MAX_TOKENS,
         "temperature": 0,
         "seed": 0,
         "chat_template_kwargs": kwargs,

@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 from typing import Literal
 
@@ -19,10 +20,15 @@ from localbench.appliance.runtime_identity import (
 )
 from localbench.orchestrate import OrchestrateConfig
 from localbench.execution_contract import ResolvedExecutionContract
+from localbench.reasoning_registry import (
+    GENERIC_THINK_TAGS_32768_PROFILE,
+    GENERIC_THINK_TAGS_PROFILE,
+)
 from localbench.serving import assembly
 from localbench.serving import runner as serving_runner
 from localbench.serving.agentic_support import AgenticSetupError
 from localbench.serving.bench import BenchRunConfig, build_orchestrate_config
+from localbench.serving.assembly import ProfileServerContextMismatchError
 from localbench.serving.llama_cpp import (
     BuildIdentity,
     LlamaCppLaunchConfig,
@@ -256,6 +262,40 @@ def test_llama_cpp_reasoning_mapping_for_capped_thinking_lane() -> None:
     assert reasoning.reasoning == "on"
     assert reasoning.reasoning_budget == 8192
     assert reasoning.reasoning_format == "deepseek"
+
+
+def test_deep_profile_requires_its_exact_65536_server_context() -> None:
+    # Given: the 32768 reasoning profile paired with its frozen server-capacity contract.
+    contract = replace(
+        _execution_contract("generic_think_tags_32768_v1", reasoning_mode="generic_think"),
+        budget=GENERIC_THINK_TAGS_32768_PROFILE.budget,
+    )
+
+    # When/Then: a legacy 32768 launch is rejected instead of silently degraded.
+    with pytest.raises(ProfileServerContextMismatchError, match="65536"):
+        assembly.validate_profile_server_context(32_768, contract)
+
+
+def test_deep_profile_accepts_its_exact_65536_server_context() -> None:
+    # Given: the 32768 reasoning profile paired with the canonical 65536 launch context.
+    contract = replace(
+        _execution_contract("generic_think_tags_32768_v1", reasoning_mode="generic_think"),
+        budget=GENERIC_THINK_TAGS_32768_PROFILE.budget,
+    )
+
+    # When/Then: exact launch capacity is accepted.
+    assembly.validate_profile_server_context(65_536, contract)
+
+
+def test_legacy_8192_profile_keeps_its_existing_launch_behavior() -> None:
+    # Given: a frozen legacy 8192 contract and its previously accepted server context.
+    contract = replace(
+        _execution_contract("generic_think_tags_8192_v1", reasoning_mode="generic_think"),
+        budget=GENERIC_THINK_TAGS_PROFILE.budget,
+    )
+
+    # When/Then: T5 does not add the new deep-capacity launch gate to legacy profiles.
+    assembly.validate_profile_server_context(40_000, contract)
 
 
 def test_llama_cpp_reasoning_mapping_rejects_api_uncapped_lane() -> None:
