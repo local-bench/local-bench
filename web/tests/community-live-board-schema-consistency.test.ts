@@ -113,6 +113,24 @@ describe("live-board-function <-> board-adapter schema consistency", () => {
       .toEqual(["execution_profile:generic_think_tags_8192_v1"]);
   });
 
+  it("links the corrected 0.4.13 fusion rerun as superseding the suppressed 0.4.11 row", async () => {
+    // Given: the corrected rerun's projection (structured profile, probe-verified).
+    const env = await schemaEnv();
+    await insertStoredProjection(env, "octocat", {
+      complete: true,
+      submissionId: "ticket_cbeac7e27cc34d5da8053557423d5aff",
+    });
+
+    // When: the server materializes the public board.
+    const payload = await rebuildCommunityLiveBoard(env);
+    const row = LiveBoardRowSchema.parse(payload.rows[0]);
+
+    // Then: the row ranks normally and carries the corrective supersedes link.
+    expect(row.ranked).toBe(true);
+    expect(row.supersedes_submission_id).toBe("ticket_4dec3df918b34f9bb74bcc98e6766a17");
+    expect(row.execution_profile).toMatchObject({ id: "generic_think_tags_8192_v1" });
+  });
+
   it("counts a row rejected by the client schema as omitted", async () => {
     const env = await schemaEnv();
     await insertStoredProjection(env, "invalid_login");

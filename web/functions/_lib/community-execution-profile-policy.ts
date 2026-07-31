@@ -10,7 +10,14 @@ export const KNOWN_EXECUTION_PROFILES: Readonly<Record<string, string>> = Object
   ticket_d65715b80b6f4e2fa54d63ca7ce5273b: GENERIC_THINK_PROFILE_ID,
 });
 
-export const SUPERSEDES: Readonly<Record<string, string>> = Object.freeze({});
+// Corrective replacements only (invalid row -> its corrected rerun). Operating-point
+// refreshes are NOT supersessions: a valid row at an older execution profile stays a
+// truthful historical result and must never be superseded by a deeper-budget rerun.
+export const SUPERSEDES: Readonly<Record<string, string>> = Object.freeze({
+  // 0.4.13 corrected Qwopus fusion rerun (thinking-on, probe-verified) replaces the
+  // suppressed 0.4.11 row that silently ran answer_only_v1 (thinking-off).
+  ticket_cbeac7e27cc34d5da8053557423d5aff: "ticket_4dec3df918b34f9bb74bcc98e6766a17",
+});
 
 type ExecutionProfilePolicyInput = {
   readonly complete: boolean;
