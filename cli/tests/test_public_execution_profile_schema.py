@@ -29,6 +29,28 @@ def _legacy_profile() -> dict[str, object]:
     }
 
 
+def _base_t2_8192_profile_record() -> dict[str, object]:
+    return {
+        **_legacy_profile(),
+        "static_think_tokens": 8192,
+        "static_final_tokens": 8192,
+        "static_max_generated_tokens": 16384,
+        "server_context_tokens": 32768,
+        "agentic_max_turns": 24,
+        "agentic_max_output_tokens_per_turn": 1024,
+        "agentic_max_generated_tokens_per_task": 32768,
+        "agentic_context_tokens": 32768,
+        "kv_cache_k_dtype": "f16",
+        "kv_cache_v_dtype": "f16",
+        "context_fit_policy": "exact-or-fail",
+        "context_extension_policy": "none",
+        "per_task_timeout_s": 1800,
+        "semantic_sha256": (
+            "a6bf105b73ad3f8120751151707ce2d15f4b20617a64250679a0dce8977d9bb3"
+        ),
+    }
+
+
 def _v2_profile() -> dict[str, object]:
     contract = resolved_execution_contract(
         GENERIC_THINK_TAGS_32768_PROFILE,
@@ -54,6 +76,18 @@ def test_legacy_v1_public_profile_parses_without_reinterpretation() -> None:
 
     # Then: its exact v1 representation is preserved.
     assert parsed == legacy
+
+
+def test_base_t2_8192_public_profile_parses_without_field_loss() -> None:
+    # Given: the exact enriched 8192 public record emitted at BASE 5c6e41f.
+    base_record = _base_t2_8192_profile_record()
+
+    # When: it crosses the current public-record parser.
+    parsed = structured_execution_profile(base_record)
+
+    # Then: all 23 BASE fields and their values survive unchanged.
+    assert len(base_record) == 23
+    assert parsed == base_record
 
 
 def test_32768_public_profile_serializes_as_complete_v2() -> None:

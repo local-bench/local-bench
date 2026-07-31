@@ -36,7 +36,21 @@
         "chat_template_kwargs": {"type": "object", "propertyNames": {"$ref": "#/$defs/safeText"}, "additionalProperties": {"type": "boolean"}},
         "answer_stops": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 160}},
         "runtime_probe_passed": {"type": "boolean"},
-        "prompt_renderer_engine": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120}
+        "prompt_renderer_engine": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120},
+        "static_think_tokens": {"type": "integer", "minimum": 1},
+        "static_final_tokens": {"type": "integer", "minimum": 1},
+        "static_max_generated_tokens": {"type": "integer", "minimum": 1},
+        "server_context_tokens": {"type": "integer", "minimum": 1},
+        "agentic_max_turns": {"type": "integer", "minimum": 1},
+        "agentic_max_output_tokens_per_turn": {"type": "integer", "minimum": 1},
+        "agentic_max_generated_tokens_per_task": {"type": "integer", "minimum": 1},
+        "agentic_context_tokens": {"type": "integer", "minimum": 1},
+        "kv_cache_k_dtype": {"const": "f16"},
+        "kv_cache_v_dtype": {"const": "f16"},
+        "context_fit_policy": {"const": "exact-or-fail"},
+        "context_extension_policy": {"const": "none"},
+        "per_task_timeout_s": {"type": "integer", "minimum": 1},
+        "semantic_sha256": {"$ref": "#/$defs/digest"}
       }
     },
     "executionProfileV2": {

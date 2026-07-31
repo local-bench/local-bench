@@ -1,5 +1,5 @@
 import { AcceptedResultProjectionV2Schema } from "./submission-contracts";
-import type { PublicExecutionProfile } from "../../lib/execution-profile";
+import type { BoardExecutionProfile } from "../../lib/execution-profile";
 
 const PUBLIC_PROVENANCE_NOTE_LIMIT = 16;
 const PUBLIC_TEXT_CODE_POINT_LIMIT = 300;
@@ -9,7 +9,7 @@ type AcceptedProjection = ReturnType<typeof AcceptedResultProjectionV2Schema.par
 
 export function publicProvenanceNotes(
   notes: readonly string[],
-  executionProfile?: PublicExecutionProfile,
+  executionProfile?: BoardExecutionProfile,
 ): readonly string[] {
   const normalized = notes
     .filter((note) => !note.startsWith("execution_profile:"))

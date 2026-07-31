@@ -1,9 +1,9 @@
-import type { PublicExecutionProfile } from "@/lib/execution-profile";
+import type { BoardExecutionProfile } from "@/lib/execution-profile";
 
 export function ExecutionProfileBadge({
   profile,
 }: {
-  readonly profile: PublicExecutionProfile;
+  readonly profile: BoardExecutionProfile;
 }) {
   const label = profile.id === "generic_think_tags_8192_v1"
     ? "generic think"

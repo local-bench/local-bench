@@ -159,6 +159,22 @@ def test_public_execution_profile_uses_effective_template_and_probe_result() -> 
         "answer_stops": ["<|im_end|>"],
         "runtime_probe_passed": True,
         "prompt_renderer_engine": "llama.cpp.apply-template",
+        "static_think_tokens": 8192,
+        "static_final_tokens": 8192,
+        "static_max_generated_tokens": 16384,
+        "server_context_tokens": 32768,
+        "agentic_max_turns": 24,
+        "agentic_max_output_tokens_per_turn": 1024,
+        "agentic_max_generated_tokens_per_task": 32768,
+        "agentic_context_tokens": 32768,
+        "kv_cache_k_dtype": "f16",
+        "kv_cache_v_dtype": "f16",
+        "context_fit_policy": "exact-or-fail",
+        "context_extension_policy": "none",
+        "per_task_timeout_s": 1800,
+        "semantic_sha256": (
+            "a6bf105b73ad3f8120751151707ce2d15f4b20617a64250679a0dce8977d9bb3"
+        ),
     }
 
 

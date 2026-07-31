@@ -18,8 +18,26 @@ const ExecutionProfileBaseShape = {
   template_source: ProfileTextSchema,
 } as const;
 
+const LegacySemanticShape = {
+  agentic_context_tokens: z.number().int().positive().optional(),
+  agentic_max_generated_tokens_per_task: z.number().int().positive().optional(),
+  agentic_max_output_tokens_per_turn: z.number().int().positive().optional(),
+  agentic_max_turns: z.number().int().positive().optional(),
+  context_extension_policy: z.literal("none").optional(),
+  context_fit_policy: z.literal("exact-or-fail").optional(),
+  kv_cache_k_dtype: z.literal("f16").optional(),
+  kv_cache_v_dtype: z.literal("f16").optional(),
+  per_task_timeout_s: z.number().int().positive().optional(),
+  semantic_sha256: Sha256Schema.optional(),
+  server_context_tokens: z.number().int().positive().optional(),
+  static_final_tokens: z.number().int().positive().optional(),
+  static_max_generated_tokens: z.number().int().positive().optional(),
+  static_think_tokens: z.number().int().positive().optional(),
+} as const;
+
 const ExecutionProfileV1Schema = z.object({
   ...ExecutionProfileBaseShape,
+  ...LegacySemanticShape,
   id: ProfileTextSchema.refine((value) => value !== "generic_think_tags_32768_v1"),
   schema_version: z.undefined().optional(),
 }).strict().readonly();
@@ -44,21 +62,27 @@ const ExecutionProfileV2Schema = z.object({
   static_think_tokens: z.literal(32768),
 }).strict().readonly();
 
-export const ExecutionProfileSchema = z.discriminatedUnion("schema_version", [
+export const PublicExecutionProfileSchema = z.discriminatedUnion("schema_version", [
   ExecutionProfileV1Schema,
   ExecutionProfileV2Schema,
 ]);
 
-export const PublicExecutionProfileSchema = z.union([
-  ExecutionProfileSchema,
-  z.object({
-    id: ProfileTextSchema.refine((value) => value !== "generic_think_tags_32768_v1"),
-  }).strict().readonly(),
+export const ExecutionProfileSchema = PublicExecutionProfileSchema;
+
+export const LegacyExecutionProfileReferenceSchema = z.object({
+  id: ProfileTextSchema.refine((value) => value !== "generic_think_tags_32768_v1"),
+}).strict().readonly();
+
+export const BoardExecutionProfileSchema = z.union([
+  PublicExecutionProfileSchema,
+  LegacyExecutionProfileReferenceSchema,
 ]);
 
 export type ExecutionProfile = z.infer<typeof ExecutionProfileSchema>;
 export type PublicExecutionProfile = z.infer<typeof PublicExecutionProfileSchema>;
+export type LegacyExecutionProfileReference = z.infer<typeof LegacyExecutionProfileReferenceSchema>;
+export type BoardExecutionProfile = z.infer<typeof BoardExecutionProfileSchema>;
 export type CommunityExecutionProfileFields = {
-  readonly executionProfile?: PublicExecutionProfile;
+  readonly executionProfile?: BoardExecutionProfile;
   readonly supersedesSubmissionId?: string;
 };

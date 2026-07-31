@@ -1,4 +1,7 @@
-import type { PublicExecutionProfile } from "../../lib/execution-profile";
+import type {
+  BoardExecutionProfile,
+  PublicExecutionProfile,
+} from "../../lib/execution-profile";
 
 const GENERIC_THINK_PROFILE_ID = "generic_think_tags_8192_v1";
 
@@ -27,7 +30,7 @@ type ExecutionProfilePolicyInput = {
 };
 
 type ExecutionProfilePolicy = {
-  readonly executionProfile: PublicExecutionProfile | undefined;
+  readonly executionProfile: BoardExecutionProfile | undefined;
   readonly moderationQueueMarker: "legacy_execution_profile_review" | undefined;
   readonly supersedesSubmissionId: string | undefined;
 };

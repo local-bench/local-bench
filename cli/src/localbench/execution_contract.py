@@ -227,14 +227,10 @@ def execution_profile_record(contract: ResolvedExecutionContract) -> JsonObject:
         "answer_stops": list(contract.answer_stops),
         "runtime_probe_passed": runtime_probe_passed,
         "prompt_renderer_engine": prompt_renderer_engine,
+        **optional_execution_profile_semantic_record(contract),
     }
     if contract.profile_id == _DEEP_BUDGET_PROFILE_ID:
-        profile.update(
-            {
-                "schema_version": PUBLIC_EXECUTION_PROFILE_V2,
-                **optional_execution_profile_semantic_record(contract),
-            }
-        )
+        profile["schema_version"] = PUBLIC_EXECUTION_PROFILE_V2
     return profile
 
 
@@ -252,6 +248,9 @@ def structured_execution_profile(value: JsonValue) -> JsonObject | None:
         return None
     profile = {field: value[field] for field in _PUBLIC_EXECUTION_PROFILE_FIELDS}
     if profile["id"] != _DEEP_BUDGET_PROFILE_ID:
+        for field in (*EXECUTION_PROFILE_SEMANTIC_FIELDS, "semantic_sha256"):
+            if field in value:
+                profile[field] = value[field]
         return profile
     if value.get("schema_version") != PUBLIC_EXECUTION_PROFILE_V2:
         raise InvalidExecutionProfileSemanticRecordError(

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { PublicExecutionProfileSchema } from "../lib/execution-profile";
+import {
+  PublicExecutionProfileSchema,
+  type PublicExecutionProfile,
+} from "../lib/execution-profile";
 
 const LEGACY_V1 = {
   answer_stops: ["<|im_end|>"],
@@ -33,6 +36,39 @@ const PROFILE_V2 = {
   static_think_tokens: 32768,
 } as const;
 
+const BASE_T2_V1 = {
+  ...LEGACY_V1,
+  agentic_context_tokens: 32768,
+  agentic_max_generated_tokens_per_task: 32768,
+  agentic_max_output_tokens_per_turn: 1024,
+  agentic_max_turns: 24,
+  context_extension_policy: "none",
+  context_fit_policy: "exact-or-fail",
+  kv_cache_k_dtype: "f16",
+  kv_cache_v_dtype: "f16",
+  per_task_timeout_s: 1800,
+  semantic_sha256: "a6bf105b73ad3f8120751151707ce2d15f4b20617a64250679a0dce8977d9bb3",
+  server_context_tokens: 32768,
+  static_final_tokens: 8192,
+  static_max_generated_tokens: 16384,
+  static_think_tokens: 8192,
+} as const;
+
+function staticThinkTokens(profile: PublicExecutionProfile): number | undefined {
+  switch (profile.schema_version) {
+    case undefined:
+      return profile.static_think_tokens;
+    case "localbench.execution_profile.v2":
+      return profile.static_think_tokens;
+    default:
+      return assertNever(profile);
+  }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`unexpected execution profile: ${JSON.stringify(value)}`);
+}
+
 describe("public execution-profile contract", () => {
   it("parses an unchanged legacy v1 structured row", () => {
     // Given / When: a 0.4.12/0.4.13 row crosses the site boundary.
@@ -40,6 +76,15 @@ describe("public execution-profile contract", () => {
 
     // Then: it remains byte-shape compatible.
     expect(parsed).toEqual(LEGACY_V1);
+  });
+
+  it("preserves the exact enriched 8192 record emitted at BASE", () => {
+    // Given / When: the 23-field T2-era record crosses the site boundary.
+    const parsed = PublicExecutionProfileSchema.parse(BASE_T2_V1);
+
+    // Then: v1 optional semantic identity remains intact and narrows exhaustively.
+    expect(parsed).toEqual(BASE_T2_V1);
+    expect(staticThinkTokens(parsed)).toBe(8192);
   });
 
   it("parses a complete 32768-v2 row", () => {

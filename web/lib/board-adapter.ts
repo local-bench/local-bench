@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PublicExecutionProfileSchema } from "./execution-profile";
+import { BoardExecutionProfileSchema } from "./execution-profile";
 
 const UNSAFE_TEXT_RE = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
 const GROUP_ID_RE = /^community-group:[0-9a-f]{32}$/u;
@@ -158,7 +158,7 @@ export const LiveBoardRowSchema = z.object({
   community_model_group_id: z.string().regex(GROUP_ID_RE).optional(),
   conformance: ConformanceSchema,
   coverage_profile_id: IdSchema,
-  execution_profile: PublicExecutionProfileSchema.optional(),
+  execution_profile: BoardExecutionProfileSchema.optional(),
   group_path: safeText(140, 1).optional(),
   hardware: z.object({
     gpu_name: safeText(160).nullable(),
