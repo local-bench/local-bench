@@ -213,6 +213,32 @@ def test_launch_llama_cpp_refuses_failed_launch_pid_reuse_cleanup(
     assert log_handle.closed is True
 
 
+def test_launch_llama_cpp_records_append_boundary_before_current_process(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: a reused run log containing bytes from an earlier managed process.
+    log_path = tmp_path / "serve.log"
+    stale_bytes = b"prior process epoch\n"
+    log_path.write_bytes(stale_bytes)
+    spawned = _SpawnedProcess()
+    job = _AcceptingJob()
+    monkeypatch.setattr(process_mod.subprocess, "Popen", lambda *_args, **_kwargs: spawned)
+    monkeypatch.setattr(process_mod, "WindowsJobObject", lambda: job)
+
+    # When: a new managed llama.cpp process is launched in append mode.
+    launched = process_mod.launch_llama_cpp(
+        ["llama-server.exe"],
+        cwd=tmp_path,
+        log_path=log_path,
+    )
+
+    # Then: its evidence boundary starts exactly after the stale bytes and before spawn.
+    assert launched.log_start_byte == len(stale_bytes)
+    assert job.assigned == (111, 222)
+    launched.close_log()
+
+
 class _SpawnedProcess:
     pid = 1234
     returncode: int | None = None
@@ -242,6 +268,17 @@ class _RaisingAssignJob:
 
     def close(self, handle: int) -> None:
         self.closed.append(handle)
+
+
+class _AcceptingJob:
+    def __init__(self) -> None:
+        self.assigned: tuple[int, int] | None = None
+
+    def create(self) -> int:
+        return 111
+
+    def assign_process(self, handle: int, *, process_handle: int) -> None:
+        self.assigned = (handle, process_handle)
 
 
 class _FakeLogHandle:

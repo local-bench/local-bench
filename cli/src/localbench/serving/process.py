@@ -19,6 +19,7 @@ class LaunchedServer:
     job: WindowsJobObject
     job_handle: int
     log_handle: TextIO
+    log_start_byte: int
 
     def close_log(self) -> None:
         self.log_handle.close()
@@ -39,6 +40,10 @@ class JobController:
 def launch_llama_cpp(argv: list[str], *, cwd: Path, log_path: Path) -> LaunchedServer:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_handle = log_path.open("a", encoding="utf-8")
+    try:
+        log_start_byte = log_path.stat().st_size
+    except FileNotFoundError:
+        log_start_byte = 0
     job = WindowsJobObject()
     job_handle = job.create()
     process = subprocess.Popen(
@@ -63,7 +68,13 @@ def launch_llama_cpp(argv: list[str], *, cwd: Path, log_path: Path) -> LaunchedS
             recorded=failed_launch_identity(argv, process.pid),
         )
         raise
-    return LaunchedServer(process=process, job=job, job_handle=job_handle, log_handle=log_handle)
+    return LaunchedServer(
+        process=process,
+        job=job,
+        job_handle=job_handle,
+        log_handle=log_handle,
+        log_start_byte=log_start_byte,
+    )
 
 
 def _cleanup_failed_launch(

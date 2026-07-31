@@ -2,105 +2,22 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Final
 
-import httpx
 import pytest
 
 from localbench._types import JsonObject
 from localbench.runtime_capacity_probe import (
     CAPACITY_PROBE_FILENAME,
     CapacityProbeMismatchError,
-    verify_llama_cpp_capacity,
 )
-
-_REQUIRED_CONTEXT: Final = 65_536
-
-
-def _props() -> JsonObject:
-    return {
-        "default_generation_settings": {"n_ctx": _REQUIRED_CONTEXT},
-        "total_slots": 1,
-    }
-
-
-def _models() -> JsonObject:
-    return {
-        "data": [
-            {
-                "id": "qwen35",
-                "meta": {
-                    "n_ctx": _REQUIRED_CONTEXT,
-                    "n_ctx_train": 262_144,
-                },
-            }
-        ]
-    }
-
-
-def _slots() -> list[JsonObject]:
-    return [{"id": 0, "n_ctx": _REQUIRED_CONTEXT}]
-
-
-def _startup_log() -> str:
-    return """llama_context: n_seq_max     = 1
-llama_context: n_ctx         = 65536
-llama_context: n_ctx_seq     = 65536
-llama_context: flash_attn    = enabled
-llama_kv_cache: size = 12288.00 MiB ( 65536 cells, 47 layers, 1/1 seqs), K (f16): 6144.00 MiB, V (f16): 6144.00 MiB"""
-
-
-def _launch_argv() -> list[str]:
-    return [
-        "llama-server.exe",
-        "--ctx-size",
-        "65536",
-        "--parallel",
-        "1",
-        "--fit",
-        "off",
-        "--flash-attn",
-        "on",
-        "--cache-type-k",
-        "f16",
-        "--cache-type-v",
-        "f16",
-    ]
-
-
-async def _run_probe(
-    tmp_path: Path,
-    *,
-    props: JsonObject | list[JsonObject] | None = None,
-    models: JsonObject | list[JsonObject] | None = None,
-    slots: JsonObject | list[JsonObject] | None = None,
-    startup_log: str | None = None,
-    launch_argv: list[str] | None = None,
-) -> JsonObject:
-    responses = {
-        "/props": _props() if props is None else props,
-        "/v1/models": _models() if models is None else models,
-        "/slots": _slots() if slots is None else slots,
-    }
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=responses[request.url.path])
-
-    serve_log_path = tmp_path / "serve.log"
-    serve_log_path.write_text(
-        _startup_log() if startup_log is None else startup_log,
-        encoding="utf-8",
-    )
-
-    return await verify_llama_cpp_capacity(
-        base_url="http://llama.test",
-        api_key="secret",
-        required_context_tokens=_REQUIRED_CONTEXT,
-        run_dir=tmp_path,
-        serve_log_path=serve_log_path,
-        launch_argv=_launch_argv() if launch_argv is None else launch_argv,
-        transport=httpx.MockTransport(handler),
-    )
+from runtime_capacity_probe_support import (
+    launch_argv as _launch_argv,
+    models_payload as _models,
+    props_payload as _props,
+    run_probe as _run_probe,
+    slots_payload as _slots,
+    startup_log as _startup_log,
+)
 
 
 @pytest.mark.anyio
@@ -128,6 +45,11 @@ async def test_capacity_probe_accepts_stock_b10076_endpoints_and_startup_log(
         "slot_context_tokens": [65_536],
     }
     assert len(str(evidence["startup_log_sha256"])) == 64
+    assert evidence["startup_log_source"] == {
+        "process_pid": 4242,
+        "start_byte": 0,
+        "end_byte": len(_startup_log().encode("utf-8")),
+    }
     persisted = json.loads((tmp_path / CAPACITY_PROBE_FILENAME).read_text())
     assert persisted == evidence
 

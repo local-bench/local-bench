@@ -33,16 +33,35 @@ async def verify_llama_cpp_capacity(
     required_context_tokens: int,
     run_dir: Path,
     serve_log_path: Path,
+    serve_log_start_byte: int,
+    server_pid: int,
     launch_argv: list[str],
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> JsonObject:
     responses: dict[str, httpx.Response] = {}
     startup_log_sha256: str | None = None
+    startup_log_source: JsonObject = {
+        "process_pid": server_pid,
+        "start_byte": serve_log_start_byte,
+        "end_byte": None,
+    }
     evidence: JsonObject
     try:
         startup_log_bytes = serve_log_path.read_bytes()
-        startup_log_sha256 = hashlib.sha256(startup_log_bytes).hexdigest()
-        startup_log = startup_log_bytes.decode("utf-8")
+        startup_log_end_byte = len(startup_log_bytes)
+        startup_log_source["end_byte"] = startup_log_end_byte
+        if server_pid <= 0:
+            raise ValueError(f"managed server PID must be positive; observed {server_pid!r}")
+        if serve_log_start_byte < 0 or serve_log_start_byte > startup_log_end_byte:
+            raise ValueError(
+                "managed startup-log byte range is invalid: "
+                f"start {serve_log_start_byte}, end {startup_log_end_byte}",
+            )
+        current_startup_log_bytes = startup_log_bytes[
+            serve_log_start_byte:startup_log_end_byte
+        ]
+        startup_log_sha256 = hashlib.sha256(current_startup_log_bytes).hexdigest()
+        startup_log = current_startup_log_bytes.decode("utf-8")
         async with httpx.AsyncClient(
             base_url=base_url,
             headers={"Authorization": f"Bearer {api_key}"},
@@ -65,6 +84,7 @@ async def verify_llama_cpp_capacity(
             responses=responses,
             startup_log=startup_log,
             startup_log_sha256=startup_log_sha256,
+            startup_log_source=startup_log_source,
             launch_argv=launch_argv,
         )
     except (httpx.HTTPError, KeyError, OSError, TypeError, UnicodeError, ValueError) as error:
@@ -77,6 +97,7 @@ async def verify_llama_cpp_capacity(
             "required_context_tokens": required_context_tokens,
             "response_sha256": _response_hashes(responses),
             "startup_log_sha256": startup_log_sha256,
+            "startup_log_source": startup_log_source,
             "failure_reasons": failure_reasons,
         }
     atomic_write_json(evidence, run_dir / CAPACITY_PROBE_FILENAME)
@@ -95,6 +116,7 @@ def _capacity_evidence(
     responses: dict[str, httpx.Response],
     startup_log: str,
     startup_log_sha256: str,
+    startup_log_source: JsonObject,
     launch_argv: list[str],
 ) -> JsonObject:
     failures: list[str] = []
@@ -167,6 +189,7 @@ def _capacity_evidence(
         "required_context_tokens": required_context_tokens,
         "response_sha256": _response_hashes(responses),
         "startup_log_sha256": startup_log_sha256,
+        "startup_log_source": startup_log_source,
         "effective": effective,
         "failure_reasons": failure_reasons,
     }

@@ -51,20 +51,24 @@ class FakeLaunch:
     job = object()
     job_handle = 1
 
+    def __init__(self, *, log_start_byte: int = 0) -> None:
+        self.log_start_byte = log_start_byte
+
     def close_log(self) -> None:
         return
 
 
-def write_b10076_startup_log(path: Path) -> None:
+def write_b10076_startup_log(path: Path, *, append: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        """llama_context: n_seq_max     = 1
+    mode = "a" if append else "w"
+    with path.open(mode, encoding="utf-8") as handle:
+        _ = handle.write(
+            """llama_context: n_seq_max     = 1
 llama_context: n_ctx         = 65536
 llama_context: n_ctx_seq     = 65536
 llama_context: flash_attn    = enabled
 llama_kv_cache: size = 12288.00 MiB ( 65536 cells, 47 layers, 1/1 seqs), K (f16): 6144.00 MiB, V (f16): 6144.00 MiB""",
-        encoding="utf-8",
-    )
+        )
 
 
 class LlamaStub:

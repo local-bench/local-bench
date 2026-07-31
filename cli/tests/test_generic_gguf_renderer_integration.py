@@ -65,8 +65,12 @@ def test_public_cli_generic_gguf_runs_server_renderer_and_forced_completion(
         return await real_run_localbench(config, **kwargs)
 
     def launch_with_stock_log(_argv, *, cwd, log_path):
-        write_b10076_startup_log(log_path)
-        return FakeLaunch()
+        stale = "llama_context: n_ctx         = 32768\n"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.write_text(stale, encoding="utf-8")
+        log_start_byte = log_path.stat().st_size
+        write_b10076_startup_log(log_path, append=True)
+        return FakeLaunch(log_start_byte=log_start_byte)
 
     with LlamaStub() as stub:
         monkeypatch.setattr(cli_mod, "_preflight_execution_contract", lambda: None)
