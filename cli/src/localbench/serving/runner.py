@@ -235,6 +235,8 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
                 api_key=api_key,
                 required_context_tokens=budget.server_context_tokens,
                 run_dir=root,
+                serve_log_path=root / "serve.log",
+                launch_argv=argv,
             )
         if options.gguf_repo_only and resolved_profile is not None:
             resolved_profile = await verify_llama_cpp_runtime_profile(

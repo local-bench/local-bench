@@ -11,6 +11,7 @@ from gguf_renderer_integration_support import (
     FakeLaunch,
     LlamaStub,
     QWOPUS_TEMPLATE_TAIL,
+    write_b10076_startup_log,
     write_suite,
 )
 from localbench import cli as cli_mod
@@ -63,6 +64,10 @@ def test_public_cli_generic_gguf_runs_server_renderer_and_forced_completion(
         captured_profiles.append(profile)
         return await real_run_localbench(config, **kwargs)
 
+    def launch_with_stock_log(_argv, *, cwd, log_path):
+        write_b10076_startup_log(log_path)
+        return FakeLaunch()
+
     with LlamaStub() as stub:
         monkeypatch.setattr(cli_mod, "_preflight_execution_contract", lambda: None)
         monkeypatch.setattr(
@@ -84,7 +89,7 @@ def test_public_cli_generic_gguf_runs_server_renderer_and_forced_completion(
         monkeypatch.setattr(
             serving_runner,
             "launch_llama_cpp",
-            lambda _argv, *, cwd, log_path: FakeLaunch(),
+            launch_with_stock_log,
         )
         monkeypatch.setattr(
             serving_runner,

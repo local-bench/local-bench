@@ -9,10 +9,11 @@ import httpx
 
 from localbench._types import JsonObject, JsonValue
 from localbench.persistence import atomic_write_json
+from localbench.runtime_capacity_log import assess_llama_startup_capacity
+from localbench.submissions.strict_json import strict_json_loads
 
 CAPACITY_PROBE_FILENAME: Final = "runtime-capacity-probe.json"
 CAPACITY_PROBE_MISMATCH: Final = "runtime_capacity_probe_mismatch"
-_EXPECTED_CACHE_TYPE: Final = "f16"
 _EXPECTED_SLOT_COUNT: Final = 1
 _TIMEOUT = httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=10.0)
 
@@ -31,11 +32,17 @@ async def verify_llama_cpp_capacity(
     api_key: str,
     required_context_tokens: int,
     run_dir: Path,
+    serve_log_path: Path,
+    launch_argv: list[str],
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> JsonObject:
     responses: dict[str, httpx.Response] = {}
+    startup_log_sha256: str | None = None
     evidence: JsonObject
     try:
+        startup_log_bytes = serve_log_path.read_bytes()
+        startup_log_sha256 = hashlib.sha256(startup_log_bytes).hexdigest()
+        startup_log = startup_log_bytes.decode("utf-8")
         async with httpx.AsyncClient(
             base_url=base_url,
             headers={"Authorization": f"Bearer {api_key}"},
@@ -56,8 +63,11 @@ async def verify_llama_cpp_capacity(
             slots=slots,
             required_context_tokens=required_context_tokens,
             responses=responses,
+            startup_log=startup_log,
+            startup_log_sha256=startup_log_sha256,
+            launch_argv=launch_argv,
         )
-    except (httpx.HTTPError, KeyError, TypeError, ValueError) as error:
+    except (httpx.HTTPError, KeyError, OSError, TypeError, UnicodeError, ValueError) as error:
         failure_reasons: list[JsonValue] = [
             f"capacity endpoint evidence unavailable: {error}",
         ]
@@ -66,6 +76,7 @@ async def verify_llama_cpp_capacity(
             "passed": False,
             "required_context_tokens": required_context_tokens,
             "response_sha256": _response_hashes(responses),
+            "startup_log_sha256": startup_log_sha256,
             "failure_reasons": failure_reasons,
         }
     atomic_write_json(evidence, run_dir / CAPACITY_PROBE_FILENAME)
@@ -82,6 +93,9 @@ def _capacity_evidence(
     slots: JsonValue,
     required_context_tokens: int,
     responses: dict[str, httpx.Response],
+    startup_log: str,
+    startup_log_sha256: str,
+    launch_argv: list[str],
 ) -> JsonObject:
     failures: list[str] = []
     props_object = _required_object(props, "/props", failures)
@@ -94,11 +108,13 @@ def _capacity_evidence(
     total_slots = _positive_int(props_object.get("total_slots"))
     model_context = _positive_int(model_meta.get("n_ctx"))
     native_context = _positive_int(model_meta.get("n_ctx_train"))
-    cache_type_k = _text(props_object.get("cache_type_k"))
-    cache_type_v = _text(props_object.get("cache_type_v"))
-    fit = _fit_state(props_object.get("fit"))
-    flash_attn = _text(props_object.get("flash_attn"))
     slot_contexts = [_positive_int(slot.get("n_ctx")) for slot in slot_objects]
+    startup = assess_llama_startup_capacity(
+        startup_log,
+        launch_argv,
+        required_context_tokens,
+    )
+    failures.extend(startup.failures)
 
     _require_exact_context(
         "effective context",
@@ -116,14 +132,6 @@ def _capacity_evidence(
         failures.append(
             f"n_ctx_train must be at least {required_context_tokens}; observed {native_context!r}",
         )
-    if cache_type_k != _EXPECTED_CACHE_TYPE:
-        failures.append(f"cache_type_k must be f16; observed {cache_type_k!r}")
-    if cache_type_v != _EXPECTED_CACHE_TYPE:
-        failures.append(f"cache_type_v must be f16; observed {cache_type_v!r}")
-    if fit != "off":
-        failures.append(f"fit must be reported off; observed {fit!r}")
-    if flash_attn not in {"on", "off", "auto"}:
-        failures.append(f"flash_attn state is unreported or unknown: {flash_attn!r}")
     if total_slots != _EXPECTED_SLOT_COUNT:
         failures.append(f"capacity profile requires a single slot; observed {total_slots!r}")
     if len(slot_objects) != _EXPECTED_SLOT_COUNT:
@@ -142,10 +150,13 @@ def _capacity_evidence(
         "context_tokens": effective_context,
         "model_context_tokens": model_context,
         "native_context_tokens": native_context,
-        "cache_type_k": cache_type_k,
-        "cache_type_v": cache_type_v,
-        "fit": fit,
-        "flash_attn": flash_attn,
+        "logged_context_tokens": startup.context_tokens,
+        "logged_slot_context_tokens": startup.slot_context_tokens,
+        "logged_parallel_slots": startup.parallel_slots,
+        "cache_type_k": startup.cache_type_k,
+        "cache_type_v": startup.cache_type_v,
+        "fit": startup.fit,
+        "flash_attn": startup.flash_attn,
         "total_slots": total_slots,
         "slot_context_tokens": [value for value in slot_contexts],
     }
@@ -155,14 +166,14 @@ def _capacity_evidence(
         "passed": not failures,
         "required_context_tokens": required_context_tokens,
         "response_sha256": _response_hashes(responses),
+        "startup_log_sha256": startup_log_sha256,
         "effective": effective,
         "failure_reasons": failure_reasons,
     }
 
 
 def _json_value(response: httpx.Response) -> JsonValue:
-    value: JsonValue = response.json()
-    return value
+    return strict_json_loads(response.content, response.request.url.path)
 
 
 def _required_object(
@@ -209,16 +220,6 @@ def _positive_int(value: JsonValue | None) -> int | None:
     if isinstance(value, int) and not isinstance(value, bool) and value > 0:
         return value
     return None
-
-
-def _text(value: JsonValue | None) -> str | None:
-    return value.lower() if isinstance(value, str) else None
-
-
-def _fit_state(value: JsonValue | None) -> str | None:
-    if value is False:
-        return "off"
-    return _text(value)
 
 
 def _require_exact_context(

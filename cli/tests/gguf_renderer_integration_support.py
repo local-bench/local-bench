@@ -55,6 +55,18 @@ class FakeLaunch:
         return
 
 
+def write_b10076_startup_log(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        """llama_context: n_seq_max     = 1
+llama_context: n_ctx         = 65536
+llama_context: n_ctx_seq     = 65536
+llama_context: flash_attn    = enabled
+llama_kv_cache: size = 12288.00 MiB ( 65536 cells, 47 layers, 1/1 seqs), K (f16): 6144.00 MiB, V (f16): 6144.00 MiB""",
+        encoding="utf-8",
+    )
+
+
 class LlamaStub:
     def __init__(self) -> None:
         self.apply_template_requests: list[JsonObject] = []
@@ -73,10 +85,6 @@ class LlamaStub:
                         {
                             "default_generation_settings": {"n_ctx": 65_536},
                             "total_slots": 1,
-                            "cache_type_k": "f16",
-                            "cache_type_v": "f16",
-                            "fit": "off",
-                            "flash_attn": "on",
                         }
                     )
                     return
