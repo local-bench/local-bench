@@ -74,7 +74,7 @@ def test_profile_resolution_passes_requested_hf_revision_to_loader(
         ),
     )
 
-    assert resolved.entry.id == "generic_think_tags_8192_v1"
+    assert resolved.entry.id == "generic_think_tags_32768_v1"
     assert calls == [("Qwen/Qwen3-0.6B", None, PINNED_REVISION)]
     assert resolved.prompt_renderer_manifest is not None
     assert resolved.prompt_renderer_manifest["hf_revision"] == PINNED_REVISION

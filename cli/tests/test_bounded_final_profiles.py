@@ -25,6 +25,7 @@ from localbench.prompt_rendering import (
 from localbench.reasoning_registry import (
     GEMMA4_CHANNEL_PROFILE,
     GEMMA4_REASONING_ENTRY,
+    GENERIC_THINK_TAGS_32768_PROFILE,
     GENERIC_THINK_TAGS_PROFILE,
     QWEN_REASONING_ENTRY,
     execution_profile_digest,
@@ -149,7 +150,7 @@ def test_profile_auto_resolution_uses_think_profile_for_thinking_template() -> N
 
     resolved = resolve_bounded_final_profile_from_introspection("auto", introspection)
 
-    assert resolved.entry is GENERIC_THINK_TAGS_PROFILE
+    assert resolved.entry is GENERIC_THINK_TAGS_32768_PROFILE
     assert resolved.chat_template_kwargs == {"enable_thinking": True}
     assert resolved.answer_stop == ("<|im_end|>",)
 

@@ -68,6 +68,9 @@ class ForcingFormat:
     answer_stop: tuple[str, ...]
     reasoning_open: str | None = None
     reparse: str | None = None
+    static_think_tokens: int | None = None
+    static_final_tokens: int | None = None
+    static_max_generated_tokens: int | None = None
 
 
 QWEN_FORCING: Final = ForcingFormat("</think>", "\n</think>\n\n", ("<|im_end|>",))

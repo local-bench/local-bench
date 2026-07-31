@@ -35,6 +35,7 @@ ItemCompleteHook = Callable[[ItemResult], bool | None]
 
 if TYPE_CHECKING:
     from localbench.budget_forcing import ForcingFormat
+    from localbench.execution_contract import ResolvedExecutionContract
 
 __all__ = [
     "BenchmarkItem",
@@ -69,6 +70,7 @@ async def run_benchmark(
     reasoning_activation: ReasoningActivation = "qwen3",
     prompt_renderer: PromptRenderer | None = None,
     forcing_format: ForcingFormat | None = None,
+    execution_contract: ResolvedExecutionContract | None = None,
     on_item_complete: ItemCompleteHook | None = None,
 ) -> RunRecord:
     """Run benchmark items against an OpenAI-compatible chat endpoint."""
@@ -105,6 +107,7 @@ async def run_benchmark(
                     base_url=endpoint,
                     prompt_renderer=forced_prompt_renderer,
                     forcing_format=forced_format,
+                    execution_contract=execution_contract,
                 ),
             )
             for index, item in enumerate(items)
@@ -158,6 +161,7 @@ async def _run_indexed_item(
     base_url: str,
     prompt_renderer: PromptRenderer | None,
     forcing_format: ForcingFormat,
+    execution_contract: ResolvedExecutionContract | None,
 ) -> tuple[int, ItemResult]:
     result = await run_item(
         client=client,
@@ -174,6 +178,7 @@ async def _run_indexed_item(
         base_url=base_url,
         prompt_renderer=prompt_renderer,
         forcing_format=forcing_format,
+        execution_contract=execution_contract,
     )
     return index, result
 

@@ -8,10 +8,10 @@ from types import MappingProxyType
 from typing import Final, Literal, assert_never
 
 from localbench._types import JsonObject, JsonValue
-from localbench.budget_forcing import CAPPED_THINKING_THINK_BUDGET
 from localbench.gguf_template import StaticProfileCandidate
 from localbench.reasoning_registry import (
     ANSWER_ONLY_PROFILE,
+    ExecutionProfileBudget,
     ReasoningRegistryEntry,
 )
 
@@ -53,6 +53,7 @@ class ResolvedExecutionContract:
     prompt_renderer_engine: str
     prompt_renderer_contract_version: str
     prompt_renderer_context_sha256: str
+    budget: ExecutionProfileBudget | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -149,7 +150,7 @@ def resolved_execution_contract(
         chat_template_kwargs=chat_template_kwargs,
         answer_stops=answer_stops,
         reasoning_mode="disabled" if is_answer_only else "generic_think",
-        reasoning_budget=None if is_answer_only else CAPPED_THINKING_THINK_BUDGET,
+        reasoning_budget=None if is_answer_only else entry.budget.static_think_tokens,
         model_file_sha256=context.model_file_sha256,
         runtime_probe=None,
         prompt_renderer_engine=prompt_renderer_engine,
@@ -158,6 +159,7 @@ def resolved_execution_contract(
             raw_template_sha256=context.raw_template_sha256,
             chat_template_kwargs=chat_template_kwargs,
         ),
+        budget=entry.budget,
     )
 
 

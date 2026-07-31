@@ -13,6 +13,9 @@ from localbench.prompt_rendering import ReasoningActivation
 from localbench.reasoning_leaks import CANONICAL_REASONING_LEAK_REGEXES
 
 ReasoningRegistryStatus = Literal["ranked", "diagnostic", "experimental"]
+ContextFitPolicy = Literal["exact-or-fail"]
+ContextExtensionPolicy = Literal["none"]
+KvCacheDtype = Literal["f16"]
 
 GEMMA4_LEAK_REGEXES: Final[tuple[str, ...]] = (
     r"<\|channel>",
@@ -20,6 +23,23 @@ GEMMA4_LEAK_REGEXES: Final[tuple[str, ...]] = (
     r"<\|think\|>",
     r"<turn\|>",
 )
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutionProfileBudget:
+    static_think_tokens: int
+    static_final_tokens: int
+    static_max_generated_tokens: int
+    server_context_tokens: int
+    agentic_max_turns: int
+    agentic_max_output_tokens_per_turn: int
+    agentic_max_generated_tokens_per_task: int
+    agentic_context_tokens: int
+    kv_cache_k_dtype: KvCacheDtype
+    kv_cache_v_dtype: KvCacheDtype
+    context_fit_policy: ContextFitPolicy
+    context_extension_policy: ContextExtensionPolicy
+    per_task_timeout_s: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +55,24 @@ class ReasoningRegistryEntry:
     parser: Mapping[str, JsonValue]
     conformance: Mapping[str, JsonValue]
     provenance: Mapping[str, JsonValue]
+    budget: ExecutionProfileBudget
+
+
+_LEGACY_PROFILE_BUDGET: Final = ExecutionProfileBudget(
+    static_think_tokens=8192,
+    static_final_tokens=8192,
+    static_max_generated_tokens=16384,
+    server_context_tokens=32768,
+    agentic_max_turns=24,
+    agentic_max_output_tokens_per_turn=1024,
+    agentic_max_generated_tokens_per_task=32768,
+    agentic_context_tokens=32768,
+    kv_cache_k_dtype="f16",
+    kv_cache_v_dtype="f16",
+    context_fit_policy="exact-or-fail",
+    context_extension_policy="none",
+    per_task_timeout_s=1800,
+)
 
 
 QWEN_REASONING_ENTRY: Final = ReasoningRegistryEntry(
@@ -65,6 +103,7 @@ QWEN_REASONING_ENTRY: Final = ReasoningRegistryEntry(
         "renderer": "render_qwen3_chat_prompt",
         "answer_stop": ("<|im_end|>",),
     },
+    budget=_LEGACY_PROFILE_BUDGET,
 )
 
 GEMMA4_REASONING_ENTRY: Final = ReasoningRegistryEntry(
@@ -104,6 +143,7 @@ GEMMA4_REASONING_ENTRY: Final = ReasoningRegistryEntry(
         "answer_stop": ("<turn|>",),
         "template_confirmed": "contains enable_thinking + channel/think tags",
     },
+    budget=_LEGACY_PROFILE_BUDGET,
 )
 
 ANSWER_ONLY_PROFILE: Final = ReasoningRegistryEntry(
@@ -132,6 +172,21 @@ ANSWER_ONLY_PROFILE: Final = ReasoningRegistryEntry(
         "source": "bounded-final-v1 answer-only execution profile",
         "renderer": "canonical_chat_template",
     },
+    budget=ExecutionProfileBudget(
+        static_think_tokens=0,
+        static_final_tokens=16384,
+        static_max_generated_tokens=16384,
+        server_context_tokens=32768,
+        agentic_max_turns=24,
+        agentic_max_output_tokens_per_turn=1024,
+        agentic_max_generated_tokens_per_task=32768,
+        agentic_context_tokens=32768,
+        kv_cache_k_dtype="f16",
+        kv_cache_v_dtype="f16",
+        context_fit_policy="exact-or-fail",
+        context_extension_policy="none",
+        per_task_timeout_s=1800,
+    ),
 )
 
 GENERIC_THINK_TAGS_FORCING: Final = ForcingFormat("</think>", "\n</think>\n\n", ())
@@ -166,6 +221,37 @@ GENERIC_THINK_TAGS_PROFILE: Final = ReasoningRegistryEntry(
         "renderer": "canonical_chat_template",
         "answer_stop": "derived at run time from tokenizer/template EOS/EOT",
     },
+    budget=_LEGACY_PROFILE_BUDGET,
+)
+
+GENERIC_THINK_TAGS_32768_PROFILE: Final = ReasoningRegistryEntry(
+    id="generic_think_tags_32768_v1",
+    version="1",
+    status="ranked",
+    model_match=GENERIC_THINK_TAGS_PROFILE.model_match,
+    activation=GENERIC_THINK_TAGS_PROFILE.activation,
+    forcing=GENERIC_THINK_TAGS_FORCING,
+    parser=GENERIC_THINK_TAGS_PROFILE.parser,
+    conformance=GENERIC_THINK_TAGS_PROFILE.conformance,
+    provenance={
+        **GENERIC_THINK_TAGS_PROFILE.provenance,
+        "source": "profile-owned 32k generic think-tags two-pass forcing",
+    },
+    budget=ExecutionProfileBudget(
+        static_think_tokens=32768,
+        static_final_tokens=16384,
+        static_max_generated_tokens=49152,
+        server_context_tokens=65536,
+        agentic_max_turns=40,
+        agentic_max_output_tokens_per_turn=1024,
+        agentic_max_generated_tokens_per_task=65536,
+        agentic_context_tokens=32768,
+        kv_cache_k_dtype="f16",
+        kv_cache_v_dtype="f16",
+        context_fit_policy="exact-or-fail",
+        context_extension_policy="none",
+        per_task_timeout_s=3000,
+    ),
 )
 
 GEMMA4_CHANNEL_PROFILE: Final = ReasoningRegistryEntry(
@@ -189,6 +275,7 @@ GEMMA4_CHANNEL_PROFILE: Final = ReasoningRegistryEntry(
         **GEMMA4_REASONING_ENTRY.provenance,
         "source": "bounded-final-v1 Gemma 4 channel override profile",
     },
+    budget=_LEGACY_PROFILE_BUDGET,
 )
 
 REASONING_REGISTRY: Final[tuple[ReasoningRegistryEntry, ...]] = (
@@ -240,6 +327,8 @@ def ranked_execution_profiles() -> Mapping[str, str]:
 
 
 def execution_profile_for_id(profile_id: str) -> ReasoningRegistryEntry | None:
+    if profile_id == GENERIC_THINK_TAGS_32768_PROFILE.id:
+        return GENERIC_THINK_TAGS_32768_PROFILE
     for entry in REASONING_REGISTRY:
         if entry.id == profile_id:
             return entry
@@ -249,6 +338,8 @@ def execution_profile_for_id(profile_id: str) -> ReasoningRegistryEntry | None:
 def _entry_payload(entry: ReasoningRegistryEntry) -> dict[str, JsonValue]:
     payload: dict[str, JsonValue] = {}
     for field in fields(ReasoningRegistryEntry):
+        if field.name == "budget":
+            continue
         value = getattr(entry, field.name)
         if isinstance(value, ForcingFormat):
             payload[field.name] = {

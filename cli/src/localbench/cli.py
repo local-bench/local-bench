@@ -3066,6 +3066,8 @@ def _lane(value: str) -> LaneChoice:
 def _profile(value: str) -> BoundedFinalProfileChoice:
     if value == "answer_only_v1":
         return "answer_only_v1"
+    if value == "generic_think_tags_32768_v1":
+        return "generic_think_tags_32768_v1"
     if value == "generic_think_tags_8192_v1":
         return "generic_think_tags_8192_v1"
     if value == "gemma4_channel_8192_v1":

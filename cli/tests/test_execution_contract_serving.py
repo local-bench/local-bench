@@ -100,7 +100,7 @@ def test_serving_resolves_one_contract_after_artifact_resolution(tmp_path: Path)
     # Then: the exact immutable runtime is threaded without profile re-derivation.
     assert runtime is not None
     assert runtime.contract.model_file_sha256 == _MODEL_SHA
-    assert configured.profile == "generic_think_tags_8192_v1"
+    assert configured.profile == "generic_think_tags_32768_v1"
     assert configured.resolved_bounded_profile is runtime
 
 

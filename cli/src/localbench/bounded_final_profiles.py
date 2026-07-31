@@ -33,6 +33,7 @@ from localbench.prompt_rendering import (
 from localbench.reasoning_registry import (
     ANSWER_ONLY_PROFILE,
     GEMMA4_CHANNEL_PROFILE,
+    GENERIC_THINK_TAGS_32768_PROFILE,
     GENERIC_THINK_TAGS_PROFILE,
     ReasoningRegistryEntry,
 )
@@ -40,12 +41,14 @@ from localbench.reasoning_registry import (
 BoundedFinalProfileChoice = Literal[
     "auto",
     "answer_only_v1",
+    "generic_think_tags_32768_v1",
     "generic_think_tags_8192_v1",
     "gemma4_channel_8192_v1",
 ]
 BOUNDED_FINAL_PROFILE_CHOICES: Final[tuple[BoundedFinalProfileChoice, ...]] = (
     "auto",
     "answer_only_v1",
+    "generic_think_tags_32768_v1",
     "generic_think_tags_8192_v1",
     "gemma4_channel_8192_v1",
 )
@@ -60,11 +63,26 @@ class BoundedFinalProfileRuntime:
     prompt_renderer_manifest: JsonObject | None = None
 
     def __post_init__(self) -> None:
-        if self.forcing is not None and not self.forcing.answer_stop and self.contract.answer_stops:
+        forcing = self.forcing
+        budget = self.contract.budget
+        if (
+            forcing is not None
+            and self.contract.profile_id == "generic_think_tags_32768_v1"
+            and budget is not None
+        ):
+            forcing = replace(
+                forcing,
+                static_think_tokens=budget.static_think_tokens,
+                static_final_tokens=budget.static_final_tokens,
+                static_max_generated_tokens=budget.static_max_generated_tokens,
+            )
+        if forcing is not None and not forcing.answer_stop and self.contract.answer_stops:
+            forcing = replace(forcing, answer_stop=self.contract.answer_stops)
+        if forcing is not self.forcing:
             object.__setattr__(
                 self,
                 "forcing",
-                replace(self.forcing, answer_stop=self.contract.answer_stops),
+                forcing,
             )
 
     @property
@@ -148,17 +166,18 @@ def _answer_only_runtime(
 
 
 def _generic_runtime(
+    entry: ReasoningRegistryEntry,
     introspection: TemplateIntrospection,
     prompt_renderer: PromptRenderer | None,
     prompt_renderer_manifest: JsonObject | None,
     context: ExecutionContractContext,
 ) -> BoundedFinalProfileRuntime:
     return BoundedFinalProfileRuntime(
-        entry=GENERIC_THINK_TAGS_PROFILE,
-        forcing=GENERIC_THINK_TAGS_PROFILE.forcing,
+        entry=entry,
+        forcing=entry.forcing,
         prompt_renderer=prompt_renderer,
         contract=resolved_execution_contract(
-            GENERIC_THINK_TAGS_PROFILE,
+            entry,
             introspection.chat_template_kwargs,
             introspection.answer_stop,
             context,
@@ -292,8 +311,14 @@ def resolve_bounded_final_profile_from_introspection(
         if introspection.supports_gemma_channel:
             return _gemma_runtime(introspection, prompt_renderer, prompt_renderer_manifest, context)
         if introspection.supports_generic_thinking:
-            _require_answer_stop("generic_think_tags_8192_v1", introspection.answer_stop)
-            return _generic_runtime(introspection, prompt_renderer, prompt_renderer_manifest, context)
+            _require_answer_stop("generic_think_tags_32768_v1", introspection.answer_stop)
+            return _generic_runtime(
+                GENERIC_THINK_TAGS_32768_PROFILE,
+                introspection,
+                prompt_renderer,
+                prompt_renderer_manifest,
+                context,
+            )
         return _answer_only_runtime(
             introspection.answer_stop,
             context,
@@ -303,7 +328,24 @@ def resolve_bounded_final_profile_from_introspection(
         if not introspection.supports_generic_thinking:
             raise _unsupported(profile, "the canonical chat template exposes no native think tags or thinking kwarg")
         _require_answer_stop("generic_think_tags_8192_v1", introspection.answer_stop)
-        return _generic_runtime(introspection, prompt_renderer, prompt_renderer_manifest, context)
+        return _generic_runtime(
+            GENERIC_THINK_TAGS_PROFILE,
+            introspection,
+            prompt_renderer,
+            prompt_renderer_manifest,
+            context,
+        )
+    if profile == "generic_think_tags_32768_v1":
+        if not introspection.supports_generic_thinking:
+            raise _unsupported(profile, "the canonical chat template exposes no native think tags or thinking kwarg")
+        _require_answer_stop("generic_think_tags_32768_v1", introspection.answer_stop)
+        return _generic_runtime(
+            GENERIC_THINK_TAGS_32768_PROFILE,
+            introspection,
+            prompt_renderer,
+            prompt_renderer_manifest,
+            context,
+        )
     if profile == "gemma4_channel_8192_v1":
         if not introspection.supports_gemma_channel:
             raise _unsupported(profile, "the canonical chat template exposes no Gemma channel tags")

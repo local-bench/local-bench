@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from typing import TYPE_CHECKING
 
 import httpx
 
@@ -20,6 +21,9 @@ from localbench.budget_forcing import (
 )
 from localbench.lane_spec import BOUNDED_FINAL_MIN_FINAL, bounded_final_think_budget
 from localbench.prompt_rendering import PromptRenderer
+
+if TYPE_CHECKING:
+    from localbench.execution_contract import ResolvedExecutionContract
 
 
 def bounded_final_answer_budget(total_cap: int, reasoning_tokens_used: int) -> int:
@@ -39,9 +43,17 @@ async def run_bounded_final_forced_item(
     backoff_base: float,
     prompt_renderer: PromptRenderer,
     forcing_format: ForcingFormat,
+    execution_contract: ResolvedExecutionContract | None = None,
 ) -> ItemResult:
     total_cap = _total_cap(item)
-    think_budget = bounded_final_think_budget(total_cap, answer_reserve=_answer_reserve(item))
+    static_budget = _profile_owned_static_budget(execution_contract, forcing_format)
+    think_budget = (
+        static_budget[0]
+        if static_budget is not None
+        else bounded_final_think_budget(total_cap, answer_reserve=_answer_reserve(item))
+    )
+    if static_budget is not None:
+        item["max_tokens"] = static_budget[2]
     decoding = _forcing_decoding(item["sampling_params"])
     prompt = prompt_renderer.render(item["messages"])
     url = f"{base_url.rstrip('/')}/completions"
@@ -61,6 +73,11 @@ async def run_bounded_final_forced_item(
                     decoding=decoding,
                     total_cap=total_cap,
                     think_budget=think_budget,
+                    static_final_tokens=(
+                        None
+                        if static_budget is None
+                        else static_budget[1]
+                    ),
                     forcing_format=forcing_format,
                 )
                 return item_result(item, started_at, started_perf, attempt, parsed=parsed)
@@ -105,6 +122,7 @@ async def _bounded_final_two_pass(
     decoding: JsonObject,
     total_cap: int,
     think_budget: int,
+    static_final_tokens: int | None,
     forcing_format: ForcingFormat,
 ) -> ParsedCompletion:
     if think_budget <= 0:
@@ -125,7 +143,11 @@ async def _bounded_final_two_pass(
         )
         think_text, think_finish, think_usage, think_timings = _extract_completion(think_data)
     reasoning_tokens = _completion_tokens(think_usage)
-    answer_budget = bounded_final_answer_budget(total_cap, reasoning_tokens)
+    answer_budget = (
+        static_final_tokens
+        if static_final_tokens is not None
+        else bounded_final_answer_budget(total_cap, reasoning_tokens)
+    )
     answer_prompt = f"{prompt}{think_text}{forcing_format.forced_close}"
     answer_data = await _post_completion(
         client,
@@ -166,6 +188,31 @@ def _answer_reserve(item: BenchmarkItem) -> int:
     if isinstance(answer_reserve, int) and not isinstance(answer_reserve, bool):
         return max(0, answer_reserve)
     return BOUNDED_FINAL_MIN_FINAL
+
+
+def _profile_owned_static_budget(
+    execution_contract: ResolvedExecutionContract | None,
+    forcing_format: ForcingFormat,
+) -> tuple[int, int, int] | None:
+    if execution_contract is not None:
+        budget = execution_contract.budget
+        if (
+            execution_contract.profile_id == "generic_think_tags_32768_v1"
+            and budget is not None
+        ):
+            return (
+                budget.static_think_tokens,
+                budget.static_final_tokens,
+                budget.static_max_generated_tokens,
+            )
+    values = (
+        forcing_format.static_think_tokens,
+        forcing_format.static_final_tokens,
+        forcing_format.static_max_generated_tokens,
+    )
+    if all(isinstance(value, int) for value in values):
+        return values
+    return None
 
 
 def _completion_tokens(usage: Usage) -> int:

@@ -153,7 +153,11 @@ async def collect_manifest(
             "tier": context.tier,
             "item_set_hashes": context.item_set_hashes,
             "lane": context.lane if context.lane in _LANES else "answer-only",
-            "caps": _caps(context.sampling_by_bench, context.thinking_budget),
+            "caps": _caps(
+                context.sampling_by_bench,
+                context.thinking_budget,
+                context.execution_contract,
+            ),
             "accepted_suite_terms": context.accepted_suite_terms,
             "license_manifest": context.suite_license_manifest or {"files": {}},
         },
@@ -393,12 +397,31 @@ def _memory_mb(value: str) -> int | None:
     return int(digits) if digits else None
 
 
-def _caps(sampling_by_bench: Mapping[str, JsonObject], thinking_budget: int = 0) -> JsonObject:
+def _caps(
+    sampling_by_bench: Mapping[str, JsonObject],
+    thinking_budget: int = 0,
+    execution_contract: ResolvedExecutionContract | None = None,
+) -> JsonObject:
+    profile_thinking_budget = _profile_thinking_budget(execution_contract)
     return {
         "max_tokens_mcq": _max_tokens(sampling_by_bench, ("mmlu_pro",)),
         "max_tokens_math": _max_tokens(sampling_by_bench, ("genmath",)),
-        "thinking_budget": thinking_budget,
+        "thinking_budget": (
+            thinking_budget if profile_thinking_budget is None else profile_thinking_budget
+        ),
     }
+
+
+def _profile_thinking_budget(
+    execution_contract: ResolvedExecutionContract | None,
+) -> int | None:
+    if execution_contract is None:
+        return None
+    if execution_contract.profile_id != "generic_think_tags_32768_v1":
+        return None
+    if execution_contract.budget is None:
+        return None
+    return execution_contract.budget.static_think_tokens
 
 
 def _max_tokens(sampling_by_bench: Mapping[str, JsonObject], benches: tuple[str, ...]) -> int:

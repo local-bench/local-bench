@@ -22,6 +22,7 @@ from localbench.prompt_rendering import PromptRenderer
 
 if TYPE_CHECKING:
     from localbench.budget_forcing import ForcingFormat
+    from localbench.execution_contract import ResolvedExecutionContract
 from localbench.providers import (
     Lane,
     Provider,
@@ -54,6 +55,7 @@ async def run_item(
     base_url: str | None = None,
     prompt_renderer: PromptRenderer | None = None,
     forcing_format: ForcingFormat | None = None,
+    execution_contract: ResolvedExecutionContract | None = None,
 ) -> ItemResult:
     """Run one item and return a result instead of raising on request failure."""
     request_provider = provider or provider_for_name("local")
@@ -113,6 +115,7 @@ async def run_item(
             backoff_base=backoff_base,
             prompt_renderer=prompt_renderer,
             forcing_format=forcing_format,
+            execution_contract=execution_contract,
         )
     async with semaphore:
         started_at = utc_now()

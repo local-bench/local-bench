@@ -179,7 +179,7 @@ def test_hf_contract_regression_keeps_current_profile_kwargs_and_manifest(
     )
 
     # Then: the pre-contract runtime kwargs and prompt manifest stay byte-identical.
-    assert runtime.entry.id == "generic_think_tags_8192_v1"
+    assert runtime.entry.id == "generic_think_tags_32768_v1"
     assert runtime.answer_stop == ("<|im_end|>",)
     assert runtime.chat_template_kwargs == {"enable_thinking": True}
     assert runtime.prompt_renderer_manifest == {
@@ -191,10 +191,10 @@ def test_hf_contract_regression_keeps_current_profile_kwargs_and_manifest(
         "template_kwargs": {"enable_thinking": True},
     }
     assert runtime.contract.selection_policy_id == "hf-canonical-template-v1"
-    assert runtime.contract.selection_reason == "generic_think_tags_8192_v1"
+    assert runtime.contract.selection_reason == "generic_think_tags_32768_v1"
     assert runtime.contract.effective_template_sha256 is None
     assert runtime.contract.reasoning_mode == "generic_think"
-    assert runtime.contract.reasoning_budget == 8192
+    assert runtime.contract.reasoning_budget == 32768
     assert runtime.contract.model_file_sha256 == _MODEL_SHA
     assert runtime.contract.prompt_renderer_engine == (
         "transformers-jinja/hf-chat-template"
@@ -233,7 +233,7 @@ def test_gguf_contract_resolution_is_deterministic_for_same_artifact_bytes() -> 
     # Then: both resolutions produce the exact same contract.
     assert first.contract == second.contract
     assert first.prompt_renderer is not None
-    assert first.contract.profile_id == "generic_think_tags_8192_v1"
+    assert first.contract.profile_id == "generic_think_tags_32768_v1"
     assert first.contract.selection_policy_id == "gguf-effective-template-v1"
     assert first.contract.chat_template_kwargs == {"thinking": True}
     assert first.contract.prompt_renderer_engine == "llama.cpp/apply-template"

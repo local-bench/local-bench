@@ -113,10 +113,11 @@ def test_public_cli_generic_gguf_runs_server_renderer_and_forced_completion(
     assert len(stub.completion_requests) == 2
     first, continuation = stub.completion_requests
     assert first["prompt"] == EXPECTED_INITIAL_PROMPT
-    assert first["max_tokens"] == 8_192
+    assert first["max_tokens"] == 32_768
     assert continuation["prompt"] == (
         EXPECTED_INITIAL_PROMPT + "reasoning tokens\n</think>\n\n"
     )
+    assert continuation["max_tokens"] == 16_384
     assert all(
         value is not None and value.startswith("Bearer ")
         for value in stub.authorizations
@@ -133,8 +134,8 @@ def test_public_cli_generic_gguf_runs_server_renderer_and_forced_completion(
     assert campaign_contract["chat_template_kwargs"] == manifest_profile["chat_template_kwargs"]
     assert campaign_contract["answer_stops"] == manifest_profile["answer_stops"]
     assert structured_execution_profile(manifest_profile) == manifest_profile
-    assert record["manifest"]["suite"]["caps"]["thinking_budget"] == 8_192
-    assert record["serving"]["resolved_runtime"]["reasoning"]["budget"] == 8_192
+    assert record["manifest"]["suite"]["caps"]["thinking_budget"] == 32_768
+    assert record["serving"]["resolved_runtime"]["reasoning"]["budget"] == 32_768
 
 
 def _cli_args(
