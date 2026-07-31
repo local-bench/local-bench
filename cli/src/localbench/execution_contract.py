@@ -8,6 +8,13 @@ from types import MappingProxyType
 from typing import Final, Literal, assert_never
 
 from localbench._types import JsonObject, JsonValue
+from localbench.execution_profile_semantics import (
+    EXECUTION_PROFILE_SEMANTIC_FIELDS,
+    MissingExecutionProfileBudgetError,
+    execution_profile_semantic_payload,
+    optional_execution_profile_semantic_record,
+    semantic_sha256_for_budget,
+)
 from localbench.gguf_template import StaticProfileCandidate
 from localbench.reasoning_registry import (
     ANSWER_ONLY_PROFILE,
@@ -61,6 +68,13 @@ class ResolvedExecutionContract:
             "chat_template_kwargs",
             MappingProxyType(dict(self.chat_template_kwargs)),
         )
+
+    @property
+    def semantic_sha256(self) -> str:
+        budget = self.budget
+        if budget is None:
+            raise MissingExecutionProfileBudgetError(self.profile_id)
+        return semantic_sha256_for_budget(budget)
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,6 +194,7 @@ def execution_contract_record(contract: ResolvedExecutionContract) -> JsonObject
         "prompt_renderer_engine": contract.prompt_renderer_engine,
         "prompt_renderer_contract_version": contract.prompt_renderer_contract_version,
         "prompt_renderer_context_sha256": contract.prompt_renderer_context_sha256,
+        **optional_execution_profile_semantic_record(contract),
     }
 
 
@@ -206,6 +221,7 @@ def execution_profile_record(contract: ResolvedExecutionContract) -> JsonObject:
         "answer_stops": list(contract.answer_stops),
         "runtime_probe_passed": runtime_probe_passed,
         "prompt_renderer_engine": prompt_renderer_engine,
+        **optional_execution_profile_semantic_record(contract),
     }
 
 
@@ -214,7 +230,11 @@ def structured_execution_profile(value: JsonValue) -> JsonObject | None:
         return None
     if not all(field in value for field in _PUBLIC_EXECUTION_PROFILE_FIELDS):
         return None
-    return {field: value[field] for field in _PUBLIC_EXECUTION_PROFILE_FIELDS}
+    profile = {field: value[field] for field in _PUBLIC_EXECUTION_PROFILE_FIELDS}
+    for field in (*EXECUTION_PROFILE_SEMANTIC_FIELDS, "semantic_sha256"):
+        if field in value:
+            profile[field] = value[field]
+    return profile
 
 
 def execution_contract_notice(contract: ResolvedExecutionContract) -> str:

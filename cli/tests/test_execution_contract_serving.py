@@ -10,6 +10,7 @@ from localbench.execution_contract import (
     ResolvedExecutionContract,
     execution_contract_record,
 )
+from localbench.reasoning_registry import GENERIC_THINK_TAGS_PROFILE
 from localbench.serving.assembly import (
     bench_config,
     resolve_serving_execution_profile,
@@ -42,6 +43,7 @@ def _contract() -> ResolvedExecutionContract:
         prompt_renderer_context_sha256=(
             "ef0535353a1068f838242a315bb63c10f0e759c550d193031489e61137ef0993"
         ),
+        budget=GENERIC_THINK_TAGS_PROFILE.budget,
     )
 
 

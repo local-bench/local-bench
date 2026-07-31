@@ -21,6 +21,7 @@ from localbench.execution_contract import (
     execution_profile_record,
 )
 from localbench.orchestrate import UnsafeResumeError, _validate_resume_campaign
+from localbench.reasoning_registry import GENERIC_THINK_TAGS_PROFILE
 
 _MODEL_SHA: Final = "1" * 64
 _TEMPLATE_SHA: Final = "2" * 64
@@ -65,6 +66,7 @@ def _contract(
         prompt_renderer_engine="llama.cpp/apply-template",
         prompt_renderer_contract_version="localbench.prompt-renderer.v1",
         prompt_renderer_context_sha256=_RENDERER_CONTEXT_SHA,
+        budget=GENERIC_THINK_TAGS_PROFILE.budget,
     )
 
 
@@ -120,6 +122,22 @@ def test_execution_contract_record_preserves_full_structured_identity() -> None:
         "prompt_renderer_engine": "llama.cpp/apply-template",
         "prompt_renderer_contract_version": "localbench.prompt-renderer.v1",
         "prompt_renderer_context_sha256": _RENDERER_CONTEXT_SHA,
+        "static_think_tokens": 8192,
+        "static_final_tokens": 8192,
+        "static_max_generated_tokens": 16384,
+        "server_context_tokens": 32768,
+        "agentic_max_turns": 24,
+        "agentic_max_output_tokens_per_turn": 1024,
+        "agentic_max_generated_tokens_per_task": 32768,
+        "agentic_context_tokens": 32768,
+        "kv_cache_k_dtype": "f16",
+        "kv_cache_v_dtype": "f16",
+        "context_fit_policy": "exact-or-fail",
+        "context_extension_policy": "none",
+        "per_task_timeout_s": 1800,
+        "semantic_sha256": (
+            "a6bf105b73ad3f8120751151707ce2d15f4b20617a64250679a0dce8977d9bb3"
+        ),
     }
 
 
@@ -141,6 +159,22 @@ def test_public_execution_profile_uses_effective_template_and_probe_result() -> 
         "answer_stops": ["<|im_end|>"],
         "runtime_probe_passed": True,
         "prompt_renderer_engine": "llama.cpp.apply-template",
+        "static_think_tokens": 8192,
+        "static_final_tokens": 8192,
+        "static_max_generated_tokens": 16384,
+        "server_context_tokens": 32768,
+        "agentic_max_turns": 24,
+        "agentic_max_output_tokens_per_turn": 1024,
+        "agentic_max_generated_tokens_per_task": 32768,
+        "agentic_context_tokens": 32768,
+        "kv_cache_k_dtype": "f16",
+        "kv_cache_v_dtype": "f16",
+        "context_fit_policy": "exact-or-fail",
+        "context_extension_policy": "none",
+        "per_task_timeout_s": 1800,
+        "semantic_sha256": (
+            "a6bf105b73ad3f8120751151707ce2d15f4b20617a64250679a0dce8977d9bb3"
+        ),
     }
 
 
