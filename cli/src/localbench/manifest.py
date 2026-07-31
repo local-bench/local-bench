@@ -415,11 +415,7 @@ def _caps(
 def _profile_thinking_budget(
     execution_contract: ResolvedExecutionContract | None,
 ) -> int | None:
-    if execution_contract is None:
-        return None
-    if execution_contract.profile_id != "generic_think_tags_32768_v1":
-        return None
-    if execution_contract.budget is None:
+    if execution_contract is None or execution_contract.budget is None:
         return None
     return execution_contract.budget.static_think_tokens
 

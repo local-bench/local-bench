@@ -104,6 +104,7 @@ async def run_item(
     ):
         from localbench.bounded_final_forcing import run_bounded_final_forced_item
 
+        resolved_contract = execution_contract or forcing_format.execution_contract
         return await run_bounded_final_forced_item(
             client=client,
             base_url=base_url,
@@ -115,7 +116,7 @@ async def run_item(
             backoff_base=backoff_base,
             prompt_renderer=prompt_renderer,
             forcing_format=forcing_format,
-            execution_contract=execution_contract,
+            execution_contract=resolved_contract,
         )
     async with semaphore:
         started_at = utc_now()

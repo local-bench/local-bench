@@ -33,3 +33,31 @@ T1 changes are confined to CLI profile resolution, execution-contract plumbing, 
 
 - The 32k profile intentionally remains outside the signed legacy agentic catalog. It is separately lookup-addressable so scorecard resolution works, while the signed v8 contract stays valid. T2/T3 must decide how to serialize and publicly expose the full tuple and semantic digest; this task intentionally does neither.
 - The legacy 8192 control is locked to the exact two request bodies and 8192/8192 caps under a 16384 item cap. The release regression also hashes the suite and selected itemset before and after the 32k/legacy paths, proving byte stability.
+
+## Fix round 1: contract source and 32k conformance repair
+
+### Implementation
+
+- Removed the copied static budget fields from `ForcingFormat`. A bounded-final runtime now carries a reference to its resolved execution contract, and `_requests` forwards that contract uniformly into request shaping.
+- `bounded_final_forcing` consumes only `execution_contract.budget`; it no longer has either a profile-ID condition or a forcing-format budget fallback. `manifest._caps` likewise reads any resolved contract budget without profile-ID gating.
+- The new `generic_think_tags_32768_v1` entry now owns conformance metadata that agrees with its tuple: 32768 think, 16384 final, and the additive `32768 + 16384` total. The frozen 8192 entry and its metadata were not changed.
+
+### Red/green evidence
+
+- RED: `.venv/Scripts/python.exe -m pytest tests/test_profile_owned_budgets.py -q` produced `2 failed, 3 passed in 0.77s`.
+  - The arbitrary resolved-contract test observed `[32768, 16384]` instead of `[123, 456]`, proving the profile-ID gate.
+  - The 32k conformance test observed `think_cap == 8192` instead of `32768`.
+- GREEN: the same command passed `5 passed in 0.65s` after the minimal refactor and corrected entry metadata.
+- Green refactor: split the new contract-source coverage into `test_profile_owned_budget_contract.py` to keep both test modules under 250 non-comment LOC. Exact focused command:
+  `.venv/Scripts/python.exe -m pytest tests/test_profile_owned_budgets.py tests/test_profile_owned_budget_contract.py tests/test_bounded_final_profiles.py tests/test_budget_forcing.py tests/test_execution_contract.py tests/test_execution_contract_serving.py tests/test_execution_contract_release_gate.py -q`
+  -> `69 passed in 1.49s`.
+
+### Final verification
+
+- CLI: `.venv/Scripts/python.exe -m pytest tests -q` -> `2162 passed, 17 skipped, 4 xfailed, 23 warnings in 399.44s`.
+- Web: `npm test` -> `113 passed / 1 skipped test files; 692 passed / 1 skipped tests in 283.86s`.
+- `git diff --check` passed; `git diff --exit-code -- cli/src/localbench/orchestrate.py` passed.
+
+### Deferred minor
+
+- As directed, the release regression’s current-byte pre/post suite-hash comparison remains deferred for final-review triage; this repair does not expand that scope.

@@ -30,7 +30,7 @@ import json
 import re
 import time
 from dataclasses import dataclass
-from typing import Final, assert_never
+from typing import TYPE_CHECKING, Final, assert_never
 
 import httpx
 
@@ -53,6 +53,9 @@ from localbench._types import (
 )
 from localbench.prompt_rendering import PromptRenderer, ReasoningActivation
 
+if TYPE_CHECKING:
+    from localbench.execution_contract import ResolvedExecutionContract
+
 # The locked methodology thinking budget for the capped-thinking lane.
 CAPPED_THINKING_THINK_BUDGET: Final = 8192
 _MIN_ANSWER_BUDGET: Final = 1024
@@ -68,9 +71,7 @@ class ForcingFormat:
     answer_stop: tuple[str, ...]
     reasoning_open: str | None = None
     reparse: str | None = None
-    static_think_tokens: int | None = None
-    static_final_tokens: int | None = None
-    static_max_generated_tokens: int | None = None
+    execution_contract: ResolvedExecutionContract | None = None
 
 
 QWEN_FORCING: Final = ForcingFormat("</think>", "\n</think>\n\n", ("<|im_end|>",))

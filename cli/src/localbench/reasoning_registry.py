@@ -232,7 +232,15 @@ GENERIC_THINK_TAGS_32768_PROFILE: Final = ReasoningRegistryEntry(
     activation=GENERIC_THINK_TAGS_PROFILE.activation,
     forcing=GENERIC_THINK_TAGS_FORCING,
     parser=GENERIC_THINK_TAGS_PROFILE.parser,
-    conformance=GENERIC_THINK_TAGS_PROFILE.conformance,
+    conformance={
+        "lane": "bounded-final-v1",
+        "think_cap": 32768,
+        "min_final": 16384,
+        "think_budget": "32768",
+        "answer_budget": "16384",
+        "max_generated_tokens": "32768 + 16384",
+        "leak_regexes": CANONICAL_REASONING_LEAK_REGEXES,
+    },
     provenance={
         **GENERIC_THINK_TAGS_PROFILE.provenance,
         "source": "profile-owned 32k generic think-tags two-pass forcing",

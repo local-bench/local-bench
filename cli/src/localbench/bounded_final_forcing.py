@@ -46,7 +46,7 @@ async def run_bounded_final_forced_item(
     execution_contract: ResolvedExecutionContract | None = None,
 ) -> ItemResult:
     total_cap = _total_cap(item)
-    static_budget = _profile_owned_static_budget(execution_contract, forcing_format)
+    static_budget = _profile_owned_static_budget(execution_contract)
     think_budget = (
         static_budget[0]
         if static_budget is not None
@@ -192,27 +192,15 @@ def _answer_reserve(item: BenchmarkItem) -> int:
 
 def _profile_owned_static_budget(
     execution_contract: ResolvedExecutionContract | None,
-    forcing_format: ForcingFormat,
 ) -> tuple[int, int, int] | None:
-    if execution_contract is not None:
-        budget = execution_contract.budget
-        if (
-            execution_contract.profile_id == "generic_think_tags_32768_v1"
-            and budget is not None
-        ):
-            return (
-                budget.static_think_tokens,
-                budget.static_final_tokens,
-                budget.static_max_generated_tokens,
-            )
-    values = (
-        forcing_format.static_think_tokens,
-        forcing_format.static_final_tokens,
-        forcing_format.static_max_generated_tokens,
+    if execution_contract is None or execution_contract.budget is None:
+        return None
+    budget = execution_contract.budget
+    return (
+        budget.static_think_tokens,
+        budget.static_final_tokens,
+        budget.static_max_generated_tokens,
     )
-    if all(isinstance(value, int) for value in values):
-        return values
-    return None
 
 
 def _completion_tokens(usage: Usage) -> int:

@@ -64,20 +64,16 @@ class BoundedFinalProfileRuntime:
 
     def __post_init__(self) -> None:
         forcing = self.forcing
-        budget = self.contract.budget
-        if (
-            forcing is not None
-            and self.contract.profile_id == "generic_think_tags_32768_v1"
-            and budget is not None
-        ):
+        if forcing is not None:
             forcing = replace(
                 forcing,
-                static_think_tokens=budget.static_think_tokens,
-                static_final_tokens=budget.static_final_tokens,
-                static_max_generated_tokens=budget.static_max_generated_tokens,
+                answer_stop=(
+                    forcing.answer_stop
+                    if forcing.answer_stop
+                    else self.contract.answer_stops
+                ),
+                execution_contract=self.contract,
             )
-        if forcing is not None and not forcing.answer_stop and self.contract.answer_stops:
-            forcing = replace(forcing, answer_stop=self.contract.answer_stops)
         if forcing is not self.forcing:
             object.__setattr__(
                 self,
