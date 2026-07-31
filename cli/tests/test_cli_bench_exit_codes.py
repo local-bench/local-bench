@@ -27,6 +27,7 @@ _TOKENIZER_REVISION = "d" * 40
 def _isolate_hf_offline_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)
     monkeypatch.delenv("TRANSFORMERS_OFFLINE", raising=False)
+    monkeypatch.setattr(cli_mod, "_preflight_execution_contract", lambda: None)
 
 
 @pytest.mark.parametrize(
@@ -638,7 +639,7 @@ def test_bench_incomplete_snapshot_yields_gguf_repo_only_guidance_not_traceback(
 
     # Then: exit 2, single error line naming --gguf-repo-only and the resolved ref, no traceback.
     stderr = capsys.readouterr().err
-    error_lines = [l for l in stderr.splitlines() if l.startswith("error      ")]
+    error_lines = [line for line in stderr.splitlines() if line.startswith("error      ")]
     assert code == 2
     assert launched is False
     assert len(error_lines) == 1

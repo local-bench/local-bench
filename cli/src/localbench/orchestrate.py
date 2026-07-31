@@ -1855,7 +1855,15 @@ def _run_agentic_axis(
         provenance_stage = "scored"
 
     journal_context = _agentic_journal_context(
-        resume_seed, subset.ordered_task_ids_sha256, resolved_chat_template_kwargs, results_dir
+        resume_seed,
+        subset.ordered_task_ids_sha256,
+        resolved_chat_template_kwargs,
+        results_dir,
+        (
+            None
+            if config.resolved_bounded_profile is None
+            else config.resolved_bounded_profile.contract
+        ),
     )
     agg = run_with_reruns(
         label=config.model,
@@ -1994,6 +2002,11 @@ def _appworld_report_summary(report: BenchmarkReport) -> JsonObject:
         "model_failure_rate": report.model_failure_rate,
         "model_no_progress_rate": report.model_no_progress_rate,
         "harness_error_subclass_rate": report.harness_error_subclass_rate,
+        "output_tokens_per_turn_p95": report.output_tokens_per_turn_p95,
+        "output_tokens_per_turn_p99": report.output_tokens_per_turn_p99,
+        "output_tokens_per_turn_max": report.output_tokens_per_turn_max,
+        "history_truncation_rate": report.history_truncation_rate,
+        "cumulative_task_output_cap_hit_rate": report.cumulative_task_output_cap_hit_rate,
         "format_failure_rate": report.format_failure_rate,
         "syntax_error_rate": report.syntax_error_rate,
         "runtime_error_rate": report.runtime_error_rate,
@@ -2322,13 +2335,26 @@ def _agentic_journal_context(
     task_set_sha256: str,
     chat_template_kwargs: JsonObject,
     results_dir: Path | None,
+    resolved_contract: ResolvedExecutionContract | None,
 ) -> tuple[LoopConfig, AgenticResumeIdentity]:
     from localbench.scoring.agentic_exec.loop_config import LoopConfig
     from localbench.scoring.agentic_exec.task_journal import JournalError
 
-    config = LoopConfig(
-        max_output_tokens_per_turn=_AGENTIC_SCORED_MAX_OUTPUT_TOKENS_PER_TURN,
-        attestation_run_id=_attestation_run_id(results_dir),
+    budget = None if resolved_contract is None else resolved_contract.budget
+    config = (
+        LoopConfig(
+            max_output_tokens_per_turn=_AGENTIC_SCORED_MAX_OUTPUT_TOKENS_PER_TURN,
+            attestation_run_id=_attestation_run_id(results_dir),
+        )
+        if budget is None
+        else LoopConfig(
+            max_turns=budget.agentic_max_turns,
+            max_output_tokens_per_turn=budget.agentic_max_output_tokens_per_turn,
+            max_generated_tokens_per_task=budget.agentic_max_generated_tokens_per_task,
+            context_window=budget.agentic_context_tokens,
+            per_task_timeout_s=float(budget.per_task_timeout_s),
+            attestation_run_id=_attestation_run_id(results_dir),
+        )
     )
     if resume_seed is None:
         raise JournalError("agentic journal resume identity is unavailable")
@@ -2337,8 +2363,10 @@ def _agentic_journal_context(
         sampling={
             "max_turns": config.max_turns,
             "max_output_tokens_per_turn": config.max_output_tokens_per_turn,
+            "max_generated_tokens_per_task": config.max_generated_tokens_per_task,
             "max_observation_chars": config.max_observation_chars,
             "context_window": config.context_window,
+            "per_task_timeout_s": config.per_task_timeout_s,
             "temperature": config.temperature,
             "top_p": config.top_p,
             "seed": config.seed,

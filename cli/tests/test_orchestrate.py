@@ -610,6 +610,7 @@ def test_run_threads_observed_context_to_orchestrate_config(
     monkeypatch.setattr(cli_mod, "_preflight_endpoint", fake_preflight_endpoint)
     monkeypatch.setattr(cli_mod, "_preflight_smoke", fake_preflight_smoke)
     monkeypatch.setattr(cli_mod, "_preflight_server_context", fake_preflight_context)
+    monkeypatch.setattr(cli_mod, "_preflight_execution_contract", lambda: None)
     monkeypatch.setattr(cli_mod, "run_localbench", fake_run_localbench)
     monkeypatch.setattr(cli_mod, "_print_summary", lambda record, out=None: None)
 

@@ -445,8 +445,18 @@ def aggregate(results: list[TaskRunResult]) -> BenchmarkReport:
     total_syntax = sum(r.diagnostics.syntax_errors for r in results)
     total_runtime = sum(r.diagnostics.runtime_errors for r in results)
     total_truncations = sum(r.diagnostics.observation_truncations for r in results)
+    total_history_truncations = sum(r.diagnostics.history_truncations for r in results)
     total_api_calls = sum(r.diagnostics.total_api_calls for r in results)
     total_output_tokens = sum(r.diagnostics.total_output_tokens for r in results)
+    turn_output_tokens = [
+        turn.output_tokens
+        for result in results
+        for turn in result.diagnostics.turns
+    ]
+    cumulative_cap_hits = sum(
+        result.diagnostics.cap_dimension == "task_output_tokens"
+        for result in results
+    )
 
     outcome_counts: dict[str, int] = {o.value: 0 for o in TaskOutcome}
     for r in results:
@@ -482,6 +492,11 @@ def aggregate(results: list[TaskRunResult]) -> BenchmarkReport:
             _count_failure_class(results, FailureClass.HARNESS_ERROR),
             n,
         ),
+        output_tokens_per_turn_p95=_percentile(turn_output_tokens, 0.95),
+        output_tokens_per_turn_p99=_percentile(turn_output_tokens, 0.99),
+        output_tokens_per_turn_max=max(turn_output_tokens, default=None),
+        history_truncation_rate=_safe_div(total_history_truncations, total_turns),
+        cumulative_task_output_cap_hit_rate=_safe_div(cumulative_cap_hits, n),
         format_failure_rate=_safe_div(total_format_failures, total_turns),
         syntax_error_rate=_safe_div(total_syntax, total_blocks),
         runtime_error_rate=_safe_div(total_runtime, total_blocks),
@@ -553,6 +568,17 @@ def _harness_error_result(task_id: str, exc: Exception) -> TaskRunResult:
 
 def _safe_div(num: float, den: float) -> float:
     return float(num) / float(den) if den else 0.0
+
+
+def _percentile(values: list[int], quantile: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    position = (len(ordered) - 1) * quantile
+    lower = int(position)
+    upper = min(lower + 1, len(ordered) - 1)
+    fraction = position - lower
+    return float(ordered[lower] + (ordered[upper] - ordered[lower]) * fraction)
 
 
 def _count_failure_class(results: list[TaskRunResult], failure_class: FailureClass) -> int:

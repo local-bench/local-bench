@@ -410,7 +410,10 @@ def _persist_report(
         "loop_config": {
             "max_turns": config.max_turns,
             "max_output_tokens_per_turn": config.max_output_tokens_per_turn,
+            "max_generated_tokens_per_task": config.max_generated_tokens_per_task,
             "max_observation_chars": config.max_observation_chars,
+            "context_window": config.context_window,
+            "per_task_timeout_s": config.per_task_timeout_s,
             "temperature": config.temperature,
             "top_p": config.top_p,
             "seed": config.seed,

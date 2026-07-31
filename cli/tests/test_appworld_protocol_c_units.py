@@ -38,6 +38,7 @@ from localbench.scoring.agentic_exec.loop_types import (  # noqa: E402
     TaskDiagnostics,
     TaskOutcome,
     TaskRunResult,
+    TurnRecord,
 )
 from localbench.scoring.agentic_exec.model_client import (  # noqa: E402
     GenerationParams,
@@ -457,6 +458,42 @@ def test_loop_cap_exceeded_when_never_finalizes() -> None:
     assert result.diagnostics.blocks_run == 5  # every no-op block ran
 
 
+def test_loop_cumulative_output_cap_preserves_reason_and_identifies_dimension() -> None:
+    # Given: two otherwise valid turns whose reported output reaches the task token cap.
+    class _TokenHeavyAgent:
+        def __init__(self) -> None:
+            self.request_caps: list[int] = []
+
+        def complete(self, messages: list[ChatMessage], params: GenerationParams) -> ModelResponse:
+            self.request_caps.append(params.max_output_tokens)
+            turn = sum(1 for message in messages if message["role"] == "assistant") + 1
+            return ModelResponse(
+                f"```python\nprint('turn-{turn}')\n```",
+                "stop",
+                output_tokens=min(3, params.max_output_tokens),
+            )
+
+    sandbox = FakeSandbox(gold_answer=1, instruction=_FAC_INSTR, supervisor_email="b@x.com")
+    agent = _TokenHeavyAgent()
+
+    # When: the cumulative output reaches a five-token task budget on turn two.
+    result = run_task(
+        sandbox,
+        agent,
+        "fac291d_1",
+        LoopConfig(max_turns=10, max_generated_tokens_per_task=5),
+    )
+
+    # Then: the frozen outcome remains cap_exceeded and only its dimension is additive.
+    assert result.outcome == TaskOutcome.CAP_EXCEEDED
+    assert result.diagnostics.cap_exceeded is True
+    assert result.diagnostics.cap_dimension == "task_output_tokens"
+    assert result.diagnostics.total_output_tokens == 5
+    assert result.diagnostics.turns_used == 2
+    assert result.diagnostics.blocks_run == 1
+    assert agent.request_caps == [5, 2]
+
+
 def test_loop_runtime_error_is_recorded_and_recoverable() -> None:
     sandbox = FakeSandbox(gold_answer=5, instruction=_FAC_INSTR, supervisor_email="b@x.com")
 
@@ -557,7 +594,7 @@ def test_loop_windows_history_deterministically_with_anchors_and_recent_turns() 
             self.step += 1
             return ModelResponse(f"```python\nprint('turn-{self.step}')\n```", "stop")
 
-    def run_episode() -> list[list[ChatMessage]]:
+    def run_episode() -> tuple[list[list[ChatMessage]], TaskRunResult]:
         sandbox = FakeSandbox(gold_answer=1, instruction=_FAC_INSTR, supervisor_email="b@x.com")
         agent = _LongEpisodeAgent()
         cfg = LoopConfig(
@@ -568,10 +605,10 @@ def test_loop_windows_history_deterministically_with_anchors_and_recent_turns() 
         )
         result = run_task(sandbox, agent, "fac291d_1", cfg)
         assert result.outcome == TaskOutcome.CAP_EXCEEDED
-        return agent.call_histories
+        return agent.call_histories, result
 
-    first = run_episode()
-    second = run_episode()
+    first, first_result = run_episode()
+    second, _ = run_episode()
 
     assert json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
     final_history = first[-1]
@@ -581,6 +618,7 @@ def test_loop_windows_history_deterministically_with_anchors_and_recent_turns() 
     assert "turn-1" not in json.dumps(final_history)
     assert "turn-5" in json.dumps(final_history)
     assert len(final_history) == 4
+    assert first_result.diagnostics.history_truncations == 5
 
 
 def test_loop_classifies_block_wall_timeout_as_infra_without_retry() -> None:
@@ -721,6 +759,77 @@ def test_benchmark_entry_point_aggregates_two_tasks() -> None:
     assert report.outcome_counts["success"] == 2
     # report is JSON-serialisable for the GPU run to persist.
     json.dumps(report.as_dict())
+
+
+def test_benchmark_aggregates_turn_output_and_new_cap_diagnostics() -> None:
+    # Given: actual task and turn records including history truncations and a cumulative cap hit.
+    diagnostics = TaskDiagnostics(
+        task_id="capped",
+        outcome=TaskOutcome.CAP_EXCEEDED,
+        success=False,
+        collateral_damage=False,
+        turns_used=3,
+        blocks_run=2,
+        format_failures=0,
+        syntax_errors=0,
+        runtime_errors=0,
+        cap_exceeded=True,
+        cap_dimension="task_output_tokens",
+        total_api_calls=0,
+        api_docs_uses=0,
+        observation_truncations=0,
+        history_truncations=2,
+        total_output_tokens=60,
+        turns=[
+            TurnRecord(
+                index=index,
+                finish_reason="stop",
+                output_tokens=tokens,
+                had_block=True,
+                format_error=None,
+                syntax_error=False,
+                runtime_error=False,
+                api_calls=0,
+                api_docs_calls=0,
+                observation_truncated=False,
+                is_final=False,
+            )
+            for index, tokens in enumerate((10, 20, 30), start=1)
+        ],
+    )
+    result = TaskRunResult(
+        task_id="capped",
+        success=False,
+        outcome=TaskOutcome.CAP_EXCEEDED,
+        collateral_damage=False,
+        diagnostics=diagnostics,
+    )
+
+    # When: the benchmark aggregates and serializes the task records.
+    report = bench.aggregate([result])
+    serialized = report.as_dict()
+
+    # Then: percentiles use turns, history uses turns, and cumulative hits use tasks.
+    assert report.output_tokens_per_turn_p95 == pytest.approx(29.0)
+    assert report.output_tokens_per_turn_p99 == pytest.approx(29.8)
+    assert report.output_tokens_per_turn_max == 30
+    assert report.history_truncation_rate == pytest.approx(2 / 3)
+    assert report.cumulative_task_output_cap_hit_rate == 1.0
+    assert serialized["output_tokens_per_turn_p95"] == pytest.approx(29.0)
+    assert serialized["history_truncation_rate"] == pytest.approx(2 / 3)
+    assert serialized["cumulative_task_output_cap_hit_rate"] == 1.0
+
+
+def test_benchmark_new_diagnostics_fail_safe_for_empty_input() -> None:
+    # Given / When: no task or turn records exist.
+    report = bench.aggregate([])
+
+    # Then: undefined turn extrema are null and rate denominators safely yield zero.
+    assert report.output_tokens_per_turn_p95 is None
+    assert report.output_tokens_per_turn_p99 is None
+    assert report.output_tokens_per_turn_max is None
+    assert report.history_truncation_rate == 0.0
+    assert report.cumulative_task_output_cap_hit_rate == 0.0
 
 
 def test_benchmark_isolates_per_task_harness_error() -> None:

@@ -33,6 +33,8 @@ class LoopConfig:
     # failure for that turn. Generous: real Protocol C blocks are short (median ~5 blocks).
     max_output_tokens_per_turn: int = 1024
 
+    max_generated_tokens_per_task: int | None = None
+
     # Observation truncation: the captured stdout fed back to the model is hard-capped to
     # this many characters (keeps a single chatty print from blowing the context window and
     # keeps observation canonicalisation bounded). Truncations are counted as a diagnostic.

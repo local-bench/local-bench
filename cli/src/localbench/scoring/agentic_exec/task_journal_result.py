@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from localbench._types import JsonObject, JsonValue
 from localbench.scoring.agentic_exec.loop_types import (
+    CapDimension,
     FailureClass,
     TaskDiagnostics,
     TaskOutcome,
@@ -41,6 +42,7 @@ def task_result_from_envelope(envelope: JsonObject) -> TaskRunResult:
             "diagnostics.runtime_errors",
         ),
         cap_exceeded=_boolean(diagnostics.get("cap_exceeded"), "diagnostics.cap_exceeded"),
+        cap_dimension=_cap_dimension(diagnostics.get("cap_dimension")),
         total_api_calls=_integer(
             diagnostics.get("total_api_calls"),
             "diagnostics.total_api_calls",
@@ -52,6 +54,10 @@ def task_result_from_envelope(envelope: JsonObject) -> TaskRunResult:
         observation_truncations=_integer(
             diagnostics.get("observation_truncations"),
             "diagnostics.observation_truncations",
+        ),
+        history_truncations=_optional_integer(
+            diagnostics.get("history_truncations"),
+            "diagnostics.history_truncations",
         ),
         total_output_tokens=_integer(
             diagnostics.get("total_output_tokens"),
@@ -170,6 +176,18 @@ def _integer(value: JsonValue | None, field: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool):
         raise JournalCorruptionError(f"journal {field} must be an integer")
     return value
+
+
+def _optional_integer(value: JsonValue | None, field: str) -> int:
+    return 0 if value is None else _integer(value, field)
+
+
+def _cap_dimension(value: JsonValue | None) -> CapDimension | None:
+    if value is None:
+        return None
+    if value == "task_output_tokens":
+        return "task_output_tokens"
+    raise JournalCorruptionError("journal diagnostics.cap_dimension is invalid")
 
 
 def _number(value: JsonValue | None, field: str) -> float:

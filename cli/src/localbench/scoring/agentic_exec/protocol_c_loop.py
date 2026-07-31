@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Protocol, assert_never
 
 from localbench._types import ChatMessage
@@ -44,6 +44,7 @@ from localbench.scoring.agentic_exec.block_parser import (
 )
 from localbench.scoring.agentic_exec.loop_config import LoopConfig
 from localbench.scoring.agentic_exec.loop_types import (
+    CapDimension,
     FailureClass,
     TaskDiagnostics,
     TaskOutcome,
@@ -166,7 +167,7 @@ def run_task(
 ) -> TaskRunResult:
     """Run one AppWorld task through the Protocol C loop; return verdict + diagnostics."""
     cfg = config or LoopConfig()
-    params = cfg.generation_params()
+    base_params = cfg.generation_params()
 
     try:
         instruction, supervisor_email = _bootstrap_task_context(sandbox)
@@ -182,6 +183,7 @@ def run_task(
     total_api_calls = 0
     api_docs_uses = 0
     observation_truncations = 0
+    history_truncations = 0
     total_output_tokens = 0
     transport_failure_count = 0
     transport_attempt_count = 0
@@ -192,8 +194,21 @@ def run_task(
     finalize_error: str | None = None
     finalization: dict[str, Any] | None = None
     failure_class = FailureClass.NONE
+    cap_dimension: CapDimension | None = None
 
     for turn_index in range(1, cfg.max_turns + 1):
+        task_output_cap = cfg.max_generated_tokens_per_task
+        params = (
+            base_params
+            if task_output_cap is None
+            else replace(
+                base_params,
+                max_output_tokens=min(
+                    base_params.max_output_tokens,
+                    task_output_cap - total_output_tokens,
+                ),
+            )
+        )
         response = model.complete(messages, params)
         transport_failure_count += response.transport_failure_count
         transport_attempt_count += response.transport_attempt_count
@@ -205,6 +220,28 @@ def run_task(
         total_output_tokens += out_tokens
         # Record the assistant turn in the history regardless of how it parses.
         messages.append(ChatMessage(role="assistant", content=strip_reasoning(response.text)))
+
+        if task_output_cap is not None and total_output_tokens >= task_output_cap:
+            turns.append(TurnRecord(
+                index=turn_index,
+                finish_reason=response.finish_reason,
+                output_tokens=out_tokens,
+                had_block=False,
+                format_error=None,
+                syntax_error=False,
+                runtime_error=False,
+                api_calls=0,
+                api_docs_calls=0,
+                observation_truncated=False,
+                is_final=False,
+                raw_response_text=response.text,
+                error_detail=response.error_detail,
+                server_timings=response.server_timings,
+            ))
+            outcome = TaskOutcome.CAP_EXCEEDED
+            failure_class = FailureClass.MODEL_NO_PROGRESS
+            cap_dimension = "task_output_tokens"
+            break
 
         # A per-turn token-cap hit ("length") means the block is almost certainly truncated;
         # treat it as a format failure for the turn with a corrective nudge (recoverable).
@@ -222,7 +259,9 @@ def run_task(
                 "FORMAT ERROR: your reply was cut off at the per-turn token limit. Keep each "
                 "turn short: write one compact ```python block and print only what you need."
             ))
-            messages = _window_messages(messages, cfg)
+            windowed_messages = _window_messages(messages, cfg)
+            history_truncations += int(len(windowed_messages) < len(messages))
+            messages = windowed_messages
             continue
 
         parsed = parse_turn(response.text)
@@ -238,7 +277,9 @@ def run_task(
                 server_timings=response.server_timings,
             ))
             messages.append(_user_msg(parsed.message))
-            messages = _window_messages(messages, cfg)
+            windowed_messages = _window_messages(messages, cfg)
+            history_truncations += int(len(windowed_messages) < len(messages))
+            messages = windowed_messages
             continue
 
         assert isinstance(parsed, TurnAction)
@@ -367,7 +408,9 @@ def run_task(
             outcome = TaskOutcome.SUCCESS if verdict.success else TaskOutcome.FAILURE
             failure_class = _failure_class_for_outcome(outcome)
             break
-        messages = _window_messages(messages, cfg)
+        windowed_messages = _window_messages(messages, cfg)
+        history_truncations += int(len(windowed_messages) < len(messages))
+        messages = windowed_messages
     else:
         # for-loop exhausted without break => never finalized within the cap.
         outcome = TaskOutcome.CAP_EXCEEDED
@@ -384,9 +427,11 @@ def run_task(
         syntax_errors=syntax_errors,
         runtime_errors=runtime_errors,
         cap_exceeded=(outcome == TaskOutcome.CAP_EXCEEDED),
+        cap_dimension=cap_dimension,
         total_api_calls=total_api_calls,
         api_docs_uses=api_docs_uses,
         observation_truncations=observation_truncations,
+        history_truncations=history_truncations,
         total_output_tokens=total_output_tokens,
         failure_class=failure_class,
         transport_failure_count=transport_failure_count,

@@ -11,7 +11,9 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
+
+CapDimension = Literal["task_output_tokens"]
 
 
 class TaskOutcome(StrEnum):
@@ -83,6 +85,8 @@ class TaskDiagnostics:
     api_docs_uses: int               # summed apis.api_docs.* across run blocks
     observation_truncations: int     # observations truncated to the char cap
     total_output_tokens: int         # summed completion tokens across turns
+    cap_dimension: CapDimension | None = None
+    history_truncations: int = 0  # completed turns whose history window dropped messages
     finalize_error: str | None = None  # set if finalize itself errored (HARNESS_ERROR)
     # Additive direct-finalize provenance: verdict-channel descriptor + sha256 of the
     # orchestrator's read-back answer. None when the sandbox does not advertise one (mocks).
@@ -168,6 +172,11 @@ class BenchmarkReport:
     model_failure_rate: float = 0.0
     model_no_progress_rate: float = 0.0
     harness_error_subclass_rate: float = 0.0
+    output_tokens_per_turn_p95: float | None = None
+    output_tokens_per_turn_p99: float | None = None
+    output_tokens_per_turn_max: int | None = None
+    history_truncation_rate: float = 0.0  # history truncations / total turns
+    cumulative_task_output_cap_hit_rate: float = 0.0  # cumulative cap hits / total tasks
 
     def __post_init__(self) -> None:
         # Workflow control only: this fail-closed gate is not an anti-forgery boundary against
@@ -198,6 +207,11 @@ class BenchmarkReport:
             "model_failure_rate": self.model_failure_rate,
             "model_no_progress_rate": self.model_no_progress_rate,
             "harness_error_subclass_rate": self.harness_error_subclass_rate,
+            "output_tokens_per_turn_p95": self.output_tokens_per_turn_p95,
+            "output_tokens_per_turn_p99": self.output_tokens_per_turn_p99,
+            "output_tokens_per_turn_max": self.output_tokens_per_turn_max,
+            "history_truncation_rate": self.history_truncation_rate,
+            "cumulative_task_output_cap_hit_rate": self.cumulative_task_output_cap_hit_rate,
             "format_failure_rate": self.format_failure_rate,
             "syntax_error_rate": self.syntax_error_rate,
             "runtime_error_rate": self.runtime_error_rate,

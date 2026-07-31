@@ -152,8 +152,12 @@ def test_campaign_and_public_profile_share_the_contract_semantic_identity(
 
 def test_agentic_resume_refuses_40_to_39_semantic_drift_before_model_request(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Given: a persisted agentic journal minted with max_turns=40 and an otherwise exact tuple.
+    from localbench.scoring.agentic_exec import execution_contract as agentic_contract
+
+    monkeypatch.setattr(agentic_contract, "assert_execution_contract", lambda: "contract")
     contract = _contract()
     changed_budget = replace(contract.budget, agentic_max_turns=39)
     changed_contract = replace(contract, budget=changed_budget)

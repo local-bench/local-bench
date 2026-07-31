@@ -906,6 +906,7 @@ def test_cli_vllm_flags_reach_serve_options(monkeypatch: pytest.MonkeyPatch, tmp
         return {"benches": {}, "totals": {}, "warnings": []}
 
     monkeypatch.setattr(cli_mod.anyio, "run", fake_anyio_run)
+    monkeypatch.setattr(cli_mod, "_preflight_execution_contract", lambda: None)
     monkeypatch.setattr(cli_mod, "_print_summary", lambda *_args, **_kwargs: None)
     code = cli_mod.main(
         [

@@ -450,6 +450,7 @@ def contract_task_ids(path: Path | None = None) -> list[str]:
 def _extract_covered_behavior() -> tuple[JsonObject, JsonObject]:
     import localbench.orchestrate as orchestrate
     from localbench.reasoning_registry import (
+        GENERIC_THINK_TAGS_32768_PROFILE,
         REASONING_REGISTRY,
         execution_profile_digest,
         execution_profile_payload,
@@ -466,8 +467,15 @@ def _extract_covered_behavior() -> tuple[JsonObject, JsonObject]:
         wsl_process,
     )
 
+    agentic_budget = GENERIC_THINK_TAGS_32768_PROFILE.budget
     loop = loop_config.LoopConfig(
-        max_output_tokens_per_turn=orchestrate._AGENTIC_SCORED_MAX_OUTPUT_TOKENS_PER_TURN,
+        max_turns=agentic_budget.agentic_max_turns,
+        max_output_tokens_per_turn=agentic_budget.agentic_max_output_tokens_per_turn,
+        max_generated_tokens_per_task=(
+            agentic_budget.agentic_max_generated_tokens_per_task
+        ),
+        context_window=agentic_budget.agentic_context_tokens,
+        per_task_timeout_s=float(agentic_budget.per_task_timeout_s),
     )
     wsl = wsl_process.WslWorkerConfig("", "", "")
     sandbox_cfg = sandbox.SandboxConfig()
@@ -498,6 +506,7 @@ def _extract_covered_behavior() -> tuple[JsonObject, JsonObject]:
         "budgets": {
             "max_turns": loop.max_turns,
             "max_output_tokens_per_turn": loop.max_output_tokens_per_turn,
+            "max_generated_tokens_per_task": loop.max_generated_tokens_per_task,
             "max_observation_chars": loop.max_observation_chars,
             "context_window": loop.context_window,
             "temperature": loop.temperature,
