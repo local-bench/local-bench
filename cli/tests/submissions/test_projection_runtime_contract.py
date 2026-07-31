@@ -114,7 +114,11 @@ def test_projection_schema_accepts_optional_structured_execution_profile() -> No
     assert schema["properties"]["execution_profile"] == {
         "$ref": "#/$defs/executionProfile",
     }
-    assert set(profile_schema["required"]) == {
+    assert profile_schema["oneOf"] == [
+        {"$ref": "#/$defs/executionProfileV1"},
+        {"$ref": "#/$defs/executionProfileV2"},
+    ]
+    assert set(schema["$defs"]["executionProfileV1"]["required"]) == {
         "id",
         "selection_policy_id",
         "selection_reason",
@@ -124,6 +128,32 @@ def test_projection_schema_accepts_optional_structured_execution_profile() -> No
         "answer_stops",
         "runtime_probe_passed",
         "prompt_renderer_engine",
+    }
+    assert set(schema["$defs"]["executionProfileV2"]["required"]) == {
+        "id",
+        "selection_policy_id",
+        "selection_reason",
+        "template_source",
+        "template_sha256",
+        "chat_template_kwargs",
+        "answer_stops",
+        "runtime_probe_passed",
+        "prompt_renderer_engine",
+        "schema_version",
+        "static_think_tokens",
+        "static_final_tokens",
+        "static_max_generated_tokens",
+        "server_context_tokens",
+        "agentic_max_turns",
+        "agentic_max_output_tokens_per_turn",
+        "agentic_max_generated_tokens_per_task",
+        "agentic_context_tokens",
+        "kv_cache_k_dtype",
+        "kv_cache_v_dtype",
+        "context_fit_policy",
+        "context_extension_policy",
+        "per_task_timeout_s",
+        "semantic_sha256",
     }
 
 

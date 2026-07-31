@@ -17,9 +17,16 @@
     },
     "jsonObject": {"type": "object", "propertyNames": {"$ref": "#/$defs/safeText"}, "additionalProperties": {"$ref": "#/$defs/jsonValue"}},
     "executionProfile": {
+      "oneOf": [
+        {"$ref": "#/$defs/executionProfileV1"},
+        {"$ref": "#/$defs/executionProfileV2"}
+      ]
+    },
+    "executionProfileV1": {
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "selection_policy_id", "selection_reason", "template_source", "template_sha256", "chat_template_kwargs", "answer_stops", "runtime_probe_passed", "prompt_renderer_engine"],
+      "not": {"properties": {"id": {"const": "generic_think_tags_32768_v1"}}, "required": ["id"]},
       "properties": {
         "id": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120},
         "selection_policy_id": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120},
@@ -30,6 +37,37 @@
         "answer_stops": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 160}},
         "runtime_probe_passed": {"type": "boolean"},
         "prompt_renderer_engine": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120}
+      }
+    },
+    "executionProfileV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "selection_policy_id", "selection_reason", "template_source", "template_sha256", "chat_template_kwargs", "answer_stops", "runtime_probe_passed", "prompt_renderer_engine", "schema_version", "static_think_tokens", "static_final_tokens", "static_max_generated_tokens", "server_context_tokens", "agentic_max_turns", "agentic_max_output_tokens_per_turn", "agentic_max_generated_tokens_per_task", "agentic_context_tokens", "kv_cache_k_dtype", "kv_cache_v_dtype", "context_fit_policy", "context_extension_policy", "per_task_timeout_s", "semantic_sha256"],
+      "properties": {
+        "id": {"const": "generic_think_tags_32768_v1"},
+        "selection_policy_id": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120},
+        "selection_reason": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120},
+        "template_source": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120},
+        "template_sha256": {"$ref": "#/$defs/nullableDigest"},
+        "chat_template_kwargs": {"type": "object", "propertyNames": {"$ref": "#/$defs/safeText"}, "additionalProperties": {"type": "boolean"}},
+        "answer_stops": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 160}},
+        "runtime_probe_passed": {"type": "boolean"},
+        "prompt_renderer_engine": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120},
+        "schema_version": {"const": "localbench.execution_profile.v2"},
+        "static_think_tokens": {"const": 32768},
+        "static_final_tokens": {"const": 16384},
+        "static_max_generated_tokens": {"const": 49152},
+        "server_context_tokens": {"const": 65536},
+        "agentic_max_turns": {"const": 40},
+        "agentic_max_output_tokens_per_turn": {"const": 1024},
+        "agentic_max_generated_tokens_per_task": {"const": 65536},
+        "agentic_context_tokens": {"const": 32768},
+        "kv_cache_k_dtype": {"const": "f16"},
+        "kv_cache_v_dtype": {"const": "f16"},
+        "context_fit_policy": {"const": "exact-or-fail"},
+        "context_extension_policy": {"const": "none"},
+        "per_task_timeout_s": {"const": 3000},
+        "semantic_sha256": {"const": "e02ef5b5e75f19ca39d8949711bdd2d6517d1ce9267012ac923abffb94fbf058"}
       }
     },
     "axis": {

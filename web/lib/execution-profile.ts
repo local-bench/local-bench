@@ -4,7 +4,7 @@ const SAFE_TEXT_RE = /^[^\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]+$
 const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/u);
 const ProfileTextSchema = z.string().min(1).max(160).regex(SAFE_TEXT_RE);
 
-export const ExecutionProfileSchema = z.object({
+const ExecutionProfileBaseShape = {
   answer_stops: z.array(ProfileTextSchema).max(16).readonly(),
   chat_template_kwargs: z.record(ProfileTextSchema, z.boolean())
     .refine((value) => Object.keys(value).length <= 16)
@@ -16,11 +16,44 @@ export const ExecutionProfileSchema = z.object({
   selection_reason: ProfileTextSchema,
   template_sha256: Sha256Schema.nullable(),
   template_source: ProfileTextSchema,
+} as const;
+
+const ExecutionProfileV1Schema = z.object({
+  ...ExecutionProfileBaseShape,
+  id: ProfileTextSchema.refine((value) => value !== "generic_think_tags_32768_v1"),
+  schema_version: z.undefined().optional(),
 }).strict().readonly();
+
+const ExecutionProfileV2Schema = z.object({
+  ...ExecutionProfileBaseShape,
+  agentic_context_tokens: z.literal(32768),
+  agentic_max_generated_tokens_per_task: z.literal(65536),
+  agentic_max_output_tokens_per_turn: z.literal(1024),
+  agentic_max_turns: z.literal(40),
+  context_extension_policy: z.literal("none"),
+  context_fit_policy: z.literal("exact-or-fail"),
+  id: z.literal("generic_think_tags_32768_v1"),
+  kv_cache_k_dtype: z.literal("f16"),
+  kv_cache_v_dtype: z.literal("f16"),
+  per_task_timeout_s: z.literal(3000),
+  schema_version: z.literal("localbench.execution_profile.v2"),
+  semantic_sha256: z.literal("e02ef5b5e75f19ca39d8949711bdd2d6517d1ce9267012ac923abffb94fbf058"),
+  server_context_tokens: z.literal(65536),
+  static_final_tokens: z.literal(16384),
+  static_max_generated_tokens: z.literal(49152),
+  static_think_tokens: z.literal(32768),
+}).strict().readonly();
+
+export const ExecutionProfileSchema = z.discriminatedUnion("schema_version", [
+  ExecutionProfileV1Schema,
+  ExecutionProfileV2Schema,
+]);
 
 export const PublicExecutionProfileSchema = z.union([
   ExecutionProfileSchema,
-  z.object({ id: ProfileTextSchema }).strict().readonly(),
+  z.object({
+    id: ProfileTextSchema.refine((value) => value !== "generic_think_tags_32768_v1"),
+  }).strict().readonly(),
 ]);
 
 export type ExecutionProfile = z.infer<typeof ExecutionProfileSchema>;

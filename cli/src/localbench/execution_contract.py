@@ -10,15 +10,19 @@ from typing import Final, Literal, assert_never
 from localbench._types import JsonObject, JsonValue
 from localbench.execution_profile_semantics import (
     EXECUTION_PROFILE_SEMANTIC_FIELDS,
+    InvalidExecutionProfileSemanticRecordError,
     MissingExecutionProfileBudgetError,
-    execution_profile_semantic_payload,
+    execution_profile_semantic_payload as execution_profile_semantic_payload,
     optional_execution_profile_semantic_record,
+    parse_semantic_budget_record,
+    semantic_payload_for_budget,
     semantic_sha256_for_budget,
 )
 from localbench.gguf_template import StaticProfileCandidate
 from localbench.reasoning_registry import (
     ANSWER_ONLY_PROFILE,
     ExecutionProfileBudget,
+    GENERIC_THINK_TAGS_32768_PROFILE,
     ReasoningRegistryEntry,
 )
 
@@ -41,6 +45,8 @@ _PUBLIC_EXECUTION_PROFILE_FIELDS: Final = (
     "runtime_probe_passed",
     "prompt_renderer_engine",
 )
+_DEEP_BUDGET_PROFILE_ID: Final = "generic_think_tags_32768_v1"
+PUBLIC_EXECUTION_PROFILE_V2: Final = "localbench.execution_profile.v2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -211,7 +217,7 @@ def execution_profile_record(contract: ResolvedExecutionContract) -> JsonObject:
         contract.runtime_probe is not None
         and contract.runtime_probe.get("passed") is True
     )
-    return {
+    profile: JsonObject = {
         "id": contract.profile_id,
         "selection_policy_id": contract.selection_policy_id,
         "selection_reason": contract.selection_reason,
@@ -221,20 +227,56 @@ def execution_profile_record(contract: ResolvedExecutionContract) -> JsonObject:
         "answer_stops": list(contract.answer_stops),
         "runtime_probe_passed": runtime_probe_passed,
         "prompt_renderer_engine": prompt_renderer_engine,
-        **optional_execution_profile_semantic_record(contract),
     }
+    if contract.profile_id == _DEEP_BUDGET_PROFILE_ID:
+        profile.update(
+            {
+                "schema_version": PUBLIC_EXECUTION_PROFILE_V2,
+                **optional_execution_profile_semantic_record(contract),
+            }
+        )
+    return profile
 
 
 def structured_execution_profile(value: JsonValue) -> JsonObject | None:
     if not isinstance(value, dict):
         return None
+    if value.get("id") == _DEEP_BUDGET_PROFILE_ID:
+        for field in _PUBLIC_EXECUTION_PROFILE_FIELDS:
+            if field not in value:
+                raise InvalidExecutionProfileSemanticRecordError(
+                    field,
+                    f"is required for {_DEEP_BUDGET_PROFILE_ID}",
+                )
     if not all(field in value for field in _PUBLIC_EXECUTION_PROFILE_FIELDS):
         return None
     profile = {field: value[field] for field in _PUBLIC_EXECUTION_PROFILE_FIELDS}
-    for field in (*EXECUTION_PROFILE_SEMANTIC_FIELDS, "semantic_sha256"):
-        if field in value:
-            profile[field] = value[field]
-    return profile
+    if profile["id"] != _DEEP_BUDGET_PROFILE_ID:
+        return profile
+    if value.get("schema_version") != PUBLIC_EXECUTION_PROFILE_V2:
+        raise InvalidExecutionProfileSemanticRecordError(
+            "schema_version",
+            f"must equal {PUBLIC_EXECUTION_PROFILE_V2!r} for {_DEEP_BUDGET_PROFILE_ID}",
+        )
+    parsed_budget = parse_semantic_budget_record(value)
+    expected_payload = semantic_payload_for_budget(
+        GENERIC_THINK_TAGS_32768_PROFILE.budget
+    )
+    parsed_payload = semantic_payload_for_budget(parsed_budget)
+    for field in EXECUTION_PROFILE_SEMANTIC_FIELDS:
+        if parsed_payload[field] != expected_payload[field]:
+            raise InvalidExecutionProfileSemanticRecordError(
+                field,
+                f"does not match the frozen {_DEEP_BUDGET_PROFILE_ID} tuple",
+            )
+    return {
+        **profile,
+        "schema_version": PUBLIC_EXECUTION_PROFILE_V2,
+        **{
+            field: value[field]
+            for field in (*EXECUTION_PROFILE_SEMANTIC_FIELDS, "semantic_sha256")
+        },
+    }
 
 
 def execution_contract_notice(contract: ResolvedExecutionContract) -> str:
