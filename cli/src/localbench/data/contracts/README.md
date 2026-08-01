@@ -61,7 +61,7 @@ re-measured `covered_behavior` from the tree with the appliance unchanged
 `localbench-agentic-contract-2026-07`; full rationale in commit 2ee2279.
 
 `agentic-execution-contract-aw013p1-pypi28113a7a-v7.json` (payload SHA-256
-`47695014…`) is the active contract, cut for CLI 0.4.12's execution-contract
+`47695014…`) was cut for CLI 0.4.12's execution-contract
 work: agentic request template kwargs now derive from the run's resolved
 execution contract instead of profile-ID reconstruction (a covered-behavior
 change in `orchestrate`/`serving.agentic_support`), alongside the
@@ -74,7 +74,7 @@ now accepted anywhere on the verified supersedes chain
 v7 broke as soon as the chain grew two links past the manifest pin.
 
 `agentic-execution-contract-aw013p1-pypi28113a7a-v8.json` (payload SHA-256
-`0d0c6073…`) is the active contract, cut for CLI 0.4.13: the generic GGUF
+`0d0c6073…`) was cut for CLI 0.4.13: the generic GGUF
 renderer work moved the orchestrate renderer guard and budget preparation
 ahead of campaign-path mutation (a covered-behavior change in
 `localbench.orchestrate`; the renderer itself delegates to the pinned
@@ -82,3 +82,16 @@ server's `/apply-template`). Appliance unchanged (same c0v5 rootfs
 `053eb073…`, same native-conformance evidence). Signed under
 `localbench-agentic-contract-2026-07`. The v7-introduced chain-aware
 manifest cross-bind covers the deeper lineage (v8→v7→v6→v5) unchanged.
+
+`agentic-execution-contract-aw013p1-pypi28113a7a-v9.json` (payload SHA-256
+`26d1072b…`) is the active contract, cut for CLI 0.4.14's deeper-budgets
+migration: agentic loop budgets (max_turns, per-turn output cap, per-task
+generated cap, context window, per-task timeout) now derive from the run's
+resolved execution contract's profile-owned budget tuple instead of module
+constants (covered-behavior changes across the loop-config/orchestrate
+agentic seams), alongside the 32k operating-point profiles
+(`generic_think_tags_32768_v1` and `gemma4_channel_32768_v1`; existing 8192
+profiles frozen). Appliance unchanged (same c0v5 rootfs `053eb073…`, same
+native-conformance evidence). Signed under
+`localbench-agentic-contract-2026-07`; the chain-aware manifest cross-bind
+now covers v9→v8→v7→v6→v5.
