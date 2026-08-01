@@ -21,6 +21,7 @@ from localbench.budget_forcing import (
 )
 from localbench.lane_spec import BOUNDED_FINAL_MIN_FINAL, bounded_final_think_budget
 from localbench.prompt_rendering import PromptRenderer
+from localbench.timeout_budgets import TimeoutBudget, derive_timeout_budget
 
 if TYPE_CHECKING:
     from localbench.execution_contract import ResolvedExecutionContract
@@ -79,6 +80,15 @@ async def run_bounded_final_forced_item(
                         else static_budget[1]
                     ),
                     forcing_format=forcing_format,
+                    timeout_budget=(
+                        None
+                        if execution_contract is None or execution_contract.budget is None
+                        else derive_timeout_budget(
+                            execution_contract.budget,
+                            remaining_static_items=1,
+                            remaining_agentic_tasks=0,
+                        )
+                    ),
                 )
                 return item_result(item, started_at, started_perf, attempt, parsed=parsed)
             except _ForcedStatus as exc:
@@ -124,6 +134,7 @@ async def _bounded_final_two_pass(
     think_budget: int,
     static_final_tokens: int | None,
     forcing_format: ForcingFormat,
+    timeout_budget: TimeoutBudget | None = None,
 ) -> ParsedCompletion:
     if think_budget <= 0:
         think_text = ""
@@ -140,6 +151,7 @@ async def _bounded_final_two_pass(
             think_budget,
             decoding,
             [forcing_format.close],
+            timeout_budget,
         )
         think_text, think_finish, think_usage, think_timings = _extract_completion(think_data)
     reasoning_tokens = _completion_tokens(think_usage)
@@ -158,6 +170,7 @@ async def _bounded_final_two_pass(
         answer_budget,
         decoding,
         list(forcing_format.answer_stop),
+        timeout_budget,
     )
     answer_text, answer_finish, answer_usage, answer_timings = _extract_completion(answer_data)
     answer_text = _strip_answer_stop(answer_text, forcing_format.answer_stop)

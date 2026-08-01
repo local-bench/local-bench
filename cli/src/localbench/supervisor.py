@@ -10,9 +10,12 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 from localbench.exit_codes import EXIT_USER_INTERRUPTED, EXIT_WATCHDOG_TIMEOUT
+from localbench.keepawake import PlatformKeepAwakeLease, RenewableKeepAwakeLease
 from localbench.progress import BenchProgressPlan, ProgressReporter
+from localbench.timeout_budgets import TimeoutBudget
 from localbench.monitoring import (
     MonitorDecision,
     MonitorMode,
@@ -26,6 +29,22 @@ from localbench.monitoring import (
 SampleProvider = Callable[[MonitorPolicy], SampleContext]
 
 
+class Clock(Protocol):
+    def monotonic(self) -> float: ...
+
+    def sleep(self, seconds: float) -> None: ...
+
+
+class SystemClock:
+    @staticmethod
+    def monotonic() -> float:
+        return time.monotonic()
+
+    @staticmethod
+    def sleep(seconds: float) -> None:
+        time.sleep(seconds)
+
+
 @dataclass(frozen=True, slots=True)
 class SupervisorConfig:
     command: Sequence[str]
@@ -34,6 +53,7 @@ class SupervisorConfig:
     sample_interval_seconds: float = 30.0
     policy: MonitorPolicy | None = None
     progress_plans: Sequence[BenchProgressPlan] = ()
+    timeout_budget: TimeoutBudget | None = None
 
 
 def run_supervised(config: SupervisorConfig, sample_provider: SampleProvider | None = None) -> int:
@@ -56,6 +76,7 @@ def run_supervised(config: SupervisorConfig, sample_provider: SampleProvider | N
                 config.sample_interval_seconds,
                 status_path=config.campaign_root / "run.status.json",
                 progress_reporter=progress,
+                timeout_budget=config.timeout_budget,
             )
         except KeyboardInterrupt:
             if progress is not None:
@@ -106,38 +127,76 @@ def _watch_worker(
     *,
     status_path: Path | None = None,
     progress_reporter: ProgressReporter | None = None,
+    timeout_budget: TimeoutBudget | None = None,
+    keepawake_lease: RenewableKeepAwakeLease | None = None,
+    clock: Clock | None = None,
 ) -> int:
+    active_clock = clock or SystemClock()
+    lease = keepawake_lease
+    if timeout_budget is not None and lease is None:
+        lease = PlatformKeepAwakeLease(active_clock.monotonic)
     next_sample_at = 0.0
     last_completed = 0
-    last_completion_at = time.monotonic()
+    last_completion_at = active_clock.monotonic()
     last_bench: str | None = None
-    while process.poll() is None:
-        now = time.monotonic()
-        if now >= next_sample_at:
-            decision = _append_monitor_sample(monitor_log, sample_provider(policy), policy)
-            if decision.severity is MonitorSeverity.ABORT:
+    campaign_deadline = (
+        None
+        if timeout_budget is None
+        else last_completion_at + timeout_budget.campaign_seconds
+    )
+    if lease is not None and timeout_budget is not None:
+        lease.acquire(timeout_budget.keepawake_lease_seconds)
+    try:
+        while process.poll() is None:
+            now = active_clock.monotonic()
+            if now >= next_sample_at:
+                decision = _append_monitor_sample(monitor_log, sample_provider(policy), policy)
+                if decision.severity is MonitorSeverity.ABORT:
+                    _terminate_worker(process)
+                    return EXIT_WATCHDOG_TIMEOUT
+                next_sample_at = now + max(interval_seconds, 0.1)
+            status = _read_status(status_path) if status_path is not None else {}
+            completed = status.get("completed_items")
+            if isinstance(completed, int) and completed > last_completed:
+                if progress_reporter is not None and status_path is not None:
+                    last_completed, last_completion_at, last_bench = _mirror_progress_status(
+                        status_path,
+                        progress_reporter,
+                        last_completed=last_completed,
+                        last_completion_at=last_completion_at,
+                        last_bench=last_bench,
+                        clock=active_clock,
+                    )
+                else:
+                    last_completed = completed
+                    last_completion_at = now
+                if lease is not None and timeout_budget is not None:
+                    try:
+                        lease.renew(timeout_budget.keepawake_lease_seconds)
+                    except (OSError, RuntimeError):
+                        _terminate_worker(process)
+                        return EXIT_WATCHDOG_TIMEOUT
+            if timeout_budget is not None and (
+                now - last_completion_at > timeout_budget.no_progress_seconds
+                or (campaign_deadline is not None and now > campaign_deadline)
+            ):
                 _terminate_worker(process)
                 return EXIT_WATCHDOG_TIMEOUT
-            next_sample_at = now + max(interval_seconds, 0.1)
+            active_clock.sleep(0.05)
         if status_path is not None and progress_reporter is not None:
-            last_completed, last_completion_at, last_bench = _mirror_progress_status(
+            _mirror_progress_status(
                 status_path,
                 progress_reporter,
                 last_completed=last_completed,
                 last_completion_at=last_completion_at,
                 last_bench=last_bench,
+                clock=active_clock,
             )
-        time.sleep(0.05)
-    if status_path is not None and progress_reporter is not None:
-        _mirror_progress_status(
-            status_path,
-            progress_reporter,
-            last_completed=last_completed,
-            last_completion_at=last_completion_at,
-            last_bench=last_bench,
-        )
-    _append_monitor_sample(monitor_log, sample_provider(policy), policy)
-    return process.returncode or 0
+        _append_monitor_sample(monitor_log, sample_provider(policy), policy)
+        return process.returncode or 0
+    finally:
+        if lease is not None:
+            lease.release()
 
 
 def _mirror_progress_status(
@@ -147,7 +206,9 @@ def _mirror_progress_status(
     last_completed: int,
     last_completion_at: float,
     last_bench: str | None,
+    clock: Clock | None = None,
 ) -> tuple[int, float, str | None]:
+    active_clock = clock or SystemClock()
     status = _read_status(status_path)
     bench = status.get("current_bench")
     current_bench = bench if isinstance(bench, str) else last_bench
@@ -155,8 +216,8 @@ def _mirror_progress_status(
     if not isinstance(completed, int) or completed <= last_completed:
         return last_completed, last_completion_at, current_bench
     if current_bench is None:
-        return completed, time.monotonic(), last_bench
-    now = time.monotonic()
+        return completed, active_clock.monotonic(), last_bench
+    now = active_clock.monotonic()
     delta_items = max(1, completed - last_completed)
     item_seconds = max(0.0, now - last_completion_at) / delta_items
     for _ in range(delta_items):

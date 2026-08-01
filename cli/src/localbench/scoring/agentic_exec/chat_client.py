@@ -18,6 +18,7 @@ from localbench.scoring.agentic_exec.model_client import (
     ModelTransportTimeout,
     ModelResponse,
 )
+from localbench.timeout_budgets import TimeoutBudget
 
 # finish_reason the client stamps on a malformed response turn. Distinct from the
 # server's own "length"/"stop" so the diagnostic can tell a CLIENT-side failure apart from a
@@ -70,6 +71,7 @@ class ChatCompletionsClient:
         *,
         chat_path: str = "/v1/chat/completions",
         chat_template_kwargs: dict[str, object] | None = None,
+        timeout_budget: TimeoutBudget | None = None,
     ) -> None:
         base = base_url.rstrip("/")
         resolved_chat_path = chat_path
@@ -89,6 +91,7 @@ class ChatCompletionsClient:
             chat_template_kwargs=chat_template_kwargs,
         )
         self._deadline: float | None = None
+        self._timeout_budget = timeout_budget
         self._attempt_timeout_s: float | None = None
         self._cancelled = threading.Event()
         self._connection_lock = threading.Lock()
@@ -207,8 +210,8 @@ class ChatCompletionsClient:
     def _request_timeout_s(self, payload: dict[str, object]) -> float:
         max_tokens = payload.get("max_tokens")
         output_tokens = max_tokens if isinstance(max_tokens, int) and not isinstance(max_tokens, bool) else 0
-        # Fidelity fix: keep the raised 600s floor. Rows whose calls completed before the old
-        # 120s timeout reproduce identically; only calls that crossed that old boundary change.
+        if self._timeout_budget is not None:
+            return self._timeout_budget.request_read_seconds(max(0, output_tokens))
         generation_s = max(0, output_tokens) / _MIN_GENERATION_TOKENS_PER_SECOND
         return max(self._config.timeout_s, _MIN_REQUEST_TIMEOUT_S, generation_s)
 

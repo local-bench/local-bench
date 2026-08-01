@@ -103,6 +103,7 @@ from localbench.scoring.axis_status import (
 from localbench.scorers.ruler import estimate_prompt_tokens
 from localbench.submissions.foundation import normalize_result_bundle
 from localbench.suite_resolver import DEFAULT_SUITE_ID, resolve_suite_dir
+from localbench.timeout_budgets import derive_timeout_budget
 
 if TYPE_CHECKING:
     from localbench.scoring.agentic_exec.benchmark import ModelFactory, SandboxFactory; from localbench.scoring.agentic_exec.loop_config import LoopConfig; from localbench.scoring.agentic_exec.task_journal import AgenticResumeIdentity, AgenticResumeSeed  # noqa: E501, E702
@@ -620,6 +621,9 @@ async def run_localbench(
                     reasoning_activation=config.reasoning_activation,
                     prompt_renderer=prompt_renderer,
                     forcing_format=forcing_format,
+                    execution_contract=(
+                        None if bounded_profile is None else bounded_profile.contract
+                    ),
                     on_item_complete=on_item_complete,
                 )
                 if circuit_breaker_tripped:
@@ -685,6 +689,9 @@ async def run_localbench(
             results_dir=_agentic_results_dir(output_path),
             provenance_extra=agentic_provenance_extra, resume_seed=agentic_resume_seed, runtime_revalidator=agentic_runtime_revalidator,
             execution_profile_id=execution_profile_id,
+            execution_contract=(
+                None if bounded_profile is None else bounded_profile.contract
+            ),
             chat_template_kwargs=_agentic_chat_template_kwargs_for_profile(
                 config.lane,
                 None if bounded_profile is None else bounded_profile.contract,
@@ -1780,6 +1787,7 @@ def _run_agentic_axis(
     results_dir: Path | None = None,
     provenance_extra: JsonObject | None = None, resume_seed: AgenticResumeSeed | None = None, runtime_revalidator: Callable[[], None] | None = None,
     execution_profile_id: str | None = None,
+    execution_contract: ResolvedExecutionContract | None = None,
     chat_template_kwargs: JsonObject | None = None,
 ) -> AgenticOutcome | None:
     injected = sandbox_factory is not None or model_factory is not None or task_ids is not None
@@ -1797,6 +1805,16 @@ def _run_agentic_axis(
             ),
         )
     )
+    resolved_contract = execution_contract
+    timeout_budget = (
+        None
+        if resolved_contract is None or resolved_contract.budget is None
+        else derive_timeout_budget(
+            resolved_contract.budget,
+            remaining_static_items=0,
+            remaining_agentic_tasks=1,
+        )
+    )
     if injected:
         if resolved_sandbox_factory is None or resolved_model_factory is None:
             warnings.append(
@@ -1811,15 +1829,20 @@ def _run_agentic_axis(
         from localbench.scoring.agentic_exec.benchmark import (  # noqa: PLC0415
             appworld_sandbox_factory,
         )
-        from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
+        from localbench.scoring.agentic_exec.chat_client import (  # noqa: PLC0415
+            ChatCompletionsClient,
+        )
 
         resolved_sandbox_factory = appworld_sandbox_factory()
-        resolved_model_factory = chat_client_factory(
-            config.endpoint,
-            config.model,
-            api_key=config.api_key or "",
-            chat_template_kwargs=resolved_chat_template_kwargs,
-        )
+
+        def resolved_model_factory(_task_id: str) -> ChatCompletionsClient:
+            return ChatCompletionsClient(
+                config.endpoint,
+                config.model,
+                api_key=config.api_key or "",
+                chat_template_kwargs=resolved_chat_template_kwargs,
+                timeout_budget=timeout_budget,
+            )
 
     from localbench.scoring.agentic_exec import task_pool  # noqa: PLC0415
     from localbench.scoring.agentic_exec.funnel import Stage, run_with_reruns  # noqa: PLC0415
@@ -1892,6 +1915,15 @@ def _run_agentic_axis(
         "execution_profile_id": execution_profile_id,
         "stateless_request_semantics": "full_visible_conversation_per_turn",
         "chat_template_kwargs": resolved_chat_template_kwargs,
+        "timeouts": (
+            None
+            if resolved_contract is None or resolved_contract.budget is None
+            else derive_timeout_budget(
+                resolved_contract.budget,
+                remaining_static_items=0,
+                remaining_agentic_tasks=subset.size,
+            ).as_record()
+        ),
         "diagnostics": _appworld_report_summary(last_report),
         "runs": [
             _appworld_stage_run_summary(

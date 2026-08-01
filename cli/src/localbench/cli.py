@@ -68,6 +68,7 @@ from localbench.facet_backfill import FacetBackfillError, compose_facet_backfill
 from localbench.one_shot.runner import run_one_shot_bench
 from localbench.persistence import atomic_write_json
 from localbench.progress import BenchProgressPlan, ProgressReporter, plans_from_bench_counts
+from localbench.reasoning_registry import GENERIC_THINK_TAGS_32768_PROFILE
 from localbench.prompt_rendering import (
     REASONING_ACTIVATIONS,
     PromptRenderingError,
@@ -89,6 +90,7 @@ from localbench.scoring.axes import (
     STATIC_SUITE_V3_INDEX_VERSION as STATIC_SUITE_INDEX_VERSION,
     STATIC_SUITE_V3_WEIGHTS as STATIC_SUITE_WEIGHTS,
 )
+from localbench.timeout_budgets import derive_timeout_budget
 from localbench.scoring.board import BoardBuildError, write_board
 from localbench.scoring.board_support import DEFAULT_OUT_V2, DEFAULT_RUNS_DIR
 from localbench.submissions.bundle import pack_submission_bundle
@@ -1058,6 +1060,17 @@ def _run_supervised(args: argparse.Namespace, tier: str, out: Path, bench_choice
     paths = campaign_paths(out, args.resume)
     command = _worker_command(args, tier, out)
     progress_plans = _progress_plans_for_args(args, tier, bench_choice)
+    timeout_budget = (
+        derive_timeout_budget(
+            GENERIC_THINK_TAGS_32768_PROFILE.budget,
+            remaining_static_items=sum(plan.total_items for plan in progress_plans),
+            remaining_agentic_tasks=0,
+        )
+        if args.lane in {"bounded-final-v1", "bounded-final-v2"}
+        and getattr(args, "profile", "auto")
+        in {"auto", GENERIC_THINK_TAGS_32768_PROFILE.id}
+        else None
+    )
     return run_supervised(
         SupervisorConfig(
             command=command,
@@ -1065,6 +1078,7 @@ def _run_supervised(args: argparse.Namespace, tier: str, out: Path, bench_choice
             label=f"localbench:{args.model}",
             sample_interval_seconds=5.0,
             progress_plans=progress_plans,
+            timeout_budget=timeout_budget,
         )
     )
 

@@ -19,6 +19,7 @@ from localbench._response import (
 from localbench._types import BenchmarkItem, ItemResult, JsonObject, ParsedCompletion
 from localbench.lane_spec import BOUNDED_FINAL_LANE_SPEC_IDS
 from localbench.prompt_rendering import PromptRenderer
+from localbench.timeout_budgets import derive_timeout_budget
 
 if TYPE_CHECKING:
     from localbench.budget_forcing import ForcingFormat
@@ -124,16 +125,27 @@ async def run_item(
         last_error = "request was not attempted"
         for attempt in range(1, max_attempts + 1):
             try:
+                payload = request_provider.build_payload(
+                    model,
+                    item["messages"],
+                    decoding(item),
+                    lane,
+                    effort=effort,
+                )
+                request_timeout = None
+                if execution_contract is not None and execution_contract.budget is not None:
+                    max_output_tokens = payload.get("max_tokens")
+                    if isinstance(max_output_tokens, int) and not isinstance(max_output_tokens, bool):
+                        request_timeout = derive_timeout_budget(
+                            execution_contract.budget,
+                            remaining_static_items=1,
+                            remaining_agentic_tasks=0,
+                        ).httpx_timeout(max_output_tokens)
                 response = await client.post(
                     url,
                     headers=headers,
-                    json=request_provider.build_payload(
-                        model,
-                        item["messages"],
-                        decoding(item),
-                        lane,
-                        effort=effort,
-                    ),
+                    json=payload,
+                    timeout=client.timeout if request_timeout is None else request_timeout,
                 )
                 if is_retryable_status(response.status_code):
                     last_error = http_error(response)

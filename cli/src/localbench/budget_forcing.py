@@ -55,6 +55,7 @@ from localbench.prompt_rendering import PromptRenderer, ReasoningActivation
 
 if TYPE_CHECKING:
     from localbench.execution_contract import ResolvedExecutionContract
+    from localbench.timeout_budgets import TimeoutBudget
 
 # The locked methodology thinking budget for the capped-thinking lane.
 CAPPED_THINKING_THINK_BUDGET: Final = 8192
@@ -257,6 +258,7 @@ async def _post_completion(
     max_tokens: int,
     decoding: JsonObject,
     stop: list[str],
+    timeout_budget: TimeoutBudget | None = None,
 ) -> JsonObject:
     body: JsonObject = {
         "model": model,
@@ -265,7 +267,16 @@ async def _post_completion(
         "stop": stop,
         **decoding,
     }
-    response = await client.post(url, headers=headers, json=body)
+    response = await client.post(
+        url,
+        headers=headers,
+        json=body,
+        timeout=(
+            client.timeout
+            if timeout_budget is None
+            else timeout_budget.httpx_timeout(max_tokens)
+        ),
+    )
     if is_retryable_status(response.status_code):
         raise _ForcedStatus(http_error(response), retryable=True)
     if response.status_code >= 400:

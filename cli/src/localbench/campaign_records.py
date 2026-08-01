@@ -17,6 +17,7 @@ from localbench.execution_contract import (
     execution_contract_record,
 )
 from localbench.run_schema import RUN_SCHEMA_VERSION
+from localbench.timeout_budgets import derive_timeout_budget
 
 CAMPAIGN_SCHEMA_VERSION: Final = "localbench-campaign-v1"
 RUNNER_SCHEMA_VERSION: Final = "localbench-runner-v1"
@@ -57,6 +58,15 @@ def campaign_record(
     started_at: str,
 ) -> JsonObject:
     item_files = [bench.item_file for bench in benches]
+    timeout_budget = (
+        None
+        if config.execution_contract is None or config.execution_contract.budget is None
+        else derive_timeout_budget(
+            config.execution_contract.budget,
+            remaining_static_items=_total_items(benches),
+            remaining_agentic_tasks=0,
+        )
+    )
     return {
         "schema_version": CAMPAIGN_SCHEMA_VERSION,
         "source_of_truth": {
@@ -113,7 +123,18 @@ def campaign_record(
         "execution": {
             "concurrency": max(1, config.concurrency),
             "max_attempts": 3,
-            "timeout_seconds": 300.0,
+            "timeout_seconds": (
+                300.0
+                if timeout_budget is None
+                else timeout_budget.request_read_seconds(
+                    timeout_budget.profile.static_think_tokens,
+                )
+            ),
+            **(
+                {}
+                if timeout_budget is None
+                else {"timeout_budget": timeout_budget.as_record()}
+            ),
             "retry_policy": {"kind": "exponential-jitter", "base_seconds": 0.5},
         },
         "serve_fingerprint": _serve_fingerprint(config),
