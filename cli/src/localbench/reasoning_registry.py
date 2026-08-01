@@ -286,11 +286,37 @@ GEMMA4_CHANNEL_PROFILE: Final = ReasoningRegistryEntry(
     budget=_LEGACY_PROFILE_BUDGET,
 )
 
+GEMMA4_CHANNEL_32768_PROFILE: Final = ReasoningRegistryEntry(
+    id="gemma4_channel_32768_v1",
+    version="1",
+    status="ranked",
+    model_match=GEMMA4_REASONING_ENTRY.model_match,
+    activation=GEMMA4_REASONING_ENTRY.activation,
+    forcing=GEMMA4_FORCING,
+    parser=GEMMA4_REASONING_ENTRY.parser,
+    conformance={
+        "lane": "bounded-final-v1",
+        "think_cap": 32768,
+        "min_final": 16384,
+        "think_budget": "32768",
+        "answer_budget": "16384",
+        "max_generated_tokens": "32768 + 16384",
+        "leak_regexes": GEMMA4_LEAK_REGEXES,
+        "static_render_requires": GEMMA4_REASONING_ENTRY.conformance["static_render_requires"],
+    },
+    provenance={
+        **GEMMA4_REASONING_ENTRY.provenance,
+        "source": "profile-owned 32k Gemma 4 channel two-pass forcing",
+    },
+    budget=GENERIC_THINK_TAGS_32768_PROFILE.budget,
+)
+
 REASONING_REGISTRY: Final[tuple[ReasoningRegistryEntry, ...]] = (
     ANSWER_ONLY_PROFILE,
     GENERIC_THINK_TAGS_PROFILE,
     GENERIC_THINK_TAGS_32768_PROFILE,
     GEMMA4_CHANNEL_PROFILE,
+    GEMMA4_CHANNEL_32768_PROFILE,
     QWEN_REASONING_ENTRY,
     GEMMA4_REASONING_ENTRY,
 )

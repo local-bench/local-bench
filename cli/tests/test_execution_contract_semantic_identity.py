@@ -8,6 +8,7 @@ import pytest
 
 from localbench._types import JsonObject
 from localbench.campaign_records import CampaignConfig, campaign_record
+from localbench.bounded_final_profiles import resolve_bounded_final_profile_from_introspection
 from localbench.execution_contract import (
     ExecutionContractContext,
     ResolvedExecutionContract,
@@ -16,7 +17,9 @@ from localbench.execution_contract import (
     execution_profile_record,
     execution_profile_semantic_payload,
     resolved_execution_contract,
+    structured_execution_profile,
 )
+from localbench.prompt_rendering import TemplateIntrospection
 from localbench.reasoning_registry import GENERIC_THINK_TAGS_32768_PROFILE
 from localbench.scoring.agentic_exec.funnel import Stage, SubsetSpec, run_with_reruns
 from localbench.scoring.agentic_exec.loop_config import LoopConfig
@@ -147,6 +150,30 @@ def test_campaign_and_public_profile_share_the_contract_semantic_identity(
     assert campaign["execution_profile"]["semantic_sha256"] == _EXPECTED_SEMANTIC_SHA256
     for field, expected in _EXPECTED_TUPLE.items():
         assert internal[field] == expected
+        assert public[field] == expected
+
+
+def test_gemma4_32768_profile_flows_the_shared_semantic_identity_into_public_v2() -> None:
+    # Given: a Gemma 4 family activation resolved through the shared auto policy.
+    runtime = resolve_bounded_final_profile_from_introspection(
+        "auto",
+        TemplateIntrospection(
+            answer_stop=("<turn|>",),
+            chat_template_kwargs={"enable_thinking": True},
+            supports_generic_thinking=True,
+            supports_gemma_channel=True,
+        ),
+    )
+
+    # When: its resolved contract is projected to the public execution-profile schema.
+    public = execution_profile_record(runtime.contract)
+
+    # Then: the Gemma-specific format keeps the exact shared tuple and semantic identity.
+    assert public.get("id") == "gemma4_channel_32768_v1"
+    assert public.get("schema_version") == "localbench.execution_profile.v2"
+    assert public.get("semantic_sha256") == _EXPECTED_SEMANTIC_SHA256
+    assert structured_execution_profile(public) == public
+    for field, expected in _EXPECTED_TUPLE.items():
         assert public[field] == expected
 
 

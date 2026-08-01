@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  executionProfileCohort,
   executionProfileSemanticSha256,
+  isCurrentExecutionProfile,
   matchingCompleteSemanticDigests,
   PublicExecutionProfileSchema,
   type PublicExecutionProfile,
@@ -36,6 +38,13 @@ const PROFILE_V2 = {
   static_final_tokens: 16384,
   static_max_generated_tokens: 49152,
   static_think_tokens: 32768,
+} as const;
+
+const GEMMA4_PROFILE_V2 = {
+  ...PROFILE_V2,
+  answer_stops: ["<turn|>"],
+  id: "gemma4_channel_32768_v1",
+  selection_reason: "gemma4_channel_32768_v1",
 } as const;
 
 const BASE_T2_V1 = {
@@ -135,6 +144,25 @@ describe("public execution-profile contract", () => {
 
     // Then: its discriminator and semantic identity survive parsing.
     expect(parsed).toEqual(PROFILE_V2);
+  });
+
+  it("parses the Gemma 4 channel sibling with the identical 32768 semantic tuple", () => {
+    // Given / When: the Gemma-specific v2 record crosses the site boundary.
+    const parsed = PublicExecutionProfileSchema.parse(GEMMA4_PROFILE_V2);
+
+    // Then: format-specific fields coexist with the shared semantic identity.
+    expect(parsed).toEqual(GEMMA4_PROFILE_V2);
+    expect(executionProfileSemanticSha256(parsed)).toBe(PROFILE_V2.semantic_sha256);
+  });
+
+  it("classifies a board row carrying gemma4_channel_32768_v1 in the 32k cohort", () => {
+    // Given: a public board row carrying the complete Gemma 4 v2 profile.
+    const boardRow = { executionProfile: PublicExecutionProfileSchema.parse(GEMMA4_PROFILE_V2) };
+
+    // When / Then: the T7 classifier recognizes the shared operating point, never the fallback cohort.
+    expect(executionProfileCohort(boardRow.executionProfile)).toBe("32k");
+    expect(executionProfileCohort(boardRow.executionProfile)).not.toBe("unclassified");
+    expect(isCurrentExecutionProfile(boardRow.executionProfile)).toBe(true);
   });
 
   it("rejects incomplete and inconsistent 32768-v2 rows", () => {

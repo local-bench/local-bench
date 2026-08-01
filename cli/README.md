@@ -68,11 +68,12 @@ including rootless-vs-rootful stores, safe TCP exposure, transient systemd units
 version-matched Windows client, is in the
 [Windows + WSL-engine coding sandbox guide](../docs/coding-sandbox-windows-wsl.md).
 
-For `generic_think_tags_32768_v1`, use a 65536-token server context: its static budget is
-32768 thinking + 16384 final tokens (49152 promised generated tokens). The old 8k profiles
-remain explicit historical operating points and are not compute-matched with this profile;
-the runner fails closed rather than silently lowering its context or budgets. Gemma remains
-on `gemma4_channel_8192_v1` in 0.4.14.
+For `generic_think_tags_32768_v1` and `gemma4_channel_32768_v1`, use a 65536-token server
+context: their shared static budget is 32768 thinking + 16384 final tokens (49152 promised
+generated tokens). The old 8k profiles remain explicit historical operating points and are
+not compute-matched with this profile; the runner fails closed rather than silently
+lowering its context or budgets. Before its first scored run, the new Gemma profile must be
+validated end-to-end against the real `gemma-4-31b-it` on the RTX 5090.
 
 The site's [submit page](https://local-bench.ai/submit) generates these commands for your
 exact model and runtime, including the full identity flag set for bring-your-own-server

@@ -22,6 +22,7 @@ from localbench.gguf_template import StaticProfileCandidate
 from localbench.reasoning_registry import (
     ANSWER_ONLY_PROFILE,
     ExecutionProfileBudget,
+    GEMMA4_CHANNEL_32768_PROFILE,
     GENERIC_THINK_TAGS_32768_PROFILE,
     ReasoningRegistryEntry,
     execution_profile_for_id,
@@ -46,7 +47,10 @@ _PUBLIC_EXECUTION_PROFILE_FIELDS: Final = (
     "runtime_probe_passed",
     "prompt_renderer_engine",
 )
-_DEEP_BUDGET_PROFILE_ID: Final = "generic_think_tags_32768_v1"
+_DEEP_BUDGET_PROFILE_IDS: Final = (
+    "generic_think_tags_32768_v1",
+    "gemma4_channel_32768_v1",
+)
 PUBLIC_EXECUTION_PROFILE_V2: Final = "localbench.execution_profile.v2"
 
 
@@ -230,7 +234,7 @@ def execution_profile_record(contract: ResolvedExecutionContract) -> JsonObject:
         "prompt_renderer_engine": prompt_renderer_engine,
         **optional_execution_profile_semantic_record(contract),
     }
-    if contract.profile_id == _DEEP_BUDGET_PROFILE_ID:
+    if contract.profile_id in _DEEP_BUDGET_PROFILE_IDS:
         profile["schema_version"] = PUBLIC_EXECUTION_PROFILE_V2
     return profile
 
@@ -238,33 +242,38 @@ def execution_profile_record(contract: ResolvedExecutionContract) -> JsonObject:
 def structured_execution_profile(value: JsonValue) -> JsonObject | None:
     if not isinstance(value, dict):
         return None
-    if value.get("id") == _DEEP_BUDGET_PROFILE_ID:
+    if value.get("id") in _DEEP_BUDGET_PROFILE_IDS:
         for field in _PUBLIC_EXECUTION_PROFILE_FIELDS:
             if field not in value:
                 raise InvalidExecutionProfileSemanticRecordError(
                     field,
-                    f"is required for {_DEEP_BUDGET_PROFILE_ID}",
+                    f"is required for {value.get('id')}",
                 )
     if not all(field in value for field in _PUBLIC_EXECUTION_PROFILE_FIELDS):
         return None
     profile = {field: value[field] for field in _PUBLIC_EXECUTION_PROFILE_FIELDS}
-    if profile["id"] != _DEEP_BUDGET_PROFILE_ID:
+    if profile["id"] not in _DEEP_BUDGET_PROFILE_IDS:
         return {**profile, **_trusted_legacy_semantic_record(value)}
     if value.get("schema_version") != PUBLIC_EXECUTION_PROFILE_V2:
         raise InvalidExecutionProfileSemanticRecordError(
             "schema_version",
-            f"must equal {PUBLIC_EXECUTION_PROFILE_V2!r} for {_DEEP_BUDGET_PROFILE_ID}",
+            f"must equal {PUBLIC_EXECUTION_PROFILE_V2!r} for {profile['id']}",
         )
     parsed_budget = parse_semantic_budget_record(value)
-    expected_payload = semantic_payload_for_budget(
-        GENERIC_THINK_TAGS_32768_PROFILE.budget
-    )
+    match profile["id"]:
+        case "generic_think_tags_32768_v1":
+            canonical_entry = GENERIC_THINK_TAGS_32768_PROFILE
+        case "gemma4_channel_32768_v1":
+            canonical_entry = GEMMA4_CHANNEL_32768_PROFILE
+        case unreachable:
+            assert_never(unreachable)
+    expected_payload = semantic_payload_for_budget(canonical_entry.budget)
     parsed_payload = semantic_payload_for_budget(parsed_budget)
     for field in EXECUTION_PROFILE_SEMANTIC_FIELDS:
         if parsed_payload[field] != expected_payload[field]:
             raise InvalidExecutionProfileSemanticRecordError(
                 field,
-                f"does not match the frozen {_DEEP_BUDGET_PROFILE_ID} tuple",
+                f"does not match the frozen {profile['id']} tuple",
             )
     return {
         **profile,

@@ -40,11 +40,13 @@ localbench submit run --run runs/my-run.json
 
 Use `--hf-model-id` and `cache-tokenizer` when you know the exact tokenizer repo. If no exact HF tokenizer repo exists, omit `cache-tokenizer` and replace `--hf-model-id <hf-model-id>` with `--gguf-repo-only`. The site recipe pins an exact CLI version for suite-sha reproducibility; the README install stays unpinned.
 
-The current generic-thinking profile is `generic_think_tags_32768_v1`: 32768 thinking +
-16384 final tokens (49152 promised generated tokens) with a 65536-token server context.
-The 8k profiles remain historical/explicit selections; cross-profile scores are not
-compute-matched, and infeasible hardware fails closed rather than silently lowering the
-context or budget. Gemma remains on `gemma4_channel_8192_v1` in 0.4.14.
+The current 32k operating point uses `generic_think_tags_32768_v1` or the Gemma 4
+channel-forced sibling `gemma4_channel_32768_v1`: 32768 thinking + 16384 final tokens
+(49152 promised generated tokens) with a 65536-token server context. The 8k profiles remain
+historical/explicit selections; cross-profile scores are not compute-matched, and
+infeasible hardware fails closed rather than silently lowering the context or budget. The
+new Gemma profile must be validated end-to-end against the real `gemma-4-31b-it` on the RTX
+5090 before its first scored run.
 
 Submissions are identified by an Ed25519 key generated on first submit — no
 account, no email. Complete runs publish immediately and are subject to post-hoc

@@ -32,6 +32,7 @@ from localbench.prompt_rendering import (
 )
 from localbench.reasoning_registry import (
     ANSWER_ONLY_PROFILE,
+    GEMMA4_CHANNEL_32768_PROFILE,
     GEMMA4_CHANNEL_PROFILE,
     GENERIC_THINK_TAGS_32768_PROFILE,
     GENERIC_THINK_TAGS_PROFILE,
@@ -43,6 +44,7 @@ BoundedFinalProfileChoice = Literal[
     "answer_only_v1",
     "generic_think_tags_32768_v1",
     "generic_think_tags_8192_v1",
+    "gemma4_channel_32768_v1",
     "gemma4_channel_8192_v1",
 ]
 BOUNDED_FINAL_PROFILE_CHOICES: Final[tuple[BoundedFinalProfileChoice, ...]] = (
@@ -50,6 +52,7 @@ BOUNDED_FINAL_PROFILE_CHOICES: Final[tuple[BoundedFinalProfileChoice, ...]] = (
     "answer_only_v1",
     "generic_think_tags_32768_v1",
     "generic_think_tags_8192_v1",
+    "gemma4_channel_32768_v1",
     "gemma4_channel_8192_v1",
 )
 
@@ -183,22 +186,23 @@ def _generic_runtime(
 
 
 def _gemma_runtime(
+    entry: ReasoningRegistryEntry,
     introspection: TemplateIntrospection,
     prompt_renderer: PromptRenderer | None,
     prompt_renderer_manifest: JsonObject | None,
     context: ExecutionContractContext,
 ) -> BoundedFinalProfileRuntime:
     answer_stop = (
-        GEMMA4_CHANNEL_PROFILE.forcing.answer_stop
-        if GEMMA4_CHANNEL_PROFILE.forcing is not None
+        entry.forcing.answer_stop
+        if entry.forcing is not None
         else ()
     )
     return BoundedFinalProfileRuntime(
-        entry=GEMMA4_CHANNEL_PROFILE,
-        forcing=GEMMA4_CHANNEL_PROFILE.forcing,
+        entry=entry,
+        forcing=entry.forcing,
         prompt_renderer=prompt_renderer,
         contract=resolved_execution_contract(
-            GEMMA4_CHANNEL_PROFILE,
+            entry,
             introspection.chat_template_kwargs,
             answer_stop,
             context,
@@ -239,7 +243,11 @@ def resolve_bounded_final_profile(
             request.profile,
             "GGUF template metadata is required when --gguf-repo-only is active",
         )
-    activation = "gemma4" if request.profile == "gemma4_channel_8192_v1" else None
+    activation = (
+        "gemma4"
+        if request.profile in {"gemma4_channel_32768_v1", "gemma4_channel_8192_v1"}
+        else None
+    )
     tokenizer = load_hf_chat_template_tokenizer(
         request.hf_model_id,
         activation,
@@ -305,7 +313,13 @@ def resolve_bounded_final_profile_from_introspection(
         )
     if profile == "auto":
         if introspection.supports_gemma_channel:
-            return _gemma_runtime(introspection, prompt_renderer, prompt_renderer_manifest, context)
+            return _gemma_runtime(
+                GEMMA4_CHANNEL_32768_PROFILE,
+                introspection,
+                prompt_renderer,
+                prompt_renderer_manifest,
+                context,
+            )
         if introspection.supports_generic_thinking:
             _require_answer_stop("generic_think_tags_32768_v1", introspection.answer_stop)
             return _generic_runtime(
@@ -345,7 +359,23 @@ def resolve_bounded_final_profile_from_introspection(
     if profile == "gemma4_channel_8192_v1":
         if not introspection.supports_gemma_channel:
             raise _unsupported(profile, "the canonical chat template exposes no Gemma channel tags")
-        return _gemma_runtime(introspection, prompt_renderer, prompt_renderer_manifest, context)
+        return _gemma_runtime(
+            GEMMA4_CHANNEL_PROFILE,
+            introspection,
+            prompt_renderer,
+            prompt_renderer_manifest,
+            context,
+        )
+    if profile == "gemma4_channel_32768_v1":
+        if not introspection.supports_gemma_channel:
+            raise _unsupported(profile, "the canonical chat template exposes no Gemma channel tags")
+        return _gemma_runtime(
+            GEMMA4_CHANNEL_32768_PROFILE,
+            introspection,
+            prompt_renderer,
+            prompt_renderer_manifest,
+            context,
+        )
     raise _unsupported(profile, "unknown bounded-final profile")
 
 

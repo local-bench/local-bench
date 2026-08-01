@@ -39,6 +39,7 @@ from localbench.orchestrate import OrchestrateConfig, run_localbench
 FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
 LEGACY_QWEN_DIGEST = "a2fd0e4701fc6724a71aa4ab8a0f43d908b1e69472b3b72617c759aa96f17dec"
 LEGACY_GEMMA4_DIGEST = "bf66a190a9c04e27aa79d008c4e4e6c2c2deadb80ca9f9ee0b78cb19779d2f62"
+LEGACY_GEMMA4_CHANNEL_DIGEST = "97371f79e24e97cdff07cecb81da5766560849ed5cdd3c7b6eae5c387a62b710"
 PRE_SCOREABLE_WAVE_2A_BOUNDED_ANSWER_ONLY_SCORECARD_ID = (
     "a892f8a27a8bacd781a2117a16f1ccc107cf407b07cf317163390dbbc74fd80c"
 )
@@ -155,6 +156,26 @@ def test_profile_auto_resolution_uses_think_profile_for_thinking_template() -> N
     assert resolved.answer_stop == ("<|im_end|>",)
 
 
+def test_gemma4_family_auto_resolution_uses_32768_channel_profile() -> None:
+    # Given: the canonical Gemma 4 channel activation at the shared 32k operating point.
+    introspection = TemplateIntrospection(
+        answer_stop=("<turn|>",),
+        chat_template_kwargs={"enable_thinking": True},
+        supports_generic_thinking=True,
+        supports_gemma_channel=True,
+    )
+
+    # When: the existing auto-selection policy resolves the family activation.
+    resolved = resolve_bounded_final_profile_from_introspection("auto", introspection)
+
+    # Then: Gemma receives its channel-forced 32k sibling with the generic 32k tuple.
+    assert resolved.entry.id == "gemma4_channel_32768_v1"
+    assert resolved.entry.budget == GENERIC_THINK_TAGS_32768_PROFILE.budget
+    assert resolved.forcing is not None
+    assert resolved.forcing.close == "<channel|>"
+    assert resolved.forcing.answer_stop == ("<turn|>",)
+
+
 def test_profile_auto_resolution_uses_answer_only_for_plain_template() -> None:
     introspection = TemplateIntrospection(
         answer_stop=("<|eot_id|>",),
@@ -205,10 +226,12 @@ def test_new_ranked_profiles_are_allowlisted_without_changing_legacy_digests() -
 
     assert execution_profile_digest(QWEN_REASONING_ENTRY) == LEGACY_QWEN_DIGEST
     assert execution_profile_digest(GEMMA4_REASONING_ENTRY) == LEGACY_GEMMA4_DIGEST
+    assert execution_profile_digest(GEMMA4_CHANNEL_PROFILE) == LEGACY_GEMMA4_CHANNEL_DIGEST
     assert ranked["generic_think_tags_8192_v1"] == execution_profile_digest(
         GENERIC_THINK_TAGS_PROFILE,
     )
     assert ranked["gemma4_channel_8192_v1"] == execution_profile_digest(GEMMA4_CHANNEL_PROFILE)
+    assert "gemma4_channel_32768_v1" in ranked
 
 
 def test_gemma4_channel_profile_converts_legacy_payload_for_bounded_final_lane() -> None:

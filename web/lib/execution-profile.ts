@@ -5,6 +5,14 @@ const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/u);
 const ProfileTextSchema = z.string().min(1).max(160).regex(SAFE_TEXT_RE);
 
 export const CURRENT_EXECUTION_PROFILE_ID = "generic_think_tags_32768_v1" as const;
+export const CURRENT_EXECUTION_PROFILE_IDS = [
+  CURRENT_EXECUTION_PROFILE_ID,
+  "gemma4_channel_32768_v1",
+] as const;
+const CurrentExecutionProfileIdSchema = z.union([
+  z.literal(CURRENT_EXECUTION_PROFILE_IDS[0]),
+  z.literal(CURRENT_EXECUTION_PROFILE_IDS[1]),
+]);
 
 const ExecutionProfileBaseShape = {
   answer_stops: z.array(ProfileTextSchema).max(16).readonly(),
@@ -40,7 +48,7 @@ const LegacySemanticShape = {
 const ExecutionProfileV1Schema = z.object({
   ...ExecutionProfileBaseShape,
   ...LegacySemanticShape,
-  id: ProfileTextSchema.refine((value) => value !== CURRENT_EXECUTION_PROFILE_ID),
+  id: ProfileTextSchema.refine((value) => !CURRENT_EXECUTION_PROFILE_IDS.some((id) => id === value)),
   schema_version: z.undefined().optional(),
 }).strict().readonly();
 
@@ -52,7 +60,7 @@ const ExecutionProfileV2Schema = z.object({
   agentic_max_turns: z.literal(40),
   context_extension_policy: z.literal("none"),
   context_fit_policy: z.literal("exact-or-fail"),
-  id: z.literal(CURRENT_EXECUTION_PROFILE_ID),
+  id: CurrentExecutionProfileIdSchema,
   kv_cache_k_dtype: z.literal("f16"),
   kv_cache_v_dtype: z.literal("f16"),
   per_task_timeout_s: z.literal(3000),
@@ -123,7 +131,7 @@ export const PublicExecutionProfileSchema = z.discriminatedUnion("schema_version
 export const ExecutionProfileSchema = PublicExecutionProfileSchema;
 
 export const LegacyExecutionProfileReferenceSchema = z.object({
-  id: ProfileTextSchema.refine((value) => value !== CURRENT_EXECUTION_PROFILE_ID),
+  id: ProfileTextSchema.refine((value) => !CURRENT_EXECUTION_PROFILE_IDS.some((id) => id === value)),
 }).strict().readonly();
 
 export const BoardExecutionProfileSchema = z.union([
@@ -143,7 +151,17 @@ export type CommunityExecutionProfileFields = {
 export function isCurrentExecutionProfile(
   profile: BoardExecutionProfile | undefined,
 ): boolean {
-  return profile?.id === CURRENT_EXECUTION_PROFILE_ID;
+  return profile !== undefined && CURRENT_EXECUTION_PROFILE_IDS.some((id) => id === profile.id);
+}
+
+export type ExecutionProfileCohort = "8k" | "32k" | "unclassified";
+
+export function executionProfileCohort(
+  profile: BoardExecutionProfile | undefined,
+): ExecutionProfileCohort {
+  if (isCurrentExecutionProfile(profile)) return "32k";
+  if (profile?.id.includes("8192") === true) return "8k";
+  return "unclassified";
 }
 
 export function executionProfileSemanticSha256(

@@ -74,7 +74,10 @@ INDEX_VERSION: Final = "index-v3.0"
 # Current season-2 editorial label. index-v4.0 and index-v4.1 remain historical
 # scales with the same broad row shape but different scoring protocols.
 SEASON_2_INDEX_VERSION: Final = "index-v4.2"
-CURRENT_EXECUTION_PROFILE_ID: Final = "generic_think_tags_32768_v1"
+CURRENT_EXECUTION_PROFILE_IDS: Final = frozenset({
+    "generic_think_tags_32768_v1",
+    "gemma4_channel_32768_v1",
+})
 
 
 def _season_2_label(label: str | None) -> str | None:
@@ -968,7 +971,7 @@ def _public_execution_profile(value: JsonValue | None) -> JsonObject | None:
         "template_sha256",
         "template_source",
     )
-    if profile_id == CURRENT_EXECUTION_PROFILE_ID:
+    if profile_id in CURRENT_EXECUTION_PROFILE_IDS:
         try:
             return structured_execution_profile(value)
         except InvalidExecutionProfileSemanticRecordError:
@@ -998,7 +1001,7 @@ def _current_execution_profile_run(run: JsonObject) -> bool:
     row = _object(run["index_row"], "index_row")
     profile = row.get("execution_profile")
     public_profile = _public_execution_profile(profile)
-    return public_profile is not None and public_profile.get("id") == CURRENT_EXECUTION_PROFILE_ID
+    return public_profile is not None and public_profile.get("id") in CURRENT_EXECUTION_PROFILE_IDS
 
 
 def _trusted_run(run: JsonObject) -> bool:
