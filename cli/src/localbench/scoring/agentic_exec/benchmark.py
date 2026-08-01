@@ -107,6 +107,7 @@ def run_appworld_c_benchmark(
     run_index: int = 1,
     sleep_wake_monitor: SleepWakeMonitor | None = None,
     runtime_revalidator: Callable[[], None] | None = None,
+    on_task_complete: Callable[[TaskRunResult], None] | None = None,
 ) -> BenchmarkReport:
     """Run Protocol C over ``task_ids``; return ASR + diagnostics aggregate.
 
@@ -145,6 +146,7 @@ def run_appworld_c_benchmark(
             sleep_wake_monitor=sleep_wake_monitor,
             runtime_revalidator=runtime_revalidator,
             semantics=semantics,
+            on_task_complete=on_task_complete,
         )
     return _run_v3_benchmark(
         tuple(task_ids),
@@ -154,6 +156,7 @@ def run_appworld_c_benchmark(
         run_index=run_index,
         sleep_wake_monitor=sleep_wake_monitor,
         runtime_revalidator=runtime_revalidator,
+        on_task_complete=on_task_complete,
     )
 
 
@@ -166,17 +169,24 @@ def _run_v3_benchmark(
     run_index: int,
     sleep_wake_monitor: SleepWakeMonitor | None,
     runtime_revalidator: Callable[[], None] | None,
+    on_task_complete: Callable[[TaskRunResult], None] | None,
 ) -> BenchmarkReport:
     from localbench.scoring.agentic_exec.sandbox import WorkerSetupError
 
     results: list[TaskRunResult] = []
     for task_id in task_ids:
         if journal is None:
-            results.append(_run_task_with_watchdog(task_id, factories, cfg))
+            _record_completed_task(
+                results,
+                _run_task_with_watchdog(task_id, factories, cfg),
+                on_task_complete,
+            )
             continue
         if journal.is_committed(task_id, run_index):
-            results.append(
-                task_result_from_envelope(journal.committed_envelope(task_id, run_index))
+            _record_completed_task(
+                results,
+                task_result_from_envelope(journal.committed_envelope(task_id, run_index)),
+                on_task_complete,
             )
             continue
         started = sleep_wake_monitor.task_started() if sleep_wake_monitor is not None else None
@@ -237,7 +247,7 @@ def _run_v3_benchmark(
             diagnostics=result.diagnostics.as_dict(),
             attestation=result.attestation,
         )
-        results.append(result)
+        _record_completed_task(results, result, on_task_complete)
     return aggregate(results)
 
 
@@ -251,6 +261,7 @@ def _run_v4_benchmark(
     sleep_wake_monitor: SleepWakeMonitor | None,
     runtime_revalidator: Callable[[], None] | None,
     semantics: ContractSemantics,
+    on_task_complete: Callable[[TaskRunResult], None] | None,
 ) -> BenchmarkReport:
     from localbench.scoring.agentic_exec.rank_gate import evaluate_rank_gate
     from localbench.scoring.agentic_exec.rank_gate_execution import execute_v4_task
@@ -258,8 +269,10 @@ def _run_v4_benchmark(
     results: list[TaskRunResult] = []
     for task_id in task_ids:
         if journal.is_committed(task_id, run_index):
-            results.append(
-                task_result_from_envelope(journal.committed_envelope(task_id, run_index))
+            _record_completed_task(
+                results,
+                task_result_from_envelope(journal.committed_envelope(task_id, run_index)),
+                on_task_complete,
             )
             continue
 
@@ -296,9 +309,19 @@ def _run_v4_benchmark(
             run_attempt=_attempt,
         )
         if result is not None:
-            results.append(result)
+            _record_completed_task(results, result, on_task_complete)
     evaluate_rank_gate(journal, required_task_ids=task_ids, run_index=run_index)
     return aggregate(results)
+
+
+def _record_completed_task(
+    results: list[TaskRunResult],
+    result: TaskRunResult,
+    on_task_complete: Callable[[TaskRunResult], None] | None,
+) -> None:
+    results.append(result)
+    if on_task_complete is not None:
+        on_task_complete(result)
 
 
 def _execution_contract_id() -> str:

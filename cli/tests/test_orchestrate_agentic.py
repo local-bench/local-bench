@@ -9,6 +9,7 @@ import pytest
 
 from localbench._scoring import aggregate, composite
 from localbench._suite import read_json_object
+from localbench.campaign import CampaignPaths, StatusUpdate
 from localbench.orchestrate import (
     OrchestrateConfig,
     _appworld_report_to_aggregate,
@@ -234,6 +235,50 @@ def test_appworld_report_conversion_matches_run_aggregate() -> None:
         "termination_rate": 1.0,
     }
     assert aggregate("appworld_c", items, baseline=0.0) == bench_aggregate
+
+
+def test_agentic_task_completions_pulse_campaign_status_for_lease_renewal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import localbench.orchestrate as orchestrate
+
+    observed: list[StatusUpdate] = []
+    real_write_status = orchestrate.write_status
+
+    def capture_status(paths: CampaignPaths, update: StatusUpdate) -> None:
+        observed.append(update)
+        real_write_status(paths, update)
+
+    monkeypatch.setattr(orchestrate, "write_status", capture_status)
+
+    async def scenario() -> None:
+        # Given: an agentic-only campaign with two tasks and the locked two base runs.
+        # When: the real orchestrator completes each task through the funnel/benchmark path.
+        await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=_SUITE_DIR,
+                bench="appworld_c",
+                tier="standard",
+                out=tmp_path / "agentic-progress.json",
+            ),
+            agentic_sandbox_factory=_fake_appworld_sandbox_factory,
+            agentic_model_factory=lambda task_id: sa.ScriptedSolverAgent(task_id),
+            agentic_task_ids=["fac291d_1", "50e1ac9_1"],
+            agentic_canonical_task_ids=["fac291d_1", "50e1ac9_1"],
+            agentic_resume_seed=_agentic_resume_seed(),
+        )
+
+    asyncio.run(scenario())
+
+    # Then: run.status exposes monotonic task completion pulses that renew the parent lease.
+    assert [
+        update.completed_items
+        for update in observed
+        if update.state == "running" and update.current_bench == "appworld_c"
+    ] == [1, 2, 3, 4]
 
 
 def test_orchestrate_import_is_appworld_optional() -> None:

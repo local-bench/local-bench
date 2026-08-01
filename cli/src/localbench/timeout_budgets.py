@@ -7,6 +7,9 @@ from typing import Final, Protocol
 import httpx
 
 from localbench._types import JsonObject
+from localbench.scoring.agentic_exec.loop_config import (
+    TASK_FINALIZE_TEARDOWN_RESERVE_S,
+)
 
 MIN_GENERATION_TOKENS_PER_SECOND: Final = 10
 HTTP_CONNECT_TIMEOUT_S: Final = 10.0
@@ -48,6 +51,13 @@ class TimeoutBudget:
 
     def request_read_seconds(self, output_tokens: int) -> float:
         return float(self.generation_seconds(output_tokens) + HTTP_READ_FINALIZE_RESERVE_S)
+
+    @property
+    def agentic_task_transport_seconds(self) -> float:
+        return max(
+            0.0,
+            float(self.profile.per_task_timeout_s) - TASK_FINALIZE_TEARDOWN_RESERVE_S,
+        )
 
     @property
     def static_item_seconds(self) -> float:
@@ -100,6 +110,10 @@ class TimeoutBudget:
             "read_finalize_reserve_seconds": HTTP_READ_FINALIZE_RESERVE_S,
             "static_request_max_attempts": STATIC_REQUEST_MAX_ATTEMPTS,
             "agentic_campaign_max_runs": AGENTIC_CAMPAIGN_MAX_RUNS,
+            "agentic_task_finalize_teardown_reserve_seconds": (
+                TASK_FINALIZE_TEARDOWN_RESERVE_S
+            ),
+            "agentic_task_transport_seconds": self.agentic_task_transport_seconds,
             "static_item_finalize_reserve_seconds": STATIC_ITEM_FINALIZE_RESERVE_S,
             "campaign_startup_reserve_seconds": CAMPAIGN_STARTUP_RESERVE_S,
             "campaign_finalization_reserve_seconds": CAMPAIGN_FINALIZATION_RESERVE_S,

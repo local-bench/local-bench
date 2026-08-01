@@ -662,6 +662,7 @@ def test_run_with_reruns_triggers_third_on_large_delta(tmp_path: Path) -> None:
     # A factory whose success flips by run: we encode the run index in the FakeSandbox gold so that
     # run 1 succeeds (gold matches) and run 2 fails (gold mismatched), a 100pp swing -> 3rd run.
     state = {"call": 0}
+    completed_task_ids: list[str] = []
 
     def flaky_sandbox_factory(task_id: str) -> FakeSandbox:
         # Each task opens a sandbox; count sandbox opens to know which run we're in.
@@ -683,6 +684,7 @@ def test_run_with_reruns_triggers_third_on_large_delta(tmp_path: Path) -> None:
         model_factory=_scripted_factory,
         sandbox_factory=flaky_sandbox_factory,
         results_dir=tmp_path,
+        on_task_complete=lambda result: completed_task_ids.append(result.task_id),
     )
     assert agg.triggered_third_run is True
     assert len(agg.runs) == 3
@@ -690,6 +692,14 @@ def test_run_with_reruns_triggers_third_on_large_delta(tmp_path: Path) -> None:
     assert agg.max_abs_delta_pp == 100.0
     # mean over the 3 runs (run3 succeeds again -> 1.0): (1+0+1)/3
     assert abs(agg.mean_asr - (2 / 3)) < 1e-9
+    assert completed_task_ids == [
+        "fac291d_1",
+        "50e1ac9_1",
+        "fac291d_1",
+        "50e1ac9_1",
+        "fac291d_1",
+        "50e1ac9_1",
+    ]
     assert {p.name for p in tmp_path.glob("*.json")} == {
         "flaky.scored.run1.json",
         "flaky.scored.run2.json",

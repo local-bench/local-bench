@@ -108,7 +108,7 @@ from localbench.timeout_budgets import derive_timeout_budget
 if TYPE_CHECKING:
     from localbench.scoring.agentic_exec.benchmark import ModelFactory, SandboxFactory; from localbench.scoring.agentic_exec.loop_config import LoopConfig; from localbench.scoring.agentic_exec.task_journal import AgenticResumeIdentity, AgenticResumeSeed  # noqa: E501, E702
     from localbench.scoring.agentic_exec.funnel import RerunAggregate, StageRunResult
-    from localbench.scoring.agentic_exec.loop_types import BenchmarkReport
+    from localbench.scoring.agentic_exec.loop_types import BenchmarkReport, TaskRunResult
 
 BenchChoice: TypeAlias = str
 TierChoice = Literal["quick", "standard"]
@@ -677,6 +677,25 @@ async def run_localbench(
     benches = dict(bench_aggregates)
     agentic_provenance: JsonObject | None = None
     agentic_unavailable_detail: str | None = None
+    agentic_completed_items = 0
+
+    def on_agentic_task_complete(result: TaskRunResult) -> None:
+        nonlocal agentic_completed_items
+        agentic_completed_items += 1
+        observed_completed = completed_items + agentic_completed_items
+        write_status(
+            paths,
+            StatusUpdate(
+                state="running",
+                current_bench=_APPWORLD_C_BENCH,
+                current_item_index=agentic_completed_items,
+                current_item_id=result.task_id,
+                completed_items=observed_completed,
+                total_items=max(total_items, observed_completed),
+                started_at=started_at,
+            ),
+        )
+
     if run_agentic:
         warning_start = len(warnings)
         agentic_outcome = _run_agentic_axis(
@@ -696,6 +715,7 @@ async def run_localbench(
                 config.lane,
                 None if bounded_profile is None else bounded_profile.contract,
             ),
+            on_task_complete=on_agentic_task_complete,
         )
         if agentic_outcome is None:
             agentic_unavailable_detail = _agentic_warning_since(warnings, warning_start)
@@ -897,8 +917,8 @@ async def run_localbench(
             current_bench=None,
             current_item_index=None,
             current_item_id=None,
-            completed_items=completed_items,
-            total_items=total_items,
+            completed_items=completed_items + agentic_completed_items,
+            total_items=max(total_items, completed_items + agentic_completed_items),
             started_at=started_at,
             exit_code=0,
         ),
@@ -1789,6 +1809,7 @@ def _run_agentic_axis(
     execution_profile_id: str | None = None,
     execution_contract: ResolvedExecutionContract | None = None,
     chat_template_kwargs: JsonObject | None = None,
+    on_task_complete: Callable[[TaskRunResult], None] | None = None,
 ) -> AgenticOutcome | None:
     injected = sandbox_factory is not None or model_factory is not None or task_ids is not None
     resolved_sandbox_factory = sandbox_factory
@@ -1899,7 +1920,7 @@ def _run_agentic_axis(
         results_dir=results_dir,
         endpoint=config.endpoint,
         model_id=config.model,
-        chat_template_kwargs=resolved_chat_template_kwargs, resume_identity=journal_context[1], runtime_revalidator=runtime_revalidator,
+        chat_template_kwargs=resolved_chat_template_kwargs, resume_identity=journal_context[1], runtime_revalidator=runtime_revalidator, on_task_complete=on_task_complete,
     )
     last_report = agg.runs[-1].report
     provenance: JsonObject = {

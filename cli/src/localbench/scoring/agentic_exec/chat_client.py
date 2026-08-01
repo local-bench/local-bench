@@ -217,7 +217,12 @@ class ChatCompletionsClient:
 
     def _remaining_transport_s(self) -> float:
         if self._deadline is None:
-            self._deadline = time.monotonic() + _DEFAULT_TASK_TRANSPORT_BUDGET_S
+            implicit_transport_s = (
+                _DEFAULT_TASK_TRANSPORT_BUDGET_S
+                if self._timeout_budget is None
+                else self._timeout_budget.agentic_task_transport_seconds
+            )
+            self._deadline = time.monotonic() + implicit_transport_s
         return max(0.0, self._deadline - time.monotonic())
 
     # -- ModelClient.complete -------------------------------------------------------------------

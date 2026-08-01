@@ -6,6 +6,8 @@ T6 now derives transport, no-progress, campaign, and keepawake bounds from the r
 
 The supervisor now uses a finite renewable keepawake lease. It acquires the lease for a profile-derived horizon, renews it on observable completed-item progress, resets the no-progress clock on progress, and releases it on completion, error, cancellation, or watchdog termination. Renewal failure aborts closed.
 
+Fix round 1 closed two review gaps. A resolved `ChatCompletionsClient` that has not yet received an explicit deadline now derives its implicit transport deadline from the same profile-owned task budget after the named 180-second finalize/teardown reserve; only genuinely legacy construction keeps the 1,620-second implicit fallback. The real CLI supervisor path now resolves the selected suite, counts the authoritative 96 signed AppWorld-C tasks, reserves the conditional maximum of three runs, and receives a monotonic status pulse after every agentic task completion, including a triggered third run.
+
 ## Authoritative formulas
 
 All named constants live in `localbench.timeout_budgets`:
@@ -42,5 +44,14 @@ Persisted timeout evidence carries provenance `profile-derived-10-tokens-per-sec
 - Full CLI: `uv run pytest -q` — **1 failed, 2214 passed, 17 skipped, 4 xfailed**. The sole failure is the required signed-v8 wall, `tests/test_execution_contract_release_gate.py::test_live_covered_behavior_matches_baked_signed_contract`; it was not modified or weakened. Artifact: `.omo/evidence/t6-timeout-leases/full-cli-final-attempts.txt`.
 - Full web, run serially after CLI: `npm test` — **114 files passed, 1 skipped; 696 tests passed, 1 skipped**. A first post-change run encountered a one-off Miniflare `EADDRINUSE` proxy collision and the required complete rerun passed. Artifacts: `.omo/evidence/t6-timeout-leases/full-web-final.txt` and `.omo/evidence/t6-timeout-leases/full-web-final-rerun.txt`.
 - Static verification: Ruff reported `All checks passed!`; basedpyright reported `0 errors, 0 warnings, 0 notes` for the two new typed modules; compileall reported `compileall_ok=True`; `git diff --check` reported clean. Artifacts: `.omo/evidence/t6-timeout-leases/ruff-final.txt`, `basedpyright-final.txt`, `compileall-final.txt`, and `git-diff-check-final.txt`.
+
+## Fix round 1 verification
+
+- Focused timeout, real CLI wiring, supervisor, orchestrator, and funnel scenarios: `uv run pytest tests/test_timeout_budgets.py tests/test_supervisor_timeout_wiring.py tests/test_supervisor.py tests/test_orchestrate_agentic.py tests/test_appworld_c_funnel_units.py -q` — **60 passed**. Artifact: `.omo/evidence/t6-timeout-leases-fix-round-1/focused-final.txt`.
+- RED and mutation controls failed at the intended assertions before each fix was present: resolved implicit deadline `1720 != 2920`, real agentic selections reported `0 != 96`, live agentic progress emitted no pulses, and removing only the third-run callback omitted exactly two completion events. Artifacts: `.omo/evidence/t6-timeout-leases-fix-round-1/red-resolved-client.txt`, `red-cli-supervisor-wiring.txt`, `red-agentic-progress-renewal.txt`, and `red-third-run-callback-mutation.txt`.
+- Frozen contract identity and provenance citation ranges: **2 passed**. Artifact: `.omo/evidence/t6-timeout-leases-fix-round-1/frozen-citations-final.txt`.
+- Full CLI: `uv run pytest -q` — **1 failed, 2220 passed, 17 skipped, 4 xfailed**. The sole failure is the required signed-v8 wall, `tests/test_execution_contract_release_gate.py::test_live_covered_behavior_matches_baked_signed_contract`; it was not modified or weakened. Artifact: `.omo/evidence/t6-timeout-leases-fix-round-1/full-cli-final.txt`.
+- Full web, run serially after CLI: `npm test` — **114 files passed, 1 skipped; 696 tests passed, 1 skipped**. Artifact: `.omo/evidence/t6-timeout-leases-fix-round-1/full-web-final.txt`.
+- Static verification: Ruff reported `All checks passed!`; scoped basedpyright reported `0 errors, 5 warnings, 0 notes` (intentional private test seams and parser `Any` values); compileall passed. Artifacts: `.omo/evidence/t6-timeout-leases-fix-round-1/ruff-final.txt`, `basedpyright-scoped-final.txt`, and `compileall-final.txt`. A broad ad-hoc basedpyright invocation over legacy CLI/test files remains non-green from existing repository type debt and is retained as `basedpyright-final.txt`, not represented as a passing gate.
 
 No contract ceremony, suite bytes, UI transition, docs/version/changelog, publish, or push was performed.

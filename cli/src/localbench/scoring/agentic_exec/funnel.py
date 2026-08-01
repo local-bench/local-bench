@@ -48,7 +48,7 @@ from localbench.scoring.agentic_exec.benchmark import (
     run_appworld_c_benchmark,
 )
 from localbench.scoring.agentic_exec.loop_config import LoopConfig
-from localbench.scoring.agentic_exec.loop_types import BenchmarkReport, TaskOutcome; from localbench.scoring.agentic_exec.task_journal import AgenticResumeIdentity, JournalCorruptionError, SleepWakeMonitor, TaskJournal, canonical_result_digest; from localbench.submissions.canon import canonical_json_hash  # noqa: E501, E702
+from localbench.scoring.agentic_exec.loop_types import BenchmarkReport, TaskOutcome, TaskRunResult; from localbench.scoring.agentic_exec.task_journal import AgenticResumeIdentity, JournalCorruptionError, SleepWakeMonitor, TaskJournal, canonical_result_digest; from localbench.submissions.canon import canonical_json_hash  # noqa: E501, E702
 
 # ==================================================================================================
 # Frozen subset selection — deterministic, pre-registered, stratified, NOT tuned on results.
@@ -335,7 +335,7 @@ def run_stage(
     results_dir: Path | str | None = None,
     endpoint: str | None = None,
     model_id: str | None = None,
-    chat_template_kwargs: dict[str, object] | None = None, journal: TaskJournal | None = None, sleep_wake_monitor: SleepWakeMonitor | None = None, runtime_revalidator: Callable[[], None] | None = None,
+    chat_template_kwargs: dict[str, object] | None = None, journal: TaskJournal | None = None, sleep_wake_monitor: SleepWakeMonitor | None = None, runtime_revalidator: Callable[[], None] | None = None, on_task_complete: Callable[[TaskRunResult], None] | None = None,
 ) -> StageRunResult:
     """Run one funnel stage over ``subset`` and (optionally) persist the BenchmarkReport.
 
@@ -352,7 +352,7 @@ def run_stage(
         task_ids=list(subset.task_ids),
         model_factory=model_factory,
         sandbox_factory=sandbox_factory,
-        config=cfg, journal=journal, run_index=run_index, sleep_wake_monitor=sleep_wake_monitor, runtime_revalidator=runtime_revalidator,
+        config=cfg, journal=journal, run_index=run_index, sleep_wake_monitor=sleep_wake_monitor, runtime_revalidator=runtime_revalidator, on_task_complete=on_task_complete,
     )
     digest = _stage_digest(journal, report, run_index)
     results_path: str | None = None
@@ -506,7 +506,7 @@ def run_with_reruns(
     delta_trigger_pp: float = DELTA_TRIGGER_PP,
     endpoint: str | None = None,
     model_id: str | None = None,
-    chat_template_kwargs: dict[str, object] | None = None, resume_identity: AgenticResumeIdentity | None = None, sleep_wake_monitor: SleepWakeMonitor | None = None, runtime_revalidator: Callable[[], None] | None = None,
+    chat_template_kwargs: dict[str, object] | None = None, resume_identity: AgenticResumeIdentity | None = None, sleep_wake_monitor: SleepWakeMonitor | None = None, runtime_revalidator: Callable[[], None] | None = None, on_task_complete: Callable[[TaskRunResult], None] | None = None,
 ) -> RerunAggregate:
     """Run a displayed row ``base_count`` times; add a 3rd run iff ASR drift exceeds the threshold.
 
@@ -533,7 +533,7 @@ def run_with_reruns(
                     results_dir=results_dir,
                     endpoint=endpoint,
                     model_id=model_id,
-                    chat_template_kwargs=chat_template_kwargs, journal=journal, sleep_wake_monitor=monitor, runtime_revalidator=runtime_revalidator,
+                    chat_template_kwargs=chat_template_kwargs, journal=journal, sleep_wake_monitor=monitor, runtime_revalidator=runtime_revalidator, on_task_complete=on_task_complete,
                 )
             )
 
@@ -554,7 +554,7 @@ def run_with_reruns(
                     results_dir=results_dir,
                     endpoint=endpoint,
                     model_id=model_id,
-                    chat_template_kwargs=chat_template_kwargs, journal=journal, sleep_wake_monitor=monitor, runtime_revalidator=runtime_revalidator,
+                    chat_template_kwargs=chat_template_kwargs, journal=journal, sleep_wake_monitor=monitor, runtime_revalidator=runtime_revalidator, on_task_complete=on_task_complete,
                 )
             )
             asr = [r.report.agentic_success_rate for r in runs]

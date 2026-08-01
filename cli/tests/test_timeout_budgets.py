@@ -168,7 +168,9 @@ def test_legacy_request_keeps_the_explicit_caller_timeout() -> None:
     asyncio.run(scenario())
 
 
-def test_agentic_request_uses_turn_cap_without_legacy_600_second_floor(monkeypatch) -> None:
+def test_resolved_agentic_client_derives_implicit_task_deadline_without_legacy_shadow(
+    monkeypatch,
+) -> None:
     captured: list[float | None] = []
     budget = derive_timeout_budget(
         GENERIC_THINK_TAGS_32768_PROFILE.budget,
@@ -186,20 +188,34 @@ def test_agentic_request_uses_turn_cap_without_legacy_600_second_floor(monkeypat
                 },
             )
 
-    # Given: a resolved-profile client with a task deadline beyond one legitimate turn.
+    # Given: a resolved-profile client with no benchmark-injected task deadline.
     monkeypatch.setattr("localbench.scoring.agentic_exec.chat_client.time.monotonic", lambda: 100.0)
     client = CapturingClient("http://local", "fixture", timeout_budget=budget)
-    client.set_task_deadline(3100.0)
 
-    # When: the per-turn request reaches its transport seam.
+    # When: the first per-turn request establishes its implicit task transport deadline.
     response = client.complete(
         [ChatMessage(role="user", content="answer")],
         GenerationParams(max_output_tokens=1024),
     )
 
-    # Then: its attempt bound is token-derived, not the legacy 600-second floor.
+    # Then: the task gets the profile's 3000s less the named 180s finalize/teardown reserve,
+    # while the request remains bounded to the 133s token-derived turn allowance.
     assert response.text == "ok"
+    assert client._deadline == 100.0 + 2820.0
     assert captured == [budget.request_read_seconds(1024)]
+
+
+def test_legacy_agentic_client_retains_implicit_1620_second_transport_budget(monkeypatch) -> None:
+    # Given: genuine legacy construction without a resolved timeout budget.
+    monkeypatch.setattr("localbench.scoring.agentic_exec.chat_client.time.monotonic", lambda: 100.0)
+    client = ChatCompletionsClient("http://local", "fixture")
+
+    # When: the client establishes its implicit task transport deadline.
+    remaining = client._remaining_transport_s()
+
+    # Then: the frozen legacy 1800s watchdog less its 180s reserve remains unchanged.
+    assert remaining == 1620.0
+    assert client._deadline == 1720.0
 
 
 def test_bounded_two_pass_uses_each_actual_pass_maximum_at_transport() -> None:

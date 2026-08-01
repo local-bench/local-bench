@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final, TypeAlias
@@ -85,6 +86,7 @@ from localbench.scoring.paired_delta import (
 )
 from localbench.scoring.axis_status import axis_key_for_bench, mark_axis_not_measured
 from localbench.scoring.agentic_exec.wsl_proxy import WslTransportError
+from localbench.scoring.agentic_exec.execution_contract import contract_task_ids
 from localbench.scoring.axes import (
     AXES,
     STATIC_SUITE_V3_INDEX_VERSION as STATIC_SUITE_INDEX_VERSION,
@@ -188,6 +190,13 @@ _BASIC_IDENTITY_NOTICE: Final = (
     "identity basic-gguf-repo-only-v1: tokenizer/chat-template digests will be null; "
     "add --hf-model-id <exact HF repo> for full provenance"
 )
+
+
+@dataclass(frozen=True, slots=True)
+class _CampaignWorkPlan:
+    progress_plans: tuple[BenchProgressPlan, ...]
+    remaining_static_items: int
+    remaining_agentic_tasks: int
 _TOKENIZER_INCOMPLETE_ERROR: Final = (
     "the fetched snapshot for {ref!r} did not provide a complete loadable "
     "tokenizer/chat-template set - common for GGUF-only uploads. Pass the fine-tune's "
@@ -1059,12 +1068,12 @@ def _populate_resume_args(args: argparse.Namespace) -> None:
 def _run_supervised(args: argparse.Namespace, tier: str, out: Path, bench_choice: str) -> int:
     paths = campaign_paths(out, args.resume)
     command = _worker_command(args, tier, out)
-    progress_plans = _progress_plans_for_args(args, tier, bench_choice)
+    work_plan = _campaign_work_plan_for_args(args, tier, bench_choice)
     timeout_budget = (
         derive_timeout_budget(
             GENERIC_THINK_TAGS_32768_PROFILE.budget,
-            remaining_static_items=sum(plan.total_items for plan in progress_plans),
-            remaining_agentic_tasks=0,
+            remaining_static_items=work_plan.remaining_static_items,
+            remaining_agentic_tasks=work_plan.remaining_agentic_tasks,
         )
         if args.lane in {"bounded-final-v1", "bounded-final-v2"}
         and getattr(args, "profile", "auto")
@@ -1077,7 +1086,7 @@ def _run_supervised(args: argparse.Namespace, tier: str, out: Path, bench_choice
             campaign_root=paths.root,
             label=f"localbench:{args.model}",
             sample_interval_seconds=5.0,
-            progress_plans=progress_plans,
+            progress_plans=work_plan.progress_plans,
             timeout_budget=timeout_budget,
         )
     )
@@ -1723,6 +1732,14 @@ def _progress_plans_for_args(
     tier: str,
     bench_choice: str | None = None,
 ) -> tuple[BenchProgressPlan, ...]:
+    return _campaign_work_plan_for_args(args, tier, bench_choice).progress_plans
+
+
+def _campaign_work_plan_for_args(
+    args: argparse.Namespace,
+    tier: str,
+    bench_choice: str | None = None,
+) -> _CampaignWorkPlan:
     ref = resolve_suite_dir(
         suite_id=args.suite,
         suite_dir=args.suite_dir,
@@ -1732,9 +1749,24 @@ def _progress_plans_for_args(
     )
     suite = read_json_object(ref.path / "suite.json")
     choice = bench_choice or ",".join(resolve_run_benches(args.bench, suite))
+    selected_benches = tuple(name for name in choice.split(",") if name)
+    static_choice = ",".join(name for name in selected_benches if name != "appworld_c")
     warnings: list[str] = []
-    rendered = render_benches(choice, tier, args.max_items, ref.path, suite, warnings)
-    return plans_from_bench_counts((bench.name, len(bench.benchmark_items)) for bench in rendered)
+    rendered = (
+        render_benches(static_choice, tier, args.max_items, ref.path, suite, warnings)
+        if static_choice
+        else []
+    )
+    progress_plans = plans_from_bench_counts(
+        (bench.name, len(bench.benchmark_items)) for bench in rendered
+    )
+    return _CampaignWorkPlan(
+        progress_plans=progress_plans,
+        remaining_static_items=sum(plan.total_items for plan in progress_plans),
+        remaining_agentic_tasks=(
+            len(contract_task_ids()) if "appworld_c" in selected_benches else 0
+        ),
+    )
 
 
 def _tier_selection_error_for_args(args: argparse.Namespace, tier: str) -> str | None:
