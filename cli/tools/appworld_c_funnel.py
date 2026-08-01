@@ -84,6 +84,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--max-turns", type=int, default=_locked.max_turns,
                     help=f"DIAGNOSTIC override of the turn cap (LOCKED default {_locked.max_turns}). "
                          f"Dev-split calibration ONLY.")
+    ap.add_argument("--per-task-timeout-s", type=float, default=_locked.per_task_timeout_s,
+                    help=f"DIAGNOSTIC override of the per-task wall-clock watchdog (LOCKED default "
+                         f"{_locked.per_task_timeout_s:.0f}s). Dev-split calibration ONLY — a scored run "
+                         f"must use the value frozen in the manifest. (R2 note: an under-sized watchdog "
+                         f"censors long-turn trajectories and biases cap_exceeded downward.)")
     ap.add_argument("--thinking", action=argparse.BooleanOptionalAction, default=True,
                     help="engage the model's NATIVE THINKING per-request via chat_template_kwargs "
                          "{enable_thinking: true} (default ON — required for thinking-lane models; "
@@ -116,7 +121,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.print_subset:
         return 0
 
-    cfg = LoopConfig(max_turns=args.max_turns, max_output_tokens_per_turn=args.max_output_tokens)
+    cfg = LoopConfig(max_turns=args.max_turns, max_output_tokens_per_turn=args.max_output_tokens,
+                     per_task_timeout_s=args.per_task_timeout_s)
     endpoint = f"{args.base_url.rstrip('/')}/v1/chat/completions"
     print(f"  stage           : {stage.value}")
     print(f"  endpoint        : {endpoint}")
@@ -125,7 +131,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  reruns (base)   : {args.reruns}  (3rd added iff ASR drift > {fn.DELTA_TRIGGER_PP}pp)")
     print(f"  results_dir     : {args.results_dir}")
     print(f"  loop            : max_turns={cfg.max_turns} "
-          f"max_out_tok={cfg.max_output_tokens_per_turn} temp={cfg.temperature} seed={cfg.seed}")
+          f"max_out_tok={cfg.max_output_tokens_per_turn} temp={cfg.temperature} seed={cfg.seed} "
+          f"per_task_timeout={cfg.per_task_timeout_s:.0f}s")
 
     if args.dry_run:
         print("\n[DRY-RUN] no model calls made; subset + plan printed above. Exiting 0.")
