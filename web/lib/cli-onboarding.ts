@@ -1,4 +1,4 @@
-export const LOCALBENCH_TESTED_VERSION = "0.4.11";
+export const LOCALBENCH_TESTED_VERSION = "0.4.14";
 export const LOCALBENCH_INSTALL_COMMAND = 'pip install "local-bench-ai[hf]"';
 export const CURRENT_RANKED_SUITE = "suite-v1-full-exec-6axis-v1";
 export const WINDOWS_WSL_DOCKER_GUIDE_URL =
@@ -32,7 +32,7 @@ export function formatCanonicalBenchCommand(input: CanonicalRankedBenchInput): s
     `localbench bench --runtime llama.cpp --server-bin <path-to-llama-server> ` +
     `--model-file ${input.modelFileArgument} --model-id ${input.modelId} ` +
     `--hf-model-id ${input.hfModelId} --lane bounded-final-v2 --profile auto --tier standard ` +
-    `--ctx 32768 --seed 1234 --allow-untrusted-code --out ${input.outArgument}`
+    `--ctx 65536 --seed 1234 --allow-untrusted-code --out ${input.outArgument}`
   );
 }
 

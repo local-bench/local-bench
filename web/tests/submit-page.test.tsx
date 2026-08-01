@@ -53,7 +53,7 @@ describe("SubmitPage", () => {
       "--runtime-name llama.cpp",
       "--runtime-version <llama.cpp-build>",
       "--kv-cache-quant f16",
-      "--ctx-len-configured 32768",
+      "--ctx-len-configured 65536",
       "--parallel-slots 1",
       "--out runs/qwen3-8b-q4-k-m.json",
     ].join(" \\\n  ");
@@ -78,7 +78,7 @@ describe("SubmitPage", () => {
       "localbench bench --runtime llama.cpp --server-bin &lt;path-to-llama-server&gt; " +
         "--model-file &lt;path-to-qwen3-8b-q4-k-m.gguf&gt; --model-id qwen3-8b " +
         "--hf-model-id Qwen/Qwen3-8B --lane bounded-final-v2 --profile auto --tier standard " +
-        "--ctx 32768 --seed 1234 --allow-untrusted-code --out runs/bench/qwen3-8b",
+        "--ctx 65536 --seed 1234 --allow-untrusted-code --out runs/bench/qwen3-8b",
     );
     expect(html).toContain(
       "localbench submit run --run runs/bench/qwen3-8b --base-model Qwen/Qwen3-8B",
@@ -97,5 +97,7 @@ describe("SubmitPage", () => {
     expect(html).toContain("measures six axes; five are weighted in the Index");
     expect(html).toContain("do not produce rankable rows");
     expect(html).toContain("localbench submit run --run runs/qwen3-8b-q4-k-m.json");
+    expect(html).toContain("generic_think_tags_32768_v1");
+    expect(html).toContain("65536-token server context");
   });
 });

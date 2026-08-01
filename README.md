@@ -27,7 +27,7 @@ localbench run \
   --endpoint http://localhost:8080/v1 \
   --model <served-model-name> \
   --hf-model-id <hf-model-id> \
-  --ctx-len-configured 32768 \
+  --ctx-len-configured 65536 \
   --lane bounded-final-v2 \
   --profile auto \
   --tier standard \
@@ -40,6 +40,12 @@ localbench submit run --run runs/my-run.json
 
 Use `--hf-model-id` and `cache-tokenizer` when you know the exact tokenizer repo. If no exact HF tokenizer repo exists, omit `cache-tokenizer` and replace `--hf-model-id <hf-model-id>` with `--gguf-repo-only`. The site recipe pins an exact CLI version for suite-sha reproducibility; the README install stays unpinned.
 
+The current generic-thinking profile is `generic_think_tags_32768_v1`: 32768 thinking +
+16384 final tokens (49152 promised generated tokens) with a 65536-token server context.
+The 8k profiles remain historical/explicit selections; cross-profile scores are not
+compute-matched, and infeasible hardware fails closed rather than silently lowering the
+context or budget. Gemma remains on `gemma4_channel_8192_v1` in 0.4.14.
+
 Submissions are identified by an Ed25519 key generated on first submit — no
 account, no email. Complete runs publish immediately and are subject to post-hoc
 moderation; see https://local-bench.ai/submit for the full loop and what the labels mean.
@@ -47,4 +53,4 @@ Working from source instead: `pip install -e cli`.
 
 ## Status
 
-Live and actively maintained. The public board is at https://local-bench.ai and is maintainer-verified. Current index identity: index-v4.2 on the bounded-final-v2 ranked lane; current CLI release: 0.4.0 (managed appliance bridge, runtime identity, crash-safe agentic resume, and contract-gated ranking). The site's recipe generator pins the exact CLI version to run.
+Live and actively maintained. The public board is at https://local-bench.ai and is maintainer-verified. Current index identity: index-v4.2 on the bounded-final-v2 ranked lane; current CLI release: 0.4.14 (deeper generic-thinking budgets). The site's recipe generator pins the exact CLI version to run.

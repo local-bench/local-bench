@@ -10,9 +10,9 @@ The five-axis ranked profile is Agentic / Knowledge / Instruction / Coding / Mat
 
 ## Prerequisites
 
-- Python 3.11+ and the CLI: `pip install "local-bench-ai[hf]==0.2.3"` (or from a source checkout: `pip install -e cli`)
+- Python 3.11+ and the CLI: `pip install "local-bench-ai[hf]==0.4.14"` (or from a source checkout: `pip install -e cli`)
 - An OpenAI-compatible chat endpoint for the `run --endpoint` path, or a GGUF model plus llama.cpp for the CLI-launched `bench` path
-- A 32768-token configured context window for publishable `bounded-final-v2` runs
+- A 65536-token configured server context for publishable `generic_think_tags_32768_v1` runs
 - Exactly one model identity flag: `--hf-model-id <hf-model-id>` when you know the exact tokenizer repo, or `--gguf-repo-only` when no exact HF tokenizer repo is available
 - Tokenizer access when using `--hf-model-id`; online advanced runs auto-cache a miss before offline introspection, while `--offline` requires `cache-tokenizer` first
 - Windows CLI users connecting to a Docker engine inside WSL2: follow [Coding sandbox: Windows CLI with a Docker engine in WSL2](coding-sandbox-windows-wsl.md) and use the WSL adapter IP, never localhost
@@ -20,7 +20,7 @@ The five-axis ranked profile is Agentic / Knowledge / Instruction / Coding / Mat
 ## 1. Fetch and inspect the public suite
 
 ```bash
-pip install "local-bench-ai[hf]==0.2.3"
+pip install "local-bench-ai[hf]==0.4.14"
 
 localbench fetch-suite \
   --site https://local-bench.ai \
@@ -50,7 +50,7 @@ localbench run \
   --endpoint http://localhost:8080/v1 \
   --model <served-model-name> \
   --hf-model-id <hf-model-id> \
-  --ctx-len-configured 32768 \
+  --ctx-len-configured 65536 \
   --lane bounded-final-v2 \
   --profile auto \
   --tier standard \
@@ -59,7 +59,7 @@ localbench run \
   --out runs/my-run.json
 ```
 
-The endpoint must actually be served with at least a 32768-token context window. `--ctx-len-configured 32768` records that configured context for the publishable run.
+The endpoint must actually be served with at least a 65536-token context window. `--ctx-len-configured 65536` records that configured context for the publishable run.
 
 ## 4. Optional GGUF path: launch llama.cpp with `bench`
 
@@ -68,7 +68,7 @@ localbench bench \
   --runtime llama.cpp \
   --model-file <model.gguf> \
   --model-id <model-slug> \
-  --ctx 32768 \
+  --ctx 65536 \
   --lane bounded-final-v2 \
   --profile auto \
   --hf-model-id <hf-model-id> \
@@ -77,7 +77,13 @@ localbench bench \
   --out runs/my-bench
 ```
 
-Use the same identity rule here: replace `--hf-model-id <hf-model-id>` with `--gguf-repo-only` only when no exact HF tokenizer repo is available. `bench` uses `--ctx 32768` to launch the server with the required context window.
+Use the same identity rule here: replace `--hf-model-id <hf-model-id>` with `--gguf-repo-only` only when no exact HF tokenizer repo is available. `bench` uses `--ctx 65536` to launch the server with the required context window.
+
+## Current and historical reasoning profiles
+
+`generic_think_tags_32768_v1` uses 32768 thinking tokens plus 16384 final tokens (49152 promised generated tokens), a 65536-token server context, and a 32768-token agentic context. Agentic output remains 1024 tokens per turn. Its 40-turn and 65536 cumulative task bounds are provisional pending R2 PRO 6000 DEV calibration. R2 uses a fixed AppWorld DEV subset at max turns 32/40/48 under Local-bench Protocol C; its cumulative task bound must be at least the DEV p99. Existing 8k profiles remain historical operating points; use `generic_think_tags_8192_v1` explicitly when the required 64k context is infeasible. Do not silently lower a run's context or budgets. Scores across profiles are not compute-matched. Gemma remains on `gemma4_channel_8192_v1` in 0.4.14.
+
+For Qwen35, native context is 262144, satisfying `context_extension_policy=none`. The hybrid Qwen35 measurement was 26,574 MiB at ctx 65536 with f16/f16 KV on an RTX 5090; dense architectures may not fit, so feasibility is architecture-dependent and must fail closed. Canonical llama.cpp b10076 launches use `-ctk f16` / `--cache-type-k f16`, `-ctv f16` / `--cache-type-v f16`, `--fit off`, and an explicit `--flash-attn on|off|auto` state. Assert effective state from live `/props` and current-process startup evidence where stock `/props` lacks a field, rather than from launch arguments alone.
 
 ## 5. Submit a finished run
 

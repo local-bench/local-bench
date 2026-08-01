@@ -333,6 +333,25 @@ export default async function MethodologyPage() {
         </p>
       </section>
 
+      <section id="deeper-budgets" className="space-y-4 text-bench-muted">
+        <h2 className="text-xl font-semibold text-bench-text">Historical and current generic-thinking operating points</h2>
+        <p>
+          Existing 8k profiles and rows are preserved as historical operating points. The current generic-thinking profile is <span className="font-mono text-bench-text">generic_think_tags_32768_v1</span>: 32768 thinking tokens + 16384 final tokens = 49152 promised generated tokens, a 65536-token server context, and a 32768-token agentic context. Cross-profile scores are not compute-matched.
+        </p>
+        <p>
+          Agentic per-turn output remains 1024. R3 is decided: at the canonical scored stage of the two-run stability campaign, the fusion bundle&apos;s 0.32% length-finish rate was below the 2% trigger, so R3 keeps 1024; drift was 0.0pp. The max_turns 40 is provisional pending R2 PRO 6000 DEV calibration, and the 65536 cumulative per-task bound is likewise provisional pending R2 dev p99.
+        </p>
+        <p>
+          R1: review 32768 only after at least three independent base-model families have complete 32k rows and at least two families show over 25% cap saturation on the same axis. R2: run the fixed AppWorld DEV subset at max_turns 32, 40, and 48; adopt the smallest non-cap-dominated point where cap_exceeded_dev &lt;= 10%, defaulting to 40 if flat. This is a Local-bench Protocol C operating point, not an upstream AppWorld parity claim; the 65536 cumulative per-task bound must be at least the DEV p99. R3: raise per-turn output to 2048 only when the fusion bundle shows more than 2% of agentic turns ending finish_reason=length; otherwise retain 1024 and publish p95/p99/max as watched metrics.
+        </p>
+        <p>
+          Qwen35 native context is 262144, so <span className="font-mono text-bench-text">context_extension_policy=none</span> is satisfied for that family. The hybrid Qwen35 measurement was 26,574 MiB at ctx 65536 with f16/f16 KV on an RTX 5090. Feasibility is architecture-dependent: a dense architecture may not fit. The runner must fail closed and offer explicit <span className="font-mono text-bench-text">generic_think_tags_8192_v1</span>; it must never silently lower budgets or context. Gemma remains on <span className="font-mono text-bench-text">gemma4_channel_8192_v1</span> in 0.4.14.
+        </p>
+        <p>
+          Canonical llama.cpp b10076 launches use <span className="font-mono text-bench-text">-ctk f16</span> / <span className="font-mono text-bench-text">--cache-type-k f16</span>, <span className="font-mono text-bench-text">-ctv f16</span> / <span className="font-mono text-bench-text">--cache-type-v f16</span>, <span className="font-mono text-bench-text">--fit off</span>, and explicit <span className="font-mono text-bench-text">--flash-attn on|off|auto</span>. Effective runtime state is asserted from live <span className="font-mono text-bench-text">/props</span> evidence plus current-process startup evidence where stock <span className="font-mono text-bench-text">/props</span> lacks a field; launch arguments alone are insufficient. <span className="font-mono text-bench-text">--fit</span> stays off because it can silently adjust unset arguments to fit memory.
+        </p>
+      </section>
+
       <section id="coding-trust" className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Coding execution and trust</h2>
         <p>

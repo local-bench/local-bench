@@ -131,4 +131,31 @@ describe("MethodologyPage", () => {
     expect(text).toContain("structured model artifact identity");
     expect(text).toContain("axis scores, sample counts, confidence intervals, and downloadable evidence");
   });
+
+  it("documents the historical 8k and current deeper-budget operating points", async () => {
+    const text = normalizeText(renderToStaticMarkup(await MethodologyPage()));
+
+    expect(text).toContain("generic_think_tags_32768_v1");
+    expect(text).toContain("32768 thinking tokens + 16384 final tokens = 49152 promised generated tokens");
+    expect(text).toContain("65536-token server context");
+    expect(text).toContain("32768-token agentic context");
+    expect(text).toContain("max_turns 40 is provisional pending R2 PRO 6000 DEV calibration");
+    expect(text).toContain("0.32% length-finish rate was below the 2% trigger, so R3 keeps 1024");
+    expect(text).toContain("canonical scored stage of the two-run stability campaign");
+    expect(text).toContain("drift was 0.0pp");
+    expect(text).toContain("generic_think_tags_8192_v1");
+    expect(text).toContain("Qwen35 native context is 262144");
+    expect(text).toContain("26,574 MiB");
+    expect(text).toContain("-ctk f16");
+    expect(text).toContain("--cache-type-k f16");
+    expect(text).toContain("-ctv f16");
+    expect(text).toContain("--cache-type-v f16");
+    expect(text).toContain("--fit off");
+    expect(text).toContain("--flash-attn on|off|auto");
+    expect(text).toContain("/props");
+    expect(text).toContain("fixed AppWorld DEV subset");
+    expect(text).toContain("65536 cumulative per-task bound must be at least the DEV p99");
+    expect(text).toContain("gemma4_channel_8192_v1");
+    expect(text).toContain("Cross-profile scores are not compute-matched");
+  });
 });

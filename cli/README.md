@@ -34,7 +34,7 @@ localbench bench \
   --appworld-root <managed-appworld-root> \
   --lane bounded-final-v2 --profile auto --tier standard \
   --allow-untrusted-code \
-  --ctx 32768 --seed 1234 --out runs/my-bench
+  --ctx 65536 --seed 1234 --out runs/my-bench
 
 # 5. Submit — complete runs publish to the board immediately, attributed to you
 localbench submit run --run runs/my-bench
@@ -68,9 +68,15 @@ including rootless-vs-rootful stores, safe TCP exposure, transient systemd units
 version-matched Windows client, is in the
 [Windows + WSL-engine coding sandbox guide](../docs/coding-sandbox-windows-wsl.md).
 
+For `generic_think_tags_32768_v1`, use a 65536-token server context: its static budget is
+32768 thinking + 16384 final tokens (49152 promised generated tokens). The old 8k profiles
+remain explicit historical operating points and are not compute-matched with this profile;
+the runner fails closed rather than silently lowering its context or budgets. Gemma remains
+on `gemma4_channel_8192_v1` in 0.4.14.
+
 The site's [submit page](https://local-bench.ai/submit) generates these commands for your
 exact model and runtime, including the full identity flag set for bring-your-own-server
-runs. Publishable bounded-final-v2 runs require a 32k server context.
+runs. Publishable `generic_think_tags_32768_v1` runs require a 65536-token server context.
 
 ## What makes rows trustworthy
 

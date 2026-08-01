@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.14 - 2026-08-01
+
+- Documents the profile-owned deeper generic-thinking operating point:
+  `generic_think_tags_32768_v1` uses 32768 thinking + 16384 final tokens
+  (49152 promised generated tokens), a 65536-token server context, and a
+  32768-token agentic context. The 8k profiles remain historical/explicit;
+  cross-profile scores are not compute-matched.
+- Records the decided R3 per-turn cap (1024 after the 0.32% length-finish rate
+  at the canonical scored stage of the two-run stability campaign, with 0.0pp
+  drift), the provisional 40-turn and 65536 cumulative task bounds pending R2
+  DEV calibration, and the fail-closed 64k context and runtime-evidence policy.
+
 ## 0.4.13 - 2026-07-31
 
 - Generic-thinking `--gguf-repo-only` runs now render every scored raw prompt

@@ -136,6 +136,9 @@ export default function SubmitPage() {
 
         <h3 className="text-base font-semibold text-bench-text">3. Ranked submission</h3>
         <p>Fetch the ranked suite once, run the advanced identity-pinned benchmark, then submit the finished run:</p>
+        <p className="text-sm">
+          The current generic-thinking operating point is <code className="font-mono text-bench-text">generic_think_tags_32768_v1</code>: 32768 thinking tokens plus 16384 final tokens (49152 promised generated tokens) with a 65536-token server context. The 8k profiles remain selectable historical operating points; the CLI fails closed rather than silently lowering this profile&apos;s context or budgets.
+        </p>
         <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
           {`localbench fetch-suite --site https://local-bench.ai --suite ${CURRENT_RANKED_SUITE} --accept-suite-terms`}
         </pre>
@@ -243,7 +246,7 @@ export default function SubmitPage() {
   --runtime-name llama.cpp \\
   --runtime-version <llama.cpp-build> \\
   --kv-cache-quant f16 \\
-  --ctx-len-configured 32768 \\
+  --ctx-len-configured 65536 \\
   --parallel-slots 1 \\
   --out runs/qwen3-8b-q4-k-m.json`}
             </pre>
