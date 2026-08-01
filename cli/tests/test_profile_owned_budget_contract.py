@@ -30,8 +30,8 @@ def _generic_runtime():
     )
 
 
-def test_resolved_contract_budget_drives_forcing_and_manifest_without_profile_gate() -> None:
-    # Given: a resolved contract whose identity and profile-owned budget differ from every registry default.
+def test_deep_profile_contract_budget_drives_forcing_and_manifest() -> None:
+    # Given: the deep profile with a contract-owned budget that differs from its registry default.
     runtime = _generic_runtime()
     budget = ExecutionProfileBudget(
         static_think_tokens=123,
@@ -50,7 +50,6 @@ def test_resolved_contract_budget_drives_forcing_and_manifest_without_profile_ga
     )
     contract = replace(
         runtime.contract,
-        profile_id="test-contract-without-profile-gate",
         reasoning_budget=budget.static_think_tokens,
         budget=budget,
     )
@@ -90,7 +89,7 @@ def test_resolved_contract_budget_drives_forcing_and_manifest_without_profile_ga
     # When: request shaping and manifest construction consume the resolved contract.
     asyncio.run(scenario())
 
-    # Then: neither consumer depends on the profile identifier or forcing-format copies.
+    # Then: deep-profile consumers use its resolved tuple rather than forcing-format copies.
     assert request_caps == [123, 456]
     assert _caps({}, 0, contract)["thinking_budget"] == 123
 

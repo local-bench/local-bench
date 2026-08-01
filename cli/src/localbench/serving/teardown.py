@@ -35,6 +35,7 @@ class RecordedProcessIdentity:
     pid: int
     executable_path: str
     commandline_sha256: str
+    process_birth_token: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +43,7 @@ class LiveProcessIdentity:
     pid: int
     executable_path: str
     commandline_sha256: str
+    process_birth_token: str
 
 
 def teardown_owned_server(
@@ -92,6 +94,8 @@ def terminate_recorded_pid(
     if _normalized_executable(live.executable_path) != _normalized_executable(recorded.executable_path):
         return False
     if live.commandline_sha256 != recorded.commandline_sha256:
+        return False
+    if live.process_birth_token != recorded.process_birth_token:
         return False
     terminate_pid(recorded.pid)
     return True

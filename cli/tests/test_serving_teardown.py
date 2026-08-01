@@ -43,6 +43,7 @@ def test_recorded_pid_cleanup_requires_exe_and_commandline_fingerprint_match() -
         pid=1234,
         executable_path="C:/tools/llama-server.exe",
         commandline_sha256="a" * 64,
+        process_birth_token="birth-a",
     )
     killed: list[int] = []
 
@@ -52,6 +53,7 @@ def test_recorded_pid_cleanup_requires_exe_and_commandline_fingerprint_match() -
             pid=pid,
             executable_path="C:/tools/llama-server.exe",
             commandline_sha256="a" * 64,
+            process_birth_token="birth-a",
         ),
         terminate_pid=killed.append,
     )
@@ -65,6 +67,7 @@ def test_recorded_pid_cleanup_refuses_pid_reuse_or_commandline_drift() -> None:
         pid=1234,
         executable_path="C:/tools/llama-server.exe",
         commandline_sha256="a" * 64,
+        process_birth_token="birth-a",
     )
     killed: list[int] = []
 
@@ -74,6 +77,7 @@ def test_recorded_pid_cleanup_refuses_pid_reuse_or_commandline_drift() -> None:
             pid=pid,
             executable_path="C:/Windows/System32/notepad.exe",
             commandline_sha256="a" * 64,
+            process_birth_token="birth-a",
         ),
         terminate_pid=killed.append,
     )
@@ -83,6 +87,17 @@ def test_recorded_pid_cleanup_refuses_pid_reuse_or_commandline_drift() -> None:
             pid=pid,
             executable_path="C:/tools/llama-server.exe",
             commandline_sha256="b" * 64,
+            process_birth_token="birth-a",
+        ),
+        terminate_pid=killed.append,
+    )
+    birth_drift = terminate_recorded_pid(
+        recorded,
+        live_probe=lambda pid: LiveProcessIdentity(
+            pid=pid,
+            executable_path="C:/tools/llama-server.exe",
+            commandline_sha256="a" * 64,
+            process_birth_token="birth-b",
         ),
         terminate_pid=killed.append,
     )
@@ -90,6 +105,7 @@ def test_recorded_pid_cleanup_refuses_pid_reuse_or_commandline_drift() -> None:
 
     assert exe_drift is False
     assert commandline_drift is False
+    assert birth_drift is False
     assert exited is False
     assert killed == []
 
@@ -147,11 +163,17 @@ def test_launch_llama_cpp_cleans_spawned_process_when_job_assignment_fails(
     monkeypatch.setattr(process_mod, "WindowsJobObject", lambda: job)
     monkeypatch.setattr(
         process_mod,
+        "process_birth_token_from_handle",
+        lambda _handle: "birth-a",
+    )
+    monkeypatch.setattr(
+        process_mod,
         "probe_process_identity",
         lambda pid: LiveProcessIdentity(
             pid=pid,
             executable_path=str(Path("llama-server.exe").resolve()),
             commandline_sha256=process_mod.commandline_sha256(["llama-server.exe"]),
+            process_birth_token="birth-a",
         ),
     )
 
@@ -196,11 +218,17 @@ def test_launch_llama_cpp_refuses_failed_launch_pid_reuse_cleanup(
     monkeypatch.setattr(process_mod, "WindowsJobObject", lambda: job)
     monkeypatch.setattr(
         process_mod,
+        "process_birth_token_from_handle",
+        lambda _handle: "birth-a",
+    )
+    monkeypatch.setattr(
+        process_mod,
         "probe_process_identity",
         lambda pid: LiveProcessIdentity(
             pid=pid,
             executable_path=str(Path("notepad.exe").resolve()),
             commandline_sha256=process_mod.commandline_sha256(["notepad.exe"]),
+            process_birth_token="birth-a",
         ),
     )
 
@@ -225,6 +253,11 @@ def test_launch_llama_cpp_records_append_boundary_before_current_process(
     job = _AcceptingJob()
     monkeypatch.setattr(process_mod.subprocess, "Popen", lambda *_args, **_kwargs: spawned)
     monkeypatch.setattr(process_mod, "WindowsJobObject", lambda: job)
+    monkeypatch.setattr(
+        process_mod,
+        "process_birth_token_from_handle",
+        lambda _handle: "birth-a",
+    )
 
     # When: a new managed llama.cpp process is launched in append mode.
     launched = process_mod.launch_llama_cpp(
@@ -238,6 +271,7 @@ def test_launch_llama_cpp_records_append_boundary_before_current_process(
     assert launched.identity == process_mod.failed_launch_identity(
         ["llama-server.exe"],
         spawned.pid,
+        "birth-a",
     )
     assert job.assigned == (111, 222)
     launched.close_log()

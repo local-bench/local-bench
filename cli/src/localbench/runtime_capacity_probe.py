@@ -5,13 +5,18 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
+from urllib.parse import urlsplit
 
 import httpx
 
 from localbench._types import JsonObject, JsonValue
 from localbench.persistence import atomic_write_json
 from localbench.runtime_capacity_log import assess_llama_startup_capacity
-from localbench.serving.process import process_identity_matches, probe_process_identity
+from localbench.serving.process import (
+    probe_loopback_listener_owner_pid,
+    probe_process_identity,
+    process_identity_matches,
+)
 from localbench.serving.teardown import (
     LiveProcessIdentity,
     RecordedProcessIdentity,
@@ -44,6 +49,7 @@ async def verify_llama_cpp_capacity(
     launch_argv: list[str],
     transport: httpx.AsyncBaseTransport | None = None,
     process_identity_probe: Callable[[int], LiveProcessIdentity | None] | None = None,
+    listener_owner_probe: Callable[[str, int], int | None] | None = None,
 ) -> JsonObject:
     responses: dict[str, httpx.Response] = {}
     startup_log_sha256: str | None = None
@@ -51,8 +57,13 @@ async def verify_llama_cpp_capacity(
         "process_pid": server_identity.pid,
         "process_executable_path": server_identity.executable_path,
         "process_commandline_sha256": server_identity.commandline_sha256,
+        "process_birth_token": server_identity.process_birth_token,
         "identity_verified_before_probe": False,
         "identity_verified_after_probe": False,
+        "listener_owner_pid_before_probe": None,
+        "listener_owner_pid_after_probe": None,
+        "listener_owner_verified_before_probe": False,
+        "listener_owner_verified_after_probe": False,
         "start_byte": serve_log_start_byte,
         "end_byte": None,
     }
@@ -67,8 +78,18 @@ async def verify_llama_cpp_capacity(
             if process_identity_probe is not None
             else probe_process_identity
         )
+        owner_probe = (
+            listener_owner_probe
+            if listener_owner_probe is not None
+            else probe_loopback_listener_owner_pid
+        )
+        listener_host, listener_port = _loopback_endpoint(base_url)
         _require_live_process_identity(server_identity, identity_probe)
         startup_log_source["identity_verified_before_probe"] = True
+        owner_before = owner_probe(listener_host, listener_port)
+        startup_log_source["listener_owner_pid_before_probe"] = owner_before
+        _require_listener_owner(server_identity, owner_before)
+        startup_log_source["listener_owner_verified_before_probe"] = True
         startup_log_bytes = serve_log_path.read_bytes()
         startup_log_end_byte = len(startup_log_bytes)
         startup_log_source["end_byte"] = startup_log_end_byte
@@ -109,6 +130,10 @@ async def verify_llama_cpp_capacity(
         )
         _require_live_process_identity(server_identity, identity_probe)
         startup_log_source["identity_verified_after_probe"] = True
+        owner_after = owner_probe(listener_host, listener_port)
+        startup_log_source["listener_owner_pid_after_probe"] = owner_after
+        _require_listener_owner(server_identity, owner_after)
+        startup_log_source["listener_owner_verified_after_probe"] = True
     except (httpx.HTTPError, KeyError, OSError, TypeError, UnicodeError, ValueError) as error:
         failure_reasons: list[JsonValue] = [
             f"capacity endpoint evidence unavailable: {error}",
@@ -135,6 +160,29 @@ def _require_live_process_identity(
 ) -> None:
     if not process_identity_matches(recorded, live_probe(recorded.pid)):
         raise ValueError("managed server process identity is not live or no longer matches")
+
+
+def _loopback_endpoint(base_url: str) -> tuple[str, int]:
+    parsed = urlsplit(base_url)
+    host = parsed.hostname
+    try:
+        port = parsed.port
+    except ValueError as error:
+        raise ValueError("capacity probe URL has an invalid port") from error
+    if host is None or port is None:
+        raise ValueError("capacity probe URL must name a loopback host and explicit port")
+    return host, port
+
+
+def _require_listener_owner(
+    recorded: RecordedProcessIdentity,
+    owner_pid: int | None,
+) -> None:
+    if owner_pid != recorded.pid:
+        raise ValueError(
+            "managed server listener owner does not match recorded process: "
+            f"expected {recorded.pid}, observed {owner_pid!r}",
+        )
 
 
 def _capacity_evidence(

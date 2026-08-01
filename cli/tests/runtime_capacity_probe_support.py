@@ -35,6 +35,7 @@ SERVER_IDENTITY: Final = RecordedProcessIdentity(
     pid=4242,
     executable_path="C:/tools/llama-server.exe",
     commandline_sha256="a" * 64,
+    process_birth_token="134300000000000001",
 )
 
 
@@ -82,7 +83,10 @@ async def run_probe(
     launch_argv: list[str] | None = None,
     serve_log_start_byte: int | None = None,
     server_pid: int = 4242,
+    recorded_birth_token: str = SERVER_IDENTITY.process_birth_token,
+    live_birth_token: str = SERVER_IDENTITY.process_birth_token,
     process_identity_probe: Callable[[int], LiveProcessIdentity | None] | None = None,
+    listener_owner_probe: Callable[[str, int], int | None] | None = None,
 ) -> JsonObject:
     responses = {
         "/props": props_payload() if props is None else props,
@@ -98,8 +102,24 @@ async def run_probe(
     current_bytes = (STARTUP_LOG if startup_log is None else startup_log).encode("utf-8")
     serve_log_path.write_bytes(stale_bytes + current_bytes)
 
+    server_identity = RecordedProcessIdentity(
+        pid=server_pid,
+        executable_path=SERVER_IDENTITY.executable_path,
+        commandline_sha256=SERVER_IDENTITY.commandline_sha256,
+        process_birth_token=recorded_birth_token,
+    )
+    identity_probe = (
+        process_identity_probe
+        if process_identity_probe is not None
+        else lambda pid: LiveProcessIdentity(
+            pid=pid,
+            executable_path=SERVER_IDENTITY.executable_path,
+            commandline_sha256=SERVER_IDENTITY.commandline_sha256,
+            process_birth_token=live_birth_token,
+        )
+    )
     return await verify_llama_cpp_capacity(
-        base_url="http://llama.test",
+        base_url="http://127.0.0.1:8080",
         api_key="secret",
         required_context_tokens=REQUIRED_CONTEXT,
         run_dir=tmp_path,
@@ -107,20 +127,13 @@ async def run_probe(
         serve_log_start_byte=(
             len(stale_bytes) if serve_log_start_byte is None else serve_log_start_byte
         ),
-        server_identity=RecordedProcessIdentity(
-            pid=server_pid,
-            executable_path=SERVER_IDENTITY.executable_path,
-            commandline_sha256=SERVER_IDENTITY.commandline_sha256,
-        ),
+        server_identity=server_identity,
         launch_argv=list(LAUNCH_ARGV) if launch_argv is None else launch_argv,
         transport=httpx.MockTransport(handler),
-        process_identity_probe=(
-            process_identity_probe
-            if process_identity_probe is not None
-            else lambda pid: LiveProcessIdentity(
-                pid=pid,
-                executable_path=SERVER_IDENTITY.executable_path,
-                commandline_sha256=SERVER_IDENTITY.commandline_sha256,
-            )
+        process_identity_probe=identity_probe,
+        listener_owner_probe=(
+            listener_owner_probe
+            if listener_owner_probe is not None
+            else lambda _host, _port: server_pid
         ),
     )

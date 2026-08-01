@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import ctypes
+import hashlib
+import json
 import os
 import socket
 import subprocess
-import hashlib
-import json
 from dataclasses import dataclass
+from ctypes import wintypes
+from ipaddress import ip_address
 from pathlib import Path, PureWindowsPath
 from typing import TextIO
 
@@ -55,11 +58,16 @@ def launch_llama_cpp(argv: list[str], *, cwd: Path, log_path: Path) -> LaunchedS
         text=True,
         env=serve_env(),
     )
-    identity = failed_launch_identity(argv, process.pid)
+    identity: RecordedProcessIdentity | None = None
     try:
         process_handle = getattr(process, "_handle", None)
         if not isinstance(process_handle, int):
             raise RuntimeError("could not obtain Windows process handle for Job Object assignment")
+        identity = failed_launch_identity(
+            argv,
+            process.pid,
+            process_birth_token_from_handle(process_handle),
+        )
         job.assign_process(job_handle, process_handle=process_handle)
     except BaseException:  # noqa: BROAD_EXCEPT_OK
         _cleanup_failed_launch(
@@ -86,9 +94,12 @@ def _cleanup_failed_launch(
     job_handle: int,
     log_handle: TextIO,
     *,
-    recorded: RecordedProcessIdentity,
+    recorded: RecordedProcessIdentity | None,
 ) -> None:
-    _terminate_failed_launch_process(process, recorded)
+    if recorded is None:
+        _terminate_known_process(process, process.pid)
+    else:
+        _terminate_failed_launch_process(process, recorded)
     try:
         job.close(job_handle)
     except OSError:
@@ -97,11 +108,16 @@ def _cleanup_failed_launch(
         log_handle.close()
 
 
-def failed_launch_identity(argv: list[str], pid: int) -> RecordedProcessIdentity:
+def failed_launch_identity(
+    argv: list[str],
+    pid: int,
+    process_birth_token: str,
+) -> RecordedProcessIdentity:
     return RecordedProcessIdentity(
         pid=pid,
         executable_path=str(Path(argv[0]).resolve()),
         commandline_sha256=commandline_sha256(argv),
+        process_birth_token=process_birth_token,
     )
 
 
@@ -135,11 +151,89 @@ def probe_process_identity(pid: int) -> LiveProcessIdentity | None:
     commandline = record.get("CommandLine")
     if not isinstance(executable_path, str) or not isinstance(commandline, str):
         return None
+    process_birth_token = probe_process_birth_token(pid)
+    if process_birth_token is None:
+        return None
     return LiveProcessIdentity(
         pid=pid,
         executable_path=executable_path,
         commandline_sha256=hashlib.sha256(commandline.encode("utf-8")).hexdigest(),
+        process_birth_token=process_birth_token,
     )
+
+
+def process_birth_token_from_handle(process_handle: int) -> str:
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    return _process_birth_token_from_handle(kernel32, process_handle)
+
+
+def probe_process_birth_token(pid: int) -> str | None:
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    open_process = kernel32.OpenProcess
+    open_process.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    open_process.restype = wintypes.HANDLE
+    handle = open_process(0x1000, False, pid)
+    if not handle:
+        return None
+    try:
+        return _process_birth_token_from_handle(kernel32, handle)
+    except OSError:
+        return None
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def _process_birth_token_from_handle(kernel32, process_handle: int) -> str:
+    creation = wintypes.FILETIME()
+    exit_time = wintypes.FILETIME()
+    kernel_time = wintypes.FILETIME()
+    user_time = wintypes.FILETIME()
+    get_times = kernel32.GetProcessTimes
+    get_times.argtypes = (
+        wintypes.HANDLE,
+        ctypes.POINTER(wintypes.FILETIME),
+        ctypes.POINTER(wintypes.FILETIME),
+        ctypes.POINTER(wintypes.FILETIME),
+        ctypes.POINTER(wintypes.FILETIME),
+    )
+    get_times.restype = wintypes.BOOL
+    if not get_times(
+        process_handle,
+        ctypes.byref(creation),
+        ctypes.byref(exit_time),
+        ctypes.byref(kernel_time),
+        ctypes.byref(user_time),
+    ):
+        raise OSError(ctypes.get_last_error(), "GetProcessTimes failed")
+    return str((creation.dwHighDateTime << 32) | creation.dwLowDateTime)
+
+
+def probe_loopback_listener_owner_pid(host: str, port: int) -> int | None:
+    try:
+        address = ip_address(host)
+    except ValueError:
+        return None
+    if not address.is_loopback or port <= 0 or port > 65535:
+        return None
+    script = (
+        "$owners = @(Get-NetTCPConnection -State Listen "
+        f"-LocalAddress '{address}' -LocalPort {port} -ErrorAction Stop | "
+        "Select-Object -ExpandProperty OwningProcess -Unique); "
+        "if ($owners.Count -eq 1) { $owners[0] }"
+    )
+    try:
+        completed = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", script],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    owner = completed.stdout.strip()
+    if completed.returncode != 0 or not owner.isdigit():
+        return None
+    return int(owner)
 
 
 def process_identity_matches(
@@ -153,7 +247,10 @@ def process_identity_matches(
         != PureWindowsPath(recorded.executable_path).as_posix().casefold()
     ):
         return False
-    return live.commandline_sha256 == recorded.commandline_sha256
+    return (
+        live.commandline_sha256 == recorded.commandline_sha256
+        and live.process_birth_token == recorded.process_birth_token
+    )
 
 
 def _terminate_failed_launch_process(process: subprocess.Popen[str], recorded: RecordedProcessIdentity) -> None:

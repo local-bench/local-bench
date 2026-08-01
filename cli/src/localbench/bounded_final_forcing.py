@@ -206,7 +206,11 @@ def _answer_reserve(item: BenchmarkItem) -> int:
 def _profile_owned_static_budget(
     execution_contract: ResolvedExecutionContract | None,
 ) -> tuple[int, int, int] | None:
-    if execution_contract is None or execution_contract.budget is None:
+    if (
+        execution_contract is None
+        or execution_contract.profile_id != "generic_think_tags_32768_v1"
+        or execution_contract.budget is None
+    ):
         return None
     budget = execution_contract.budget
     return (

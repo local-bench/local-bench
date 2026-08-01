@@ -74,7 +74,11 @@ def test_public_cli_generic_gguf_runs_server_renderer_and_forced_completion(
         log_path.write_text(stale, encoding="utf-8")
         log_start_byte = log_path.stat().st_size
         write_b10076_startup_log(log_path, append=True)
-        launched_identity = failed_launch_identity(_argv, FakeLaunch.process.pid)
+        launched_identity = failed_launch_identity(
+            _argv,
+            FakeLaunch.process.pid,
+            "birth-a",
+        )
         return FakeLaunch(identity=launched_identity, log_start_byte=log_start_byte)
 
     def live_process_identity(pid: int) -> LiveProcessIdentity | None:
@@ -85,6 +89,7 @@ def test_public_cli_generic_gguf_runs_server_renderer_and_forced_completion(
             pid=identity.pid,
             executable_path=identity.executable_path,
             commandline_sha256=identity.commandline_sha256,
+            process_birth_token=identity.process_birth_token,
         )
 
     with LlamaStub() as stub:
@@ -99,6 +104,11 @@ def test_public_cli_generic_gguf_runs_server_renderer_and_forced_completion(
             runtime_capacity_probe,
             "probe_process_identity",
             live_process_identity,
+        )
+        monkeypatch.setattr(
+            runtime_capacity_probe,
+            "probe_loopback_listener_owner_pid",
+            lambda _host, _port: FakeLaunch.process.pid,
         )
         monkeypatch.setattr(
             serving_runner,

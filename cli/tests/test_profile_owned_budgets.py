@@ -136,7 +136,9 @@ def test_release_profile_budgets_preserve_suite_and_8192_control() -> None:
     )
     current_trace: list[int] = []
     legacy_trace: list[int] = []
+    legacy_adversarial_trace: list[int] = []
     legacy_request_bytes: list[bytes] = []
+    legacy_adversarial_request_bytes: list[bytes] = []
 
     async def forced_trace(
         runtime: BoundedFinalProfileRuntime,
@@ -177,17 +179,24 @@ def test_release_profile_budgets_preserve_suite_and_8192_control() -> None:
             transport=httpx.MockTransport(handler),
             prompt_renderer=_Renderer(),
             forcing_format=runtime.forcing,
+            execution_contract=runtime.contract,
         )
         return record["results"][0]
 
-    async def scenario() -> tuple[dict[str, object], dict[str, object]]:
+    async def scenario() -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
         return (
             await forced_trace(current, current_trace, 16384),
             await forced_trace(legacy, legacy_trace, 16384, legacy_request_bytes),
+            await forced_trace(
+                legacy,
+                legacy_adversarial_trace,
+                9216,
+                legacy_adversarial_request_bytes,
+            ),
         )
 
     # When: the profile-owned and explicit legacy paths execute their forced requests.
-    current_result, legacy_result = asyncio.run(scenario())
+    current_result, legacy_result, legacy_adversarial_result = asyncio.run(scenario())
     audit = _budget_audit(
         [
             {
@@ -215,3 +224,9 @@ def test_release_profile_budgets_preserve_suite_and_8192_control() -> None:
         b'{"model":"demo","prompt":"rendered-promptreasoning\\n</think>\\n\\n","max_tokens":8192,"stop":["<|im_end|>"]}',
     ]
     assert legacy_result["max_tokens"] == 16384
+    assert legacy_adversarial_trace == [8192, 1024]
+    assert legacy_adversarial_request_bytes == [
+        b'{"model":"demo","prompt":"rendered-prompt","max_tokens":8192,"stop":["</think>"]}',
+        b'{"model":"demo","prompt":"rendered-promptreasoning\\n</think>\\n\\n","max_tokens":1024,"stop":["<|im_end|>"]}',
+    ]
+    assert legacy_adversarial_result["max_tokens"] == 9216

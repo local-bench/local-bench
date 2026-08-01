@@ -49,8 +49,13 @@ async def test_capacity_probe_accepts_stock_b10076_endpoints_and_startup_log(
         "process_pid": 4242,
         "process_executable_path": "C:/tools/llama-server.exe",
         "process_commandline_sha256": "a" * 64,
+        "process_birth_token": "134300000000000001",
         "identity_verified_before_probe": True,
         "identity_verified_after_probe": True,
+        "listener_owner_pid_before_probe": 4242,
+        "listener_owner_pid_after_probe": 4242,
+        "listener_owner_verified_before_probe": True,
+        "listener_owner_verified_after_probe": True,
         "start_byte": 0,
         "end_byte": len(_startup_log().encode("utf-8")),
     }
