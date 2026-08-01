@@ -146,6 +146,10 @@ PyPI provenance<->rows). Every pair gets a named test or a written N/A.
       max_output_tokens_per_turn=1024 (one-pass total via GenerationParams),
       context_window=32768, per_task_timeout_s=1800. Signed v8 contract embeds
       covered_behavior.budgets.max_turns -> v9 ceremony REQUIRED on change.
+      CORRECTION (2026-08-01, from fusion scored.run*.json loop_config): the host 1024
+      constant did NOT govern execution — the c0v5 appliance's LoopConfig default 3072
+      bound per-turn output (default shadow; exactly what T4 eliminates). Docs must not
+      claim legacy per-turn was 1024.
 - [x] GGUF metadata (run dir gguf_metadata.json): `qwen35.context_length = 262144` ->
       context_extension_policy=none satisfiable at 65536, no RoPE scaling.
 - [x] Architecture is HYBRID (`qwen35`: ssm.* keys + full_attention_interval=4, 65 blocks,
@@ -155,9 +159,15 @@ PyPI provenance<->rows). Every pair gets a named test or a written N/A.
       Dense-arch models (e.g. classic 32B: ~0.5MB/token -> 34GB @ 64k) remain the
       community-trap case: fail-closed feasibility error + explicit legacy profile is the
       answer; docs must state feasibility is architecture-dependent.
-- [ ] Fusion bundle (tonight, post-landing): agentic per-turn finish_reason=length rate ->
-      R3 decision; static saturation profile of a thinking fine-tune (fusion vs base).
-- [ ] Measured VRAM at 65536/f16/f16 on the 5090 (brief non-scored spawn post-landing) —
-      informational; canonical validation on the 6000.
-- [ ] llama.cpp b10076 exact flag names for cache types + fit + slots (Codex verifies
-      against the pinned binary's --help; assert from runtime properties regardless).
+- [x] Fusion bundle R3 (measured 2026-08-01): per-turn output p50 74 / p95 373 /
+      p99 886 / max 3072; length-finish 5/1863 = 0.27% at the EXECUTED cap 3072;
+      projected clip at the new 1024 cap 14/1863 = 0.75% < 2% trigger ->
+      **R3 = keep 1024**, per-turn p95/p99/max published as the watched metric.
+      (Methodology copy cites 0.32% and "remains 1024" — correction owed post-Codex.)
+      Static saturation fusion vs base: bigcode 44.6% vs 2.7%, ifbench 39.5% vs 24.6%,
+      mmlu_pro 11.5% vs 27.5%, olymmath/amo ~100% both (R1 inputs).
+- [x] Measured VRAM at 65536/f16/f16 on the RTX 5090 (anchor validation attempt 9):
+      26,868 MiB live at 96% util, KV 4096 MiB, 65.65 tok/s. (Owner: 5090-only — the
+      earlier "canonical validation on the 6000" clause is void.)
+- [x] llama.cpp b10076 flags settled: capacity probe asserts from runtime properties;
+      -lv 4 pinned in strict argv for the startup evidence lines (commit 8876ddc).
