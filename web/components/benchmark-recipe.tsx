@@ -228,7 +228,7 @@ function ClassicRecipeBody({ recipe }: { readonly recipe: Recipe }) {
       </p>
       <p className="font-mono text-[11px] leading-5 text-bench-muted">
         Do not change sampling, context, or prompt-template settings unless the recipe says so. VRAM values are
-        8k-context estimates; the ranked recipe pins 32k context — you may need one quant tier smaller. Close other GPU
+        8k-context estimates; the ranked recipe pins a 64k server context — you may need one quant tier smaller. Close other GPU
         workloads.
       </p>
     </div>

@@ -200,7 +200,7 @@ export function ModelPicker(props: {
         </div>
         <p className="font-mono text-[10px] text-bench-muted" title={POPULARITY_DISCLAIMER}>
           Hugging Face popularity is repo-level and monthly for downloads · 8k-context estimate; the ranked recipe pins
-          32k context — you may need one quant tier smaller.
+          a 64k server context — you may need one quant tier smaller.
         </p>
       </div>
     );

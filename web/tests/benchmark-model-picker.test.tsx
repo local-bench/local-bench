@@ -79,7 +79,7 @@ describe("ModelPicker", () => {
     expect(html).toContain("Likes");
     expect(html).toContain("↓ 11M downloads/mo · ♥ 420");
     expect(html).toContain("Hugging Face popularity is repo-level");
-    expect(html).toContain("ranked recipe pins 32k context");
+    expect(html).toContain("ranked recipe pins a 64k server context");
     expect(html).toContain("only chipped entries have measured local-bench runs");
     expect(html).toContain("no run yet — benchmark it");
   });

@@ -12,8 +12,9 @@
    from the `ResolvedExecutionContract`, never from suite items. Suite + itemsets +
    subset_hash stay BYTE-IDENTICAL. Legacy suite `max_tokens: 16384` remains authoritative
    only for legacy profiles/lanes and must not shadow the new profile.
-2. **Release is HELD** until the RTX PRO 6000 is installed and exact-config validation
-   passes (oracle blocker 8). Tonight: implement + full tests + v9 ceremony + deploy
+2. **Release is HELD** until exact-config validation passes on the RTX 5090 (oracle
+   blocker 8; owner 2026-08-01: the PRO 6000 is NOT going into this box — 5090 hosts
+   the new operating point). Tonight: implement + full tests + v9 ceremony + deploy
    backward-compatible site changes + stage the fail-closed release script. PyPI publish
    fires only when the 64k/f16 launch checks pass on real hardware, immediately followed
    by the head reruns (owner go-ahead required — GPU-ask-first).
@@ -60,7 +61,7 @@ resolution; old-campaign resume stays 8k (auto never re-resolved on resume).
 - **R1 (static cap review):** do not reconsider 32768 until >= 3 independent base-model
   families have complete 32k rows; reopen only if >= 2 families show > 25% cap saturation
   on the same axis.
-- **R2 (turn cap + task bound):** on the PRO 6000 during non-publishable validation, run a
+- **R2 (turn cap + task bound):** on the RTX 5090 during non-publishable validation, run a
   fixed AppWorld DEV subset at max_turns in {32, 40, 48}; adopt the smallest value at
   which the dev trajectory distribution stops being materially cap-dominated
   (cap_exceeded_dev <= 10%); pre-registered default 40 if the curve is flat. Set
@@ -131,7 +132,7 @@ PyPI provenance<->rows). Every pair gets a named test or a written N/A.
 2. Settle remaining facts (below), freeze the tuple, mint the profile.
 3. Codex T1-T6 + tests; contract v9 ceremony; full suite green.
 4. Deploy site package (T7) FIRST — site understands the profile before any row exists.
-5. RTX PRO 6000 install (Michael) -> non-publishable exact-config checks: 65536/f16/f16
+5. Non-publishable exact-config checks on the RTX 5090: 65536/f16/f16
    launch evidence, behavioral+capacity probes, static request shaping trace, agentic
    config, watchdog survival; R2 dev calibration -> final turn cap + task bound.
 6. Publish stable 0.4.14 -> immediately start base + fusion 32k head reruns (owner go).
