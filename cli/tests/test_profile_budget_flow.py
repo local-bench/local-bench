@@ -7,8 +7,9 @@ from pathlib import Path
 
 import httpx
 import pytest
+from jsonschema import Draft202012Validator
 
-from localbench._types import BenchmarkItem
+from localbench._types import BenchmarkItem, JsonObject
 from localbench.bounded_final_forcing import (
     _profile_owned_static_budget,
     run_bounded_final_forced_item,
@@ -35,6 +36,14 @@ _PROFILE_CASES: tuple[tuple[BoundedFinalProfileChoice, bool], ...] = (
     ("answer_only_v1", False),
 )
 _SUITE_ITEM_PATH = Path(__file__).resolve().parents[2] / "suite" / "v1" / "amo.jsonl"
+_PROFILE_SCHEMA_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "localbench"
+    / "submissions"
+    / "schemas"
+    / "accepted_result_projection_v2.schema.json"
+)
 
 
 class _Renderer:
@@ -215,6 +224,45 @@ def test_static_budget_exists_if_and_only_if_profile_is_deep(
     runtime = _runtime(profile)
 
     assert (_profile_owned_static_budget(runtime.contract) is not None) is is_deep
+
+
+def _profile_schema_errors(profile: JsonObject) -> list[str]:
+    schema = json.loads(_PROFILE_SCHEMA_PATH.read_text(encoding="utf-8"))
+    validator = Draft202012Validator(
+        {
+            "$schema": schema["$schema"],
+            "$defs": schema["$defs"],
+            "$ref": "#/$defs/executionProfile",
+        }
+    )
+    return [error.message for error in validator.iter_errors(profile)]
+
+
+@pytest.mark.parametrize("profile", _DEEP_BUDGET_PROFILE_IDS)
+def test_deep_profile_v2_projection_round_trips_schema(profile: str) -> None:
+    projected = execution_contract_mod.execution_profile_record(_runtime(profile).contract)
+
+    assert _profile_schema_errors(projected) == []
+
+
+@pytest.mark.parametrize("profile", _DEEP_BUDGET_PROFILE_IDS)
+def test_deep_profile_legacy_shape_is_rejected_by_schema(profile: str) -> None:
+    projected = execution_contract_mod.execution_profile_record(_runtime(profile).contract)
+    legacy_shaped = {
+        field: projected[field]
+        for field in execution_contract_mod._PUBLIC_EXECUTION_PROFILE_FIELDS
+    }
+
+    assert _profile_schema_errors(legacy_shaped) != []
+
+
+def test_legacy_profile_v1_projection_still_round_trips_schema() -> None:
+    projected = execution_contract_mod.execution_profile_record(
+        _runtime("generic_think_tags_8192_v1").contract
+    )
+
+    assert "schema_version" not in projected
+    assert _profile_schema_errors(projected) == []
 
 
 @pytest.mark.parametrize(("profile", "is_deep"), _PROFILE_CASES)
