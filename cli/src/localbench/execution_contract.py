@@ -54,6 +54,12 @@ _DEEP_BUDGET_PROFILE_IDS: Final = (
 PUBLIC_EXECUTION_PROFILE_V2: Final = "localbench.execution_profile.v2"
 
 
+def is_deep_budget_profile(profile_id: str) -> bool:
+    # The legacy orchestrator stamp is vestigial on deep paths; the executor's
+    # resolved-contract override is the source of truth.
+    return profile_id in _DEEP_BUDGET_PROFILE_IDS
+
+
 @dataclass(frozen=True, slots=True)
 class ResolvedExecutionContract:
     profile_id: str

@@ -21,6 +21,7 @@ from localbench._suite import read_json_object
 from localbench.execution_contract import (
     execution_contract_notice,
     execution_contract_record,
+    is_deep_budget_profile,
 )
 from localbench.orchestrate import run_localbench
 from localbench.persistence import atomic_write_json
@@ -224,8 +225,7 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         )
         if (
             resolved_profile is not None
-            and resolved_profile.contract.profile_id
-            == "generic_think_tags_32768_v1"
+            and is_deep_budget_profile(resolved_profile.contract.profile_id)
         ):
             budget = resolved_profile.contract.budget
             if budget is None:

@@ -19,6 +19,7 @@ from localbench.budget_forcing import (
     _post_completion,
     _split_reopened_reasoning,
 )
+from localbench.execution_contract import is_deep_budget_profile
 from localbench.lane_spec import BOUNDED_FINAL_MIN_FINAL, bounded_final_think_budget
 from localbench.prompt_rendering import PromptRenderer
 from localbench.timeout_budgets import TimeoutBudget, derive_timeout_budget
@@ -208,7 +209,7 @@ def _profile_owned_static_budget(
 ) -> tuple[int, int, int] | None:
     if (
         execution_contract is None
-        or execution_contract.profile_id != "generic_think_tags_32768_v1"
+        or not is_deep_budget_profile(execution_contract.profile_id)
         or execution_contract.budget is None
     ):
         return None
