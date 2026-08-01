@@ -36,9 +36,9 @@ No new motion. Preserve focus behavior, semantic headings/notices, contrast, nat
 
 - Complete: focused Vitest covers notice, badges, profile-aware family/model/Pareto selection, digest-gated deltas, static projection, and supersession (75/75).
 - Complete: full Vitest (707 passed, 1 pending), typecheck, and production build.
-- Root-owned downstream gate: browser captures at 375, 768, and 1280 px with 8k-only and mixed 8k/32k data states.
-- Root-owned downstream gate: keyboard/accessibility, heuristic, and persona walkthroughs on the same build.
-- Root-owned downstream gate: independent visual-QA review. The T7 executor intentionally did not run browser visual QA under the owner split.
+- Complete: production-browser captures at 375, 768, and 1280 px with 8k-only and mixed 8k/32k data states, plus 200% reflow and keyboard-focus states.
+- Complete: keyboard/accessibility, heuristic, and persona walkthroughs on the same build. All final captures have no page-level horizontal overflow.
+- Pending: two independent visual-QA reviewers on the committed T7 snapshot.
 
 ## Design Debt Register
 
@@ -52,3 +52,5 @@ None accepted.
 - `.omo/evidence/t7-full-web-vitest-clean.json`: clean full web GREEN, 707 passed, 1 pending.
 - `.omo/evidence/t7-full-cli.xml`: full CLI gate, 2220 passed with only the owner-exempt signed-contract drift wall failing.
 - `.omo/evidence/t7-verification-summary.md`: exact scenarios, invocations, observables, and artifact mapping.
+- `.omo/evidence/t7-visual-qa/capture-matrix.md`: 26-capture responsive/state matrix, DOM/accessibility observables, bundled image-diff summaries, and manual persona walkthroughs.
+- `.omo/evidence/t7-visual-qa/screenshots/`: final production-browser PNG captures.

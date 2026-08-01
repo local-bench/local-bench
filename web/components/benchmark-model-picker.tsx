@@ -154,7 +154,7 @@ export function ModelPicker(props: {
         </p>
         <div className="grid gap-2" role="radiogroup" aria-label="Popular model">
         {props.popular.map((entry) => (
-          <div key={entry.model.slug} className="flex flex-wrap items-stretch gap-2 sm:flex-nowrap">
+          <div key={entry.model.slug} className="flex min-w-0 flex-wrap items-stretch gap-2 sm:flex-nowrap">
             <button
               type="button"
               role="radio"
