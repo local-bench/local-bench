@@ -101,16 +101,24 @@ All spacing derives from 4px.
 
 ### Execution Profile Badge
 
-- Structure: a prominent text-bearing `Current` or `Legacy` state badge followed by a naturally wrapping human-readable budget summary; expose the exact profile ID in both title and accessible text.
-- Current state: cyan accent border/surface tokens; reserved for `generic_think_tags_32768_v1` with its complete v2 identity.
-- Legacy state: mixed-status border/surface tokens; applies to all earlier valid profiles, including rich v1 and id-only historical rows. Legacy means a valid historical operating point, never invalid or superseded.
+- Structure: a prominent text-bearing `32k` or `8k` operating-point badge followed by a naturally wrapping human-readable budget summary; expose the exact profile ID in both title and accessible text.
+- 32k state: cyan accent border/surface tokens; reserved for complete `generic_think_tags_32768_v1` and `gemma4_channel_32768_v1` v2 identities.
+- 8k state: mixed-status border/surface tokens; applies to all earlier valid profiles, including rich v1 and id-only historical rows. The label denotes the historical operating point, never invalidity or supersession.
 - Content: summarize static reasoning, final-answer, and server-context budgets when present; id-only profiles use their known reasoning mode. Keep template hashes and renderer internals in structured row data.
 - Accessibility: state and summary remain explicit text at 200% zoom and never depend on color or hover.
+
+### Operating Point View Toggle
+
+- Configuration: `BOARD_DEFAULT_OPERATING_POINT_VIEW` accepts `mixed` or `32k-default`; `mixed` ships now and switching the literal to `32k-default` is the later one-line rollout.
+- Structure: a compact board navigation strip above filters with links for the combined `8k + 32k` view, the `32k` view, and the exact archived label `archived operating point (2026-07, 8k)`.
+- Deep links: the selected view is encoded in the stable `operating-point` query parameter. The archived value remains permanent so every preserved 8k row stays reachable after the default flips.
+- 32k-default state: only 32k rows render until the archived link is followed; the archived view contains every non-32k historical row, including rows without a structured profile.
+- Accessibility: the active link uses `aria-current="page"`; all state labels remain visible text and the strip wraps without horizontal overflow.
 
 ### Operating Point Notice
 
 - Structure: a semantic `role="status"` notice inside the board container, before filters and table content.
-- Gate: render only when at least one board row carries the complete current 32k profile; 8k-only boards render no empty placeholder.
+- Gate: in `mixed`, render only when at least one board row carries a complete 32k profile. In `32k-default`, render the explanation only inside the archived view; other views render no placeholder.
 - Tone: warning border/surface tokens with primary text for the owner-pinned compute-mismatch copy.
 - Responsive behavior: wrap naturally at 375, 768, and 1280px without fixed dimensions or horizontal page overflow.
 

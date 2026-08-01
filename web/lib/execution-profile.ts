@@ -160,8 +160,7 @@ export function executionProfileCohort(
   profile: BoardExecutionProfile | undefined,
 ): ExecutionProfileCohort {
   if (isCurrentExecutionProfile(profile)) return "32k";
-  if (profile?.id.includes("8192") === true) return "8k";
-  return "unclassified";
+  return profile === undefined ? "unclassified" : "8k";
 }
 
 export function executionProfileSemanticSha256(

@@ -69,21 +69,21 @@ describe("CommunityVariantTableRow", () => {
 
     // When/Then: the row discloses the profile without exposing internal template detail.
     expect(html).toContain("execution profile: generic_think_tags_8192_v1");
-    expect(html).toContain(">Legacy</span>");
+    expect(html).toContain(">8k</span>");
     expect(html).toContain("8k static reasoning");
   });
 
-  it("labels complete v2 profiles as Current with a human-readable budget summary", () => {
+  it("labels complete v2 profiles as 32k with a human-readable budget summary", () => {
     const html = renderToStaticMarkup(createElement(ExecutionProfileBadge, {
       profile: currentProfile(),
     }));
 
-    expect(html).toContain(">Current</span>");
+    expect(html).toContain(">32k</span>");
     expect(html).toContain("32k reasoning · 16k final · 64k context");
     expect(html).toContain("execution profile: generic_think_tags_32768_v1");
   });
 
-  it("labels rich v1 and id-only profiles as Legacy with readable summaries", () => {
+  it("labels rich v1 and id-only profiles as 8k with readable summaries", () => {
     const rich = renderToStaticMarkup(createElement(ExecutionProfileBadge, {
       profile: {
         ...legacyProfile(),
@@ -97,9 +97,9 @@ describe("CommunityVariantTableRow", () => {
       profile: { id: "answer_only_8192_v1" },
     }));
 
-    expect(rich).toContain(">Legacy</span>");
+    expect(rich).toContain(">8k</span>");
     expect(rich).toContain("8k reasoning · 8k final · 32k context");
-    expect(idOnly).toContain(">Legacy</span>");
+    expect(idOnly).toContain(">8k</span>");
     expect(idOnly).toContain("8k answer-only");
   });
 

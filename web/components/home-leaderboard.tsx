@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BoardScopeHeader } from "@/components/board-scope-header";
 import { CommunityFreshness, useLiveCommunityRows } from "@/components/community-live-state";
 import { LeaderboardTable } from "@/components/leaderboard-table";
 import { LeaderboardVariantToggle } from "@/components/leaderboard-variant-toggle";
 import { OperatingPointNotice } from "@/components/operating-point-notice";
+import { OperatingPointViewToggle } from "@/components/operating-point-view-toggle";
 import { axisColumns } from "@/components/leaderboard-table-cells";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import type { CommunityArtifactDetail } from "@/lib/community-artifact-details";
@@ -18,6 +19,14 @@ import { type SortState } from "@/lib/leaderboard-sort";
 import type { AgenticModel, IndexModel } from "@/lib/schemas";
 import { INDEX_VERSION_V4, isSeason2Board } from "@/lib/scoring-seasons";
 import { findMinimumVramTier } from "@/lib/rig-match";
+import { executionProfileCohort } from "@/lib/execution-profile";
+import {
+  BOARD_DEFAULT_OPERATING_POINT_VIEW,
+  OPERATING_POINT_QUERY_PARAM,
+  operatingPointViewIncludesCohort,
+  resolveOperatingPointView,
+  type BoardDefaultOperatingPointView,
+} from "@/lib/operating-point-view";
 import {
   filterUnifiedLeaderboardRows,
   sortUnifiedLeaderboardRows,
@@ -42,9 +51,11 @@ type HomeLeaderboardProps = {
   readonly defaultShowAllVariants?: boolean;
   readonly communityRows?: readonly CommunityBoardRow[];
   readonly communityArtifactDetails?: readonly CommunityArtifactDetail[];
+  readonly defaultOperatingPointView?: BoardDefaultOperatingPointView;
   readonly fineTuneBaseBySlug?: ReadonlyMap<string, string>;
   readonly indexVersion?: string;
   readonly models: readonly IndexModel[];
+  readonly operatingPointQuery?: string | null;
   readonly quantBySlug?: ReadonlyMap<string, string | null>;
   readonly resolutionContext?: FamilyResolutionContext;
   readonly scoreMode?: LeaderboardScoreMode;
@@ -53,11 +64,13 @@ type HomeLeaderboardProps = {
 
 export function HomeLeaderboard({
   models,
+  operatingPointQuery,
   agenticBySlug = EMPTY_AGENTIC,
   allowVariantToggle = false,
   defaultShowAllVariants = false,
   communityArtifactDetails = EMPTY_ARTIFACT_DETAILS,
   communityRows = EMPTY_COMMUNITY,
+  defaultOperatingPointView = BOARD_DEFAULT_OPERATING_POINT_VIEW,
   scoreMode = "full",
   fineTuneBaseBySlug = EMPTY_LINEAGE,
   indexVersion,
@@ -71,23 +84,56 @@ export function HomeLeaderboard({
   const [quant, setQuant] = useState("all");
   const [ram, setRam] = useState("all");
   const [showAllVariants, setShowAllVariants] = useState(defaultShowAllVariants);
+  const [browserOperatingPointQuery, setBrowserOperatingPointQuery] = useState<string | null>(null);
+  useEffect(() => {
+    if (operatingPointQuery !== undefined) return undefined;
+    const syncQuery = () => setBrowserOperatingPointQuery(
+      new URLSearchParams(window.location.search).get(OPERATING_POINT_QUERY_PARAM),
+    );
+    syncQuery();
+    window.addEventListener("popstate", syncQuery);
+    return () => window.removeEventListener("popstate", syncQuery);
+  }, [operatingPointQuery]);
+  const selectedOperatingPointQuery = operatingPointQuery === undefined
+    ? browserOperatingPointQuery
+    : operatingPointQuery;
+  const operatingPointView = resolveOperatingPointView(
+    defaultOperatingPointView,
+    selectedOperatingPointQuery,
+  );
   const liveCommunity = useLiveCommunityRows(communityRows, scoreMode === "full", resolutionContext);
   const communityFineTuneBaseBySha = useMemo(() => new Map(liveCommunity.rows.flatMap((row) => {
     if (row.lineage?.card_declared_edges[0] === undefined || row.rootCatalogId == null) return [];
     const root = resolutionContext.catalog.find((entry) => entry.catalogId === row.rootCatalogId);
     return root === undefined ? [] : [[row.artifactSha256, root.displayName] as const];
   })), [liveCommunity.rows, resolutionContext]);
-  const axisKeys = useMemo(() => axisColumns(models), [models]);
+  const operatingPointModels = useMemo(
+    () => scoreMode === "full"
+      ? models.filter((model) => operatingPointViewIncludesCohort(
+          operatingPointView,
+          executionProfileCohort(model.execution_profile),
+        ))
+      : models,
+    [models, operatingPointView, scoreMode],
+  );
+  const operatingPointCommunityRows = useMemo(
+    () => liveCommunity.rows.filter((row) => operatingPointViewIncludesCohort(
+      operatingPointView,
+      executionProfileCohort(row.executionProfile),
+    )),
+    [liveCommunity.rows, operatingPointView],
+  );
+  const axisKeys = useMemo(() => axisColumns(operatingPointModels), [operatingPointModels]);
   const allRows = useMemo(
     () => filterUnifiedLeaderboardRows(
-      models,
-      scoreMode === "full" ? liveCommunity.rows : [],
+      operatingPointModels,
+      scoreMode === "full" ? operatingPointCommunityRows : [],
       {
         resolutionContext,
         variants: showAllVariants ? "all" : "best-per-family",
       },
     ),
-    [models, liveCommunity.rows, resolutionContext, scoreMode, showAllVariants],
+    [operatingPointCommunityRows, operatingPointModels, resolutionContext, scoreMode, showAllVariants],
   );
   const filterOptions = useMemo(() => boardFilterOptions(allRows, quantBySlug), [allRows, quantBySlug]);
   const visibleRows = useMemo(
@@ -112,10 +158,17 @@ export function HomeLeaderboard({
     >
       <BoardScopeHeader mode={scoreMode} indexVersion={season2 ? INDEX_VERSION_V4 : indexVersion} />
       {scoreMode === "full" ? (
-        <OperatingPointNotice profiles={[
-          ...models.map((model) => model.execution_profile),
-          ...liveCommunity.rows.map((row) => row.executionProfile),
-        ]} />
+        <OperatingPointViewToggle view={operatingPointView} />
+      ) : null}
+      {scoreMode === "full" ? (
+        <OperatingPointNotice
+          defaultView={defaultOperatingPointView}
+          profiles={[
+            ...models.map((model) => model.execution_profile),
+            ...liveCommunity.rows.map((row) => row.executionProfile),
+          ]}
+          view={operatingPointView}
+        />
       ) : null}
       {scoreMode === "full" ? (
         <LeaderboardFilters
