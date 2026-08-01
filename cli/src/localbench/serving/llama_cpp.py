@@ -121,6 +121,12 @@ def strict_llama_cpp_argv(config: LlamaCppLaunchConfig) -> list[str]:
             config.reasoning_format,
             "--no-webui",
             "--no-agent",
+            # b10076 defaults to log verbosity 3, which suppresses the library
+            # INFO lines (llama_context/llama_kv_cache) the capacity probe
+            # requires as startup evidence; 4 restores them without the
+            # per-layer DEBUG flood of 5.
+            "-lv",
+            "4",
             "--log-file",
             str(config.run_dir / "serve.log"),
         ],

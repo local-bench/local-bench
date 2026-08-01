@@ -138,6 +138,7 @@ def test_llama_cpp_strict_argv_pins_score_impacting_flags(tmp_path: Path) -> Non
     assert flag_value(argv, "--reasoning-format") == "deepseek"
     assert "--no-webui" in argv
     assert "--no-agent" in argv
+    assert flag_value(argv, "-lv") == "4"
     assert "auto" not in argv
 
 
