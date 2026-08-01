@@ -65,8 +65,10 @@ localbench bench --runtime llama.cpp \
 
 Acceptance = parity with the anchor evidence chain: `runtime-capacity-probe.json`
 written with passed:true; audit max_promised_total 49152; per-item budget trace
-[32768, 16384]; `runtime_probe_passed: true` in the run record; epoch binding verified;
-VRAM within the 5090 envelope. On FAIL: halt GPU chain, write the evidence note,
+[32768, 16384]; epoch binding verified; VRAM within the 5090 envelope.
+(CORRECTED: `manifest.execution_profile.runtime_probe_passed` is the RENDERER-equivalence
+probe field — false on BOTH validation runs because the --hf-model-id path skips it; it
+is NOT an acceptance criterion. Codex round-1 caught my error here.) On FAIL: halt GPU chain, write the evidence note,
 re-dispatch Codex with the trace — do NOT start R2.
 
 ## Phase 3 — R2 turn-cap calibration (gate: Phase 2 PASS; overnight GPU block)
