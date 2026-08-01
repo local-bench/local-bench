@@ -237,7 +237,7 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
                 run_dir=root,
                 serve_log_path=root / "serve.log",
                 serve_log_start_byte=launched.log_start_byte,
-                server_pid=launched.process.pid,
+                server_identity=launched.identity,
                 launch_argv=argv,
             )
         if options.gguf_repo_only and resolved_profile is not None:

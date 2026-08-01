@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from collections.abc import Callable
 from typing import Final
 
 import httpx
 
 from localbench._types import JsonObject
 from localbench.runtime_capacity_probe import verify_llama_cpp_capacity
+from localbench.serving.teardown import LiveProcessIdentity, RecordedProcessIdentity
 
 REQUIRED_CONTEXT: Final = 65_536
 STARTUP_LOG: Final = """llama_context: n_seq_max     = 1
@@ -28,6 +30,11 @@ LAUNCH_ARGV: Final = (
     "f16",
     "--cache-type-v",
     "f16",
+)
+SERVER_IDENTITY: Final = RecordedProcessIdentity(
+    pid=4242,
+    executable_path="C:/tools/llama-server.exe",
+    commandline_sha256="a" * 64,
 )
 
 
@@ -75,6 +82,7 @@ async def run_probe(
     launch_argv: list[str] | None = None,
     serve_log_start_byte: int | None = None,
     server_pid: int = 4242,
+    process_identity_probe: Callable[[int], LiveProcessIdentity | None] | None = None,
 ) -> JsonObject:
     responses = {
         "/props": props_payload() if props is None else props,
@@ -99,7 +107,20 @@ async def run_probe(
         serve_log_start_byte=(
             len(stale_bytes) if serve_log_start_byte is None else serve_log_start_byte
         ),
-        server_pid=server_pid,
+        server_identity=RecordedProcessIdentity(
+            pid=server_pid,
+            executable_path=SERVER_IDENTITY.executable_path,
+            commandline_sha256=SERVER_IDENTITY.commandline_sha256,
+        ),
         launch_argv=list(LAUNCH_ARGV) if launch_argv is None else launch_argv,
         transport=httpx.MockTransport(handler),
+        process_identity_probe=(
+            process_identity_probe
+            if process_identity_probe is not None
+            else lambda pid: LiveProcessIdentity(
+                pid=pid,
+                executable_path=SERVER_IDENTITY.executable_path,
+                commandline_sha256=SERVER_IDENTITY.commandline_sha256,
+            )
+        ),
     )

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  executionProfileSemanticSha256,
+  matchingCompleteSemanticDigests,
   PublicExecutionProfileSchema,
   type PublicExecutionProfile,
 } from "../lib/execution-profile";
@@ -54,6 +56,14 @@ const BASE_T2_V1 = {
   static_think_tokens: 8192,
 } as const;
 
+const ANSWER_ONLY_V1 = {
+  ...BASE_T2_V1,
+  id: "answer_only_v1",
+  semantic_sha256: "f56b6cc02514ca40b18b2c888cba14a8545b16a827310332a70c561c1d77b4ae",
+  static_final_tokens: 16384,
+  static_think_tokens: 0,
+} as const;
+
 function staticThinkTokens(profile: PublicExecutionProfile): number | undefined {
   switch (profile.schema_version) {
     case undefined:
@@ -85,6 +95,38 @@ describe("public execution-profile contract", () => {
     // Then: v1 optional semantic identity remains intact and narrows exhaustively.
     expect(parsed).toEqual(BASE_T2_V1);
     expect(staticThinkTokens(parsed)).toBe(8192);
+    expect(executionProfileSemanticSha256(parsed)).toBe(BASE_T2_V1.semantic_sha256);
+  });
+
+  it("withholds semantic authority from arbitrary or incomplete v1 tuples", () => {
+    // Given: an attacker-chosen complete tuple/digest and an old partial semantic row.
+    const forged = {
+      ...BASE_T2_V1,
+      id: "client-forged-v1",
+      semantic_sha256: "b".repeat(64),
+      static_think_tokens: 12345,
+    };
+    const partial = { ...LEGACY_V1, semantic_sha256: BASE_T2_V1.semantic_sha256 };
+
+    // When: both parse for historical display.
+    const parsedForged = PublicExecutionProfileSchema.parse(forged);
+    const parsedPartial = PublicExecutionProfileSchema.parse(partial);
+
+    // Then: neither yields a digest that can earn a semantic-equivalence match.
+    expect(executionProfileSemanticSha256(parsedForged)).toBeUndefined();
+    expect(executionProfileSemanticSha256(parsedPartial)).toBeUndefined();
+    expect(matchingCompleteSemanticDigests(
+      executionProfileSemanticSha256(parsedForged),
+      executionProfileSemanticSha256(parsedForged),
+    )).toBe(false);
+  });
+
+  it("preserves the canonical answer-only v1 zero-think semantic tuple", () => {
+    // Given / When: an answer-only historical row crosses the site boundary.
+    const parsed = PublicExecutionProfileSchema.parse(ANSWER_ONLY_V1);
+
+    // Then: zero reasoning tokens remain valid and the canonical digest is trusted.
+    expect(executionProfileSemanticSha256(parsed)).toBe(ANSWER_ONLY_V1.semantic_sha256);
   });
 
   it("parses a complete 32768-v2 row", () => {

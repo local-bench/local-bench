@@ -23,6 +23,8 @@ class _Renderer:
 
 
 _FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
+_BASE_SUITE_JSON_SHA256 = "6556314dc6111e595435209a793436955bac2e29c143dcd6bfe1164b74ea3430"
+_BASE_MMLU_PRO_QUICK_SHA256 = "685cfe3985469d26eecff4fc4a0aaa6c31e1f1a0f070a86074c9b388119ac0ac"
 
 
 def test_auto_generic_thinking_resolves_to_the_32768_profile() -> None:
@@ -114,10 +116,6 @@ def test_32768_profile_owns_request_caps_and_audit_promise() -> None:
 
 def test_release_profile_budgets_preserve_suite_and_8192_control() -> None:
     # Given: the frozen suite bytes and both selectable generic-thinking profiles.
-    suite_hash = hashlib.sha256((_FIXTURE_SUITE / "suite.json").read_bytes()).hexdigest()
-    subset_hash = hashlib.sha256(
-        (_FIXTURE_SUITE / "mmlu_pro_quick.jsonl").read_bytes(),
-    ).hexdigest()
     current = resolve_bounded_final_profile_from_introspection(
         "generic_think_tags_32768_v1",
         TemplateIntrospection(
@@ -202,10 +200,13 @@ def test_release_profile_budgets_preserve_suite_and_8192_control() -> None:
     )
 
     # Then: the suite remains byte-stable, current caps are 32k/16k, and legacy stays 8k/8k.
-    assert hashlib.sha256((_FIXTURE_SUITE / "suite.json").read_bytes()).hexdigest() == suite_hash
+    assert (
+        hashlib.sha256((_FIXTURE_SUITE / "suite.json").read_bytes()).hexdigest()
+        == _BASE_SUITE_JSON_SHA256
+    )
     assert hashlib.sha256(
         (_FIXTURE_SUITE / "mmlu_pro_quick.jsonl").read_bytes(),
-    ).hexdigest() == subset_hash
+    ).hexdigest() == _BASE_MMLU_PRO_QUICK_SHA256
     assert current_trace == [32768, 16384]
     assert audit["per_bench"]["mmlu_pro"]["max_promised_total"] == 49152
     assert legacy_trace == [8192, 8192]

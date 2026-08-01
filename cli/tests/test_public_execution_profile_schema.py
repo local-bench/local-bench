@@ -13,6 +13,7 @@ from localbench.execution_contract import (
 )
 from localbench.execution_profile_semantics import semantic_sha256_for_budget
 from localbench.reasoning_registry import GENERIC_THINK_TAGS_32768_PROFILE
+from localbench.reasoning_registry import ANSWER_ONLY_PROFILE
 
 
 def _legacy_profile() -> dict[str, object]:
@@ -88,6 +89,67 @@ def test_base_t2_8192_public_profile_parses_without_field_loss() -> None:
     # Then: all 23 BASE fields and their values survive unchanged.
     assert len(base_record) == 23
     assert parsed == base_record
+
+
+def test_untrusted_v1_tuple_and_digest_cannot_claim_semantic_identity() -> None:
+    # Given: an unknown v1 profile with a complete, self-consistent attacker-chosen tuple.
+    profile = _base_t2_8192_profile_record()
+    profile["id"] = "client-forged-v1"
+    forged_budget = replace(
+        GENERIC_THINK_TAGS_32768_PROFILE.budget,
+        static_think_tokens=12_345,
+    )
+    profile.update(
+        {
+            "static_think_tokens": 12_345,
+            "static_final_tokens": forged_budget.static_final_tokens,
+            "static_max_generated_tokens": forged_budget.static_max_generated_tokens,
+            "server_context_tokens": forged_budget.server_context_tokens,
+            "agentic_max_turns": forged_budget.agentic_max_turns,
+            "agentic_max_output_tokens_per_turn": forged_budget.agentic_max_output_tokens_per_turn,
+            "agentic_max_generated_tokens_per_task": (
+                forged_budget.agentic_max_generated_tokens_per_task
+            ),
+            "agentic_context_tokens": forged_budget.agentic_context_tokens,
+            "kv_cache_k_dtype": forged_budget.kv_cache_k_dtype,
+            "kv_cache_v_dtype": forged_budget.kv_cache_v_dtype,
+            "context_fit_policy": forged_budget.context_fit_policy,
+            "context_extension_policy": forged_budget.context_extension_policy,
+            "per_task_timeout_s": forged_budget.per_task_timeout_s,
+            "semantic_sha256": semantic_sha256_for_budget(forged_budget),
+        },
+    )
+
+    # When: it crosses the public-record parser.
+    parsed = structured_execution_profile(profile)
+
+    # Then: display-safe v1 fields remain parseable but semantic authority is discarded.
+    assert parsed == _legacy_profile() | {"id": "client-forged-v1"}
+
+
+def test_answer_only_v1_zero_think_tuple_remains_parseable() -> None:
+    # Given: the canonical answer-only v1 semantic tuple with zero reasoning tokens.
+    profile = {
+        **_legacy_profile(),
+        "id": ANSWER_ONLY_PROFILE.id,
+        "static_think_tokens": 0,
+        "static_final_tokens": 16384,
+        "static_max_generated_tokens": 16384,
+        "server_context_tokens": 32768,
+        "agentic_max_turns": 24,
+        "agentic_max_output_tokens_per_turn": 1024,
+        "agentic_max_generated_tokens_per_task": 32768,
+        "agentic_context_tokens": 32768,
+        "kv_cache_k_dtype": "f16",
+        "kv_cache_v_dtype": "f16",
+        "context_fit_policy": "exact-or-fail",
+        "context_extension_policy": "none",
+        "per_task_timeout_s": 1800,
+        "semantic_sha256": semantic_sha256_for_budget(ANSWER_ONLY_PROFILE.budget),
+    }
+
+    # When / Then: the complete canonical tuple crosses unchanged.
+    assert structured_execution_profile(profile) == profile
 
 
 def test_32768_public_profile_serializes_as_complete_v2() -> None:

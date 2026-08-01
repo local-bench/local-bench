@@ -6,7 +6,7 @@ import subprocess
 import hashlib
 import json
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import TextIO
 
 from localbench.serving.job_object import WindowsJobObject
@@ -20,6 +20,7 @@ class LaunchedServer:
     job_handle: int
     log_handle: TextIO
     log_start_byte: int
+    identity: RecordedProcessIdentity
 
     def close_log(self) -> None:
         self.log_handle.close()
@@ -54,6 +55,7 @@ def launch_llama_cpp(argv: list[str], *, cwd: Path, log_path: Path) -> LaunchedS
         text=True,
         env=serve_env(),
     )
+    identity = failed_launch_identity(argv, process.pid)
     try:
         process_handle = getattr(process, "_handle", None)
         if not isinstance(process_handle, int):
@@ -65,7 +67,7 @@ def launch_llama_cpp(argv: list[str], *, cwd: Path, log_path: Path) -> LaunchedS
             job,
             job_handle,
             log_handle,
-            recorded=failed_launch_identity(argv, process.pid),
+            recorded=identity,
         )
         raise
     return LaunchedServer(
@@ -74,6 +76,7 @@ def launch_llama_cpp(argv: list[str], *, cwd: Path, log_path: Path) -> LaunchedS
         job_handle=job_handle,
         log_handle=log_handle,
         log_start_byte=log_start_byte,
+        identity=identity,
     )
 
 
@@ -137,6 +140,20 @@ def probe_process_identity(pid: int) -> LiveProcessIdentity | None:
         executable_path=executable_path,
         commandline_sha256=hashlib.sha256(commandline.encode("utf-8")).hexdigest(),
     )
+
+
+def process_identity_matches(
+    recorded: RecordedProcessIdentity,
+    live: LiveProcessIdentity | None,
+) -> bool:
+    if live is None or live.pid != recorded.pid:
+        return False
+    if (
+        PureWindowsPath(live.executable_path).as_posix().casefold()
+        != PureWindowsPath(recorded.executable_path).as_posix().casefold()
+    ):
+        return False
+    return live.commandline_sha256 == recorded.commandline_sha256
 
 
 def _terminate_failed_launch_process(process: subprocess.Popen[str], recorded: RecordedProcessIdentity) -> None:

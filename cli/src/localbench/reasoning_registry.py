@@ -289,6 +289,7 @@ GEMMA4_CHANNEL_PROFILE: Final = ReasoningRegistryEntry(
 REASONING_REGISTRY: Final[tuple[ReasoningRegistryEntry, ...]] = (
     ANSWER_ONLY_PROFILE,
     GENERIC_THINK_TAGS_PROFILE,
+    GENERIC_THINK_TAGS_32768_PROFILE,
     GEMMA4_CHANNEL_PROFILE,
     QWEN_REASONING_ENTRY,
     GEMMA4_REASONING_ENTRY,
@@ -335,8 +336,6 @@ def ranked_execution_profiles() -> Mapping[str, str]:
 
 
 def execution_profile_for_id(profile_id: str) -> ReasoningRegistryEntry | None:
-    if profile_id == GENERIC_THINK_TAGS_32768_PROFILE.id:
-        return GENERIC_THINK_TAGS_32768_PROFILE
     for entry in REASONING_REGISTRY:
         if entry.id == profile_id:
             return entry

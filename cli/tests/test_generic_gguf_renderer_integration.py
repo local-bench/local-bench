@@ -18,10 +18,12 @@ from localbench import cli as cli_mod
 from localbench.execution_contract import structured_execution_profile
 from localbench.orchestrate import OrchestrateConfig
 from localbench.serving import runner as serving_runner
+from localbench import runtime_capacity_probe
 from localbench.serving.llama_cpp import BuildIdentity
 from localbench.serving.model_artifact import ModelArtifact
+from localbench.serving.process import failed_launch_identity
 from localbench.serving.readiness import ReadinessEvidence
-from localbench.serving.teardown import TeardownEvidence
+from localbench.serving.teardown import LiveProcessIdentity, RecordedProcessIdentity, TeardownEvidence
 from localbench.submissions.canon import sha256_file
 
 
@@ -55,6 +57,7 @@ def test_public_cli_generic_gguf_runs_server_renderer_and_forced_completion(
         quant_label="Q5_K_M",
     )
     captured_profiles = []
+    launched_identity: RecordedProcessIdentity | None = None
     real_run_localbench = serving_runner.run_localbench
 
     async def capture_profile(config: OrchestrateConfig, **kwargs):
@@ -65,12 +68,24 @@ def test_public_cli_generic_gguf_runs_server_renderer_and_forced_completion(
         return await real_run_localbench(config, **kwargs)
 
     def launch_with_stock_log(_argv, *, cwd, log_path):
+        nonlocal launched_identity
         stale = "llama_context: n_ctx         = 32768\n"
         log_path.parent.mkdir(parents=True, exist_ok=True)
         log_path.write_text(stale, encoding="utf-8")
         log_start_byte = log_path.stat().st_size
         write_b10076_startup_log(log_path, append=True)
-        return FakeLaunch(log_start_byte=log_start_byte)
+        launched_identity = failed_launch_identity(_argv, FakeLaunch.process.pid)
+        return FakeLaunch(identity=launched_identity, log_start_byte=log_start_byte)
+
+    def live_process_identity(pid: int) -> LiveProcessIdentity | None:
+        identity = launched_identity
+        if identity is None or identity.pid != pid:
+            return None
+        return LiveProcessIdentity(
+            pid=identity.pid,
+            executable_path=identity.executable_path,
+            commandline_sha256=identity.commandline_sha256,
+        )
 
     with LlamaStub() as stub:
         monkeypatch.setattr(cli_mod, "_preflight_execution_contract", lambda: None)
@@ -80,6 +95,11 @@ def test_public_cli_generic_gguf_runs_server_renderer_and_forced_completion(
             lambda _options, _root: artifact,
         )
         monkeypatch.setattr(serving_runner, "allocate_port", lambda: stub.port)
+        monkeypatch.setattr(
+            runtime_capacity_probe,
+            "probe_process_identity",
+            live_process_identity,
+        )
         monkeypatch.setattr(
             serving_runner,
             "collect_build_identity",

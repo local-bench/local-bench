@@ -7,6 +7,7 @@ import pytest
 from runtime_capacity_probe_support import run_probe, startup_log
 
 from localbench.runtime_capacity_probe import CapacityProbeMismatchError
+from localbench.serving.teardown import LiveProcessIdentity
 
 
 @pytest.mark.anyio
@@ -39,6 +40,10 @@ async def test_capacity_probe_accepts_current_valid_suffix_after_stale_invalid_p
     ).hexdigest()
     assert evidence["startup_log_source"] == {
         "process_pid": 4242,
+        "process_executable_path": "C:/tools/llama-server.exe",
+        "process_commandline_sha256": "a" * 64,
+        "identity_verified_before_probe": True,
+        "identity_verified_after_probe": True,
         "start_byte": len(stale.encode("utf-8")),
         "end_byte": len((stale + startup_log()).encode("utf-8")),
     }
@@ -99,3 +104,25 @@ async def test_capacity_probe_rejects_unprovable_process_epoch_boundary(
             serve_log_start_byte=serve_log_start_byte,
             server_pid=server_pid,
         )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("live_identity", [None, "mismatch"])
+async def test_capacity_probe_rejects_dead_or_reused_server_process(
+    tmp_path: Path,
+    live_identity: str | None,
+) -> None:
+    # Given: the launched child has exited or its PID now names a different process.
+    probe = (
+        (lambda _pid: None)
+        if live_identity is None
+        else lambda pid: LiveProcessIdentity(
+            pid=pid,
+            executable_path="C:/Windows/System32/notepad.exe",
+            commandline_sha256="b" * 64,
+        )
+    )
+
+    # When / Then: old log text and live endpoints cannot attest the dead/reused child.
+    with pytest.raises(CapacityProbeMismatchError, match="process identity"):
+        await run_probe(tmp_path, process_identity_probe=probe)

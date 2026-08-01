@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -10,6 +11,11 @@ import httpx
 from localbench._types import JsonObject, JsonValue
 from localbench.persistence import atomic_write_json
 from localbench.runtime_capacity_log import assess_llama_startup_capacity
+from localbench.serving.process import process_identity_matches, probe_process_identity
+from localbench.serving.teardown import (
+    LiveProcessIdentity,
+    RecordedProcessIdentity,
+)
 from localbench.submissions.strict_json import strict_json_loads
 
 CAPACITY_PROBE_FILENAME: Final = "runtime-capacity-probe.json"
@@ -34,24 +40,38 @@ async def verify_llama_cpp_capacity(
     run_dir: Path,
     serve_log_path: Path,
     serve_log_start_byte: int,
-    server_pid: int,
+    server_identity: RecordedProcessIdentity,
     launch_argv: list[str],
     transport: httpx.AsyncBaseTransport | None = None,
+    process_identity_probe: Callable[[int], LiveProcessIdentity | None] | None = None,
 ) -> JsonObject:
     responses: dict[str, httpx.Response] = {}
     startup_log_sha256: str | None = None
     startup_log_source: JsonObject = {
-        "process_pid": server_pid,
+        "process_pid": server_identity.pid,
+        "process_executable_path": server_identity.executable_path,
+        "process_commandline_sha256": server_identity.commandline_sha256,
+        "identity_verified_before_probe": False,
+        "identity_verified_after_probe": False,
         "start_byte": serve_log_start_byte,
         "end_byte": None,
     }
     evidence: JsonObject
     try:
+        if server_identity.pid <= 0:
+            raise ValueError(
+                f"managed server PID must be positive; observed {server_identity.pid!r}",
+            )
+        identity_probe = (
+            process_identity_probe
+            if process_identity_probe is not None
+            else probe_process_identity
+        )
+        _require_live_process_identity(server_identity, identity_probe)
+        startup_log_source["identity_verified_before_probe"] = True
         startup_log_bytes = serve_log_path.read_bytes()
         startup_log_end_byte = len(startup_log_bytes)
         startup_log_source["end_byte"] = startup_log_end_byte
-        if server_pid <= 0:
-            raise ValueError(f"managed server PID must be positive; observed {server_pid!r}")
         if serve_log_start_byte < 0 or serve_log_start_byte > startup_log_end_byte:
             raise ValueError(
                 "managed startup-log byte range is invalid: "
@@ -87,6 +107,8 @@ async def verify_llama_cpp_capacity(
             startup_log_source=startup_log_source,
             launch_argv=launch_argv,
         )
+        _require_live_process_identity(server_identity, identity_probe)
+        startup_log_source["identity_verified_after_probe"] = True
     except (httpx.HTTPError, KeyError, OSError, TypeError, UnicodeError, ValueError) as error:
         failure_reasons: list[JsonValue] = [
             f"capacity endpoint evidence unavailable: {error}",
@@ -105,6 +127,14 @@ async def verify_llama_cpp_capacity(
     if isinstance(failures, list) and failures:
         raise CapacityProbeMismatchError("; ".join(str(reason) for reason in failures))
     return evidence
+
+
+def _require_live_process_identity(
+    recorded: RecordedProcessIdentity,
+    live_probe: Callable[[int], LiveProcessIdentity | None],
+) -> None:
+    if not process_identity_matches(recorded, live_probe(recorded.pid)):
+        raise ValueError("managed server process identity is not live or no longer matches")
 
 
 def _capacity_evidence(

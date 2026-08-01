@@ -235,6 +235,10 @@ def test_launch_llama_cpp_records_append_boundary_before_current_process(
 
     # Then: its evidence boundary starts exactly after the stale bytes and before spawn.
     assert launched.log_start_byte == len(stale_bytes)
+    assert launched.identity == process_mod.failed_launch_identity(
+        ["llama-server.exe"],
+        spawned.pid,
+    )
     assert job.assigned == (111, 222)
     launched.close_log()
 

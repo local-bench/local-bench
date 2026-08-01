@@ -163,6 +163,32 @@ async def test_execution_profile_payload_digest_mismatch_rejects(tmp_path: Path)
 
 
 @pytest.mark.anyio
+async def test_deep_execution_profile_passes_ranked_submission_validation(
+    tmp_path: Path,
+) -> None:
+    # Given: a signed bundle carrying the canonical deep-profile scorecard.
+    fixtures, valid = await _valid_bundle(tmp_path)
+    scorecard = _submission_scorecard("generic_think_tags_32768_v1")
+    deep = mutate_zip_json(
+        valid,
+        tmp_path / "deep-profile.lbsub.zip",
+        "manifest.json",
+        lambda manifest: {
+            **manifest,
+            "payload": {
+                **manifest["payload"],
+                "scorecard": scorecard,
+            },
+        },
+        refresh_payload_sha=True,
+        signing_key_path=fixtures.key_path,
+    )
+
+    # When / Then: offline submission validation accepts the ranked profile.
+    verify_bundle_offline(deep, suite_dir=fixtures.suite_dir)
+
+
+@pytest.mark.anyio
 async def test_wrong_suite_hash_rejects(tmp_path: Path) -> None:
     # Given: a bundle signed under the wrong suite hash.
     fixtures, valid = await _valid_bundle(tmp_path)

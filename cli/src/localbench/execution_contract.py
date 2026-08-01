@@ -24,6 +24,7 @@ from localbench.reasoning_registry import (
     ExecutionProfileBudget,
     GENERIC_THINK_TAGS_32768_PROFILE,
     ReasoningRegistryEntry,
+    execution_profile_for_id,
 )
 
 HF_CANONICAL_TEMPLATE_POLICY: Final = "hf-canonical-template-v1"
@@ -248,10 +249,7 @@ def structured_execution_profile(value: JsonValue) -> JsonObject | None:
         return None
     profile = {field: value[field] for field in _PUBLIC_EXECUTION_PROFILE_FIELDS}
     if profile["id"] != _DEEP_BUDGET_PROFILE_ID:
-        for field in (*EXECUTION_PROFILE_SEMANTIC_FIELDS, "semantic_sha256"):
-            if field in value:
-                profile[field] = value[field]
-        return profile
+        return {**profile, **_trusted_legacy_semantic_record(value)}
     if value.get("schema_version") != PUBLIC_EXECUTION_PROFILE_V2:
         raise InvalidExecutionProfileSemanticRecordError(
             "schema_version",
@@ -276,6 +274,27 @@ def structured_execution_profile(value: JsonValue) -> JsonObject | None:
             for field in (*EXECUTION_PROFILE_SEMANTIC_FIELDS, "semantic_sha256")
         },
     }
+
+
+def _trusted_legacy_semantic_record(value: JsonObject) -> JsonObject:
+    semantic_fields = (*EXECUTION_PROFILE_SEMANTIC_FIELDS, "semantic_sha256")
+    if not all(field in value for field in semantic_fields):
+        return {}
+    profile_id = value.get("id")
+    if not isinstance(profile_id, str):
+        return {}
+    canonical_entry = execution_profile_for_id(profile_id)
+    if canonical_entry is None:
+        return {}
+    canonical_payload = semantic_payload_for_budget(canonical_entry.budget)
+    for field in EXECUTION_PROFILE_SEMANTIC_FIELDS:
+        observed = value[field]
+        expected = canonical_payload[field]
+        if type(observed) is not type(expected) or observed != expected:
+            return {}
+    if value["semantic_sha256"] != semantic_sha256_for_budget(canonical_entry.budget):
+        return {}
+    return {field: value[field] for field in semantic_fields}
 
 
 def execution_contract_notice(contract: ResolvedExecutionContract) -> str:

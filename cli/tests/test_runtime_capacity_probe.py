@@ -47,6 +47,10 @@ async def test_capacity_probe_accepts_stock_b10076_endpoints_and_startup_log(
     assert len(str(evidence["startup_log_sha256"])) == 64
     assert evidence["startup_log_source"] == {
         "process_pid": 4242,
+        "process_executable_path": "C:/tools/llama-server.exe",
+        "process_commandline_sha256": "a" * 64,
+        "identity_verified_before_probe": True,
+        "identity_verified_after_probe": True,
         "start_byte": 0,
         "end_byte": len(_startup_log().encode("utf-8")),
     }

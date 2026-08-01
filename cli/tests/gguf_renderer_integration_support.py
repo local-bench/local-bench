@@ -10,6 +10,7 @@ from types import TracebackType
 from typing import Final
 
 from localbench._types import JsonObject, JsonValue
+from localbench.serving.teardown import RecordedProcessIdentity
 
 IM_END: Final = "<|im_end|>"
 QWOPUS_TEMPLATE_TAIL: Final = """\
@@ -51,7 +52,13 @@ class FakeLaunch:
     job = object()
     job_handle = 1
 
-    def __init__(self, *, log_start_byte: int = 0) -> None:
+    def __init__(
+        self,
+        *,
+        identity: RecordedProcessIdentity,
+        log_start_byte: int = 0,
+    ) -> None:
+        self.identity = identity
         self.log_start_byte = log_start_byte
 
     def close_log(self) -> None:

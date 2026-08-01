@@ -10,7 +10,9 @@ from localbench.reasoning_registry import (
     ANSWER_ONLY_PROFILE,
     GEMMA4_LEAK_REGEXES,
     GEMMA4_REASONING_ENTRY,
+    GENERIC_THINK_TAGS_32768_PROFILE,
     QWEN_REASONING_ENTRY,
+    REASONING_REGISTRY,
     ReasoningRegistryEntry,
     execution_profile_digest,
     execution_profile_payload,
@@ -51,6 +53,17 @@ def test_execution_profile_identity_is_per_entry_and_ranked_allowlisted() -> Non
     assert ranked["qwen_thinking_native_v1"] == digest
     assert ranked["gemma4_thinking_native_v1"] == execution_profile_digest(GEMMA4_REASONING_ENTRY)
     assert ranked["answer_only_v1"] == execution_profile_digest(ANSWER_ONLY_PROFILE)
+
+
+def test_deep_profile_is_owned_by_the_ranked_registry() -> None:
+    # Given / When: ranked consumers enumerate the canonical registry.
+    ranked = ranked_execution_profiles()
+
+    # Then: the deep profile is present under the same owner as every other ranked profile.
+    assert GENERIC_THINK_TAGS_32768_PROFILE in REASONING_REGISTRY
+    assert ranked[GENERIC_THINK_TAGS_32768_PROFILE.id] == execution_profile_digest(
+        GENERIC_THINK_TAGS_32768_PROFILE,
+    )
 
 
 def test_answer_only_profile_records_profile_dispatch_contract() -> None:

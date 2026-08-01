@@ -34,7 +34,7 @@ const LegacySemanticShape = {
   server_context_tokens: z.number().int().positive().optional(),
   static_final_tokens: z.number().int().positive().optional(),
   static_max_generated_tokens: z.number().int().positive().optional(),
-  static_think_tokens: z.number().int().positive().optional(),
+  static_think_tokens: z.number().int().nonnegative().optional(),
 } as const;
 
 const ExecutionProfileV1Schema = z.object({
@@ -63,6 +63,57 @@ const ExecutionProfileV2Schema = z.object({
   static_max_generated_tokens: z.literal(49152),
   static_think_tokens: z.literal(32768),
 }).strict().readonly();
+
+const Legacy8192SemanticProfileSchema = z.object({
+  ...ExecutionProfileBaseShape,
+  agentic_context_tokens: z.literal(32768),
+  agentic_max_generated_tokens_per_task: z.literal(32768),
+  agentic_max_output_tokens_per_turn: z.literal(1024),
+  agentic_max_turns: z.literal(24),
+  context_extension_policy: z.literal("none"),
+  context_fit_policy: z.literal("exact-or-fail"),
+  id: z.union([
+    z.literal("generic_think_tags_8192_v1"),
+    z.literal("gemma4_channel_8192_v1"),
+    z.literal("qwen_thinking_native_v1"),
+    z.literal("gemma4_thinking_native_v1"),
+  ]),
+  kv_cache_k_dtype: z.literal("f16"),
+  kv_cache_v_dtype: z.literal("f16"),
+  per_task_timeout_s: z.literal(1800),
+  schema_version: z.undefined().optional(),
+  semantic_sha256: z.literal("a6bf105b73ad3f8120751151707ce2d15f4b20617a64250679a0dce8977d9bb3"),
+  server_context_tokens: z.literal(32768),
+  static_final_tokens: z.literal(8192),
+  static_max_generated_tokens: z.literal(16384),
+  static_think_tokens: z.literal(8192),
+}).strict().readonly();
+
+const LegacyAnswerOnlySemanticProfileSchema = z.object({
+  ...ExecutionProfileBaseShape,
+  agentic_context_tokens: z.literal(32768),
+  agentic_max_generated_tokens_per_task: z.literal(32768),
+  agentic_max_output_tokens_per_turn: z.literal(1024),
+  agentic_max_turns: z.literal(24),
+  context_extension_policy: z.literal("none"),
+  context_fit_policy: z.literal("exact-or-fail"),
+  id: z.literal("answer_only_v1"),
+  kv_cache_k_dtype: z.literal("f16"),
+  kv_cache_v_dtype: z.literal("f16"),
+  per_task_timeout_s: z.literal(1800),
+  schema_version: z.undefined().optional(),
+  semantic_sha256: z.literal("f56b6cc02514ca40b18b2c888cba14a8545b16a827310332a70c561c1d77b4ae"),
+  server_context_tokens: z.literal(32768),
+  static_final_tokens: z.literal(16384),
+  static_max_generated_tokens: z.literal(16384),
+  static_think_tokens: z.literal(0),
+}).strict().readonly();
+
+const TrustedSemanticExecutionProfileSchema = z.union([
+  Legacy8192SemanticProfileSchema,
+  LegacyAnswerOnlySemanticProfileSchema,
+  ExecutionProfileV2Schema,
+]);
 
 export const PublicExecutionProfileSchema = z.discriminatedUnion("schema_version", [
   ExecutionProfileV1Schema,
@@ -98,9 +149,8 @@ export function isCurrentExecutionProfile(
 export function executionProfileSemanticSha256(
   profile: BoardExecutionProfile | undefined,
 ): string | undefined {
-  return profile !== undefined && "semantic_sha256" in profile
-    ? profile.semantic_sha256
-    : undefined;
+  const trusted = TrustedSemanticExecutionProfileSchema.safeParse(profile);
+  return trusted.success ? trusted.data.semantic_sha256 : undefined;
 }
 
 export function matchingCompleteSemanticDigests(
