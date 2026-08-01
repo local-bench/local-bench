@@ -59,6 +59,8 @@ from build_data_support import (
 
 ensure_cli_src_path()
 
+from localbench.execution_contract import structured_execution_profile  # noqa: E402
+from localbench.execution_profile_semantics import InvalidExecutionProfileSemanticRecordError  # noqa: E402
 from localbench.scoring import (  # noqa: E402
     metadata,
     worst_axis,
@@ -966,6 +968,11 @@ def _public_execution_profile(value: JsonValue | None) -> JsonObject | None:
         "template_sha256",
         "template_source",
     )
+    if profile_id == CURRENT_EXECUTION_PROFILE_ID:
+        try:
+            return structured_execution_profile(value)
+        except InvalidExecutionProfileSemanticRecordError:
+            return None
     if all(field in value for field in required):
         return dict(value)
     return {"id": profile_id}
@@ -990,7 +997,8 @@ def _representative_run(group: list[JsonObject]) -> JsonObject:
 def _current_execution_profile_run(run: JsonObject) -> bool:
     row = _object(run["index_row"], "index_row")
     profile = row.get("execution_profile")
-    return isinstance(profile, dict) and profile.get("id") == CURRENT_EXECUTION_PROFILE_ID
+    public_profile = _public_execution_profile(profile)
+    return public_profile is not None and public_profile.get("id") == CURRENT_EXECUTION_PROFILE_ID
 
 
 def _trusted_run(run: JsonObject) -> bool:

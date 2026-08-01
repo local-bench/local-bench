@@ -79,6 +79,7 @@ export function ModelVariantBoard({
       ...model,
       runs: model.runs.map((run) => ({
         ...run,
+        executionProfileIsCurrent: isCurrentExecutionProfile(run.execution_profile),
         executionProfileSemanticSha256: executionProfileSemanticSha256(run.execution_profile),
       })),
     }, DEFAULT_CONTEXT_TOKENS).rows.map((row) => [
@@ -281,7 +282,7 @@ export function ModelVariantBoard({
                         <ExecutionProfileBadge profile={run.execution_profile} />
                       )}
                       {/* A live winner supersedes the baked baseline used by quant-decision. */}
-                      {!effectiveBestIsLive && row.kind === "this-model" && decision?.isSweetSpot ? (
+                      {!effectiveBestIsLive && row.kind === "this-model" && decision?.isSweetSpot && decision.run?.run_id === run.run_id ? (
                         <VariantBadge tone="better" title="Smallest variant that still holds the best variant's quality">sweet spot</VariantBadge>
                       ) : null}
                     </VariantCell>

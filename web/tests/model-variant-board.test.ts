@@ -6,6 +6,7 @@ import { getCompareConfigs } from "../lib/compare";
 import { parseCommunityLiveBoard, reconcileCommunityRows } from "../lib/community-live";
 import type { CommunityBoardRow } from "../lib/community-data";
 import type { ModelData, ModelDataWithConfiguredAxes, ModelFamilyScatterModel } from "../lib/data";
+import type { BoardExecutionProfile } from "../lib/execution-profile";
 import { resolveRunArtifactMetrics } from "../lib/model-run-metrics";
 import { ModelSlugSchema, RunIdSchema, type AxisScore } from "../lib/schemas";
 import { bonsaiLiveEnvelope } from "./fixtures/bonsai-live-community";
@@ -19,6 +20,45 @@ describe("model variant board runtime display", () => {
     expect(html).toContain("b1234");
     expect(html).toContain("Swipe horizontally for all variant metrics");
     expect(html).not.toContain("decode tok/s");
+  });
+
+  it("renders the sweet-spot badge only on the selected current run when a legacy run shares its quant", () => {
+    // Given a current FP16 baseline plus current and legacy Q4 rows.
+    const base = fixtureModel();
+    const template = base.runs[0];
+    if (template === undefined) throw new Error("fixture missing run");
+    const currentProfile = currentExecutionProfile();
+    const fp16 = {
+      ...template,
+      composite: { hi: 102, lo: 98, point: 100 },
+      execution_profile: currentProfile,
+      quant_label: "FP16",
+      run_id: RunIdSchema.parse("current-fp16"),
+      vram_footprint_gb: 60,
+    };
+    const legacyQ4 = {
+      ...template,
+      composite: { hi: 101, lo: 97, point: 99 },
+      execution_profile: { id: "generic_think_tags_8192_v1" },
+      run_id: RunIdSchema.parse("legacy-q4"),
+      vram_footprint_gb: 18,
+    };
+    const currentQ4 = {
+      ...template,
+      composite: { hi: 98, lo: 94, point: 96 },
+      execution_profile: currentProfile,
+      run_id: RunIdSchema.parse("current-q4"),
+      vram_footprint_gb: 24,
+    };
+
+    // When the board renders the duplicate quant rows.
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, {
+      model: { ...base, runs: [fp16, legacyQ4, currentQ4] },
+    }));
+
+    // Then only the decision-selected current row receives the comparative badge.
+    expect(rowCellsContaining(html, "current-q4").join("")).toContain("sweet spot");
+    expect(rowCellsContaining(html, "legacy-q4").join("")).not.toContain("sweet spot");
   });
 
   it("omits legacy-lane runs from the model page entirely", () => {
@@ -676,6 +716,35 @@ function fixtureModel(): ModelData {
       },
     ],
     slug: ModelSlugSchema.parse("fixture-model"),
+  };
+}
+
+function currentExecutionProfile(): BoardExecutionProfile {
+  return {
+    agentic_context_tokens: 32768,
+    agentic_max_generated_tokens_per_task: 65536,
+    agentic_max_output_tokens_per_turn: 1024,
+    agentic_max_turns: 40,
+    answer_stops: ["</think>"],
+    chat_template_kwargs: { enable_thinking: true },
+    context_extension_policy: "none",
+    context_fit_policy: "exact-or-fail",
+    id: "generic_think_tags_32768_v1",
+    kv_cache_k_dtype: "f16",
+    kv_cache_v_dtype: "f16",
+    per_task_timeout_s: 3000,
+    prompt_renderer_engine: "llama.cpp.apply-template",
+    runtime_probe_passed: true,
+    schema_version: "localbench.execution_profile.v2",
+    selection_policy_id: "gguf-effective-template-v1",
+    selection_reason: "gguf_generic_think_confirmed",
+    semantic_sha256: "e02ef5b5e75f19ca39d8949711bdd2d6517d1ce9267012ac923abffb94fbf058",
+    server_context_tokens: 65536,
+    static_final_tokens: 16384,
+    static_max_generated_tokens: 49152,
+    static_think_tokens: 32768,
+    template_sha256: null,
+    template_source: "gguf-metadata",
   };
 }
 

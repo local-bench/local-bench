@@ -80,6 +80,41 @@ describe("quant decision matrix logic", () => {
     expect(rows.rows.find((row) => row.quantLabel === "Q5_K_M")?.deltaVsBaseline).toBeNull();
   });
 
+  it("prefers the current operating point within one quant before score or VRAM", () => {
+    // Given one quant measured under legacy and current operating points.
+    const rows = getQuantDecisionRows(modelWithRuns([
+      run("Q4_K_M", 18, 93, 120, "a".repeat(64)),
+      run("Q4_K_M", 24, 71, 90, "a".repeat(64), true),
+    ]), 8192);
+
+    // When the decision matrix chooses a representative for that quant.
+    const q4 = rows.rows.find((row) => row.quantLabel === "Q4_K_M");
+
+    // Then the current 32k operating-point run wins despite lower score and higher VRAM.
+    expect(q4?.run?.composite?.point).toBe(71);
+    expect(q4?.run?.vram_footprint_gb).toBe(24);
+  });
+
+  it("suppresses sweet spots unless candidate and baseline share a complete semantic digest", () => {
+    // Given candidate quants from unequal and incomplete execution-profile cohorts.
+    const unequal = getQuantDecisionRows(modelWithRuns([
+      run("FP16", 64, 75, 12, "a".repeat(64)),
+      run("Q5_K_M", 21.4, 72.6, 31, "b".repeat(64)),
+    ]), 8192);
+    const incomplete = getQuantDecisionRows(modelWithRuns([
+      run("FP16", 64, 75, 12, "a".repeat(64)),
+      { ...run("Q5_K_M", 21.4, 72.6, 31), executionProfileSemanticSha256: undefined },
+    ]), 8192);
+
+    // When sweet-spot labels are calculated.
+    const unequalQ5 = unequal.rows.find((row) => row.quantLabel === "Q5_K_M");
+    const incompleteQ5 = incomplete.rows.find((row) => row.quantLabel === "Q5_K_M");
+
+    // Then neither cross-profile comparison receives the comparative label.
+    expect(unequalQ5?.isSweetSpot).toBe(false);
+    expect(incompleteQ5?.isSweetSpot).toBe(false);
+  });
+
 });
 
 function modelWithRuns(runs: readonly QuantDecisionInputRun[]): QuantDecisionInputModel {
@@ -96,6 +131,7 @@ function run(
   point: number,
   tokS: number,
   executionProfileSemanticSha256: string | undefined = "a".repeat(64),
+  executionProfileIsCurrent = false,
 ): QuantDecisionInputRun {
   return {
     axes: {
@@ -104,6 +140,7 @@ function run(
     },
     composite: { hi: point + 2, lo: point - 2, point },
     demo: true,
+    executionProfileIsCurrent,
     executionProfileSemanticSha256,
     quant_label: quantLabel,
     run_id: `run-${quantLabel.toLowerCase()}`,

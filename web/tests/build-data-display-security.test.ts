@@ -89,7 +89,31 @@ current_head = fixture(
     "profile-head", origin="project_anchor", trust_label="project_anchor",
     ranked=True, score=50, suffix="current", order=1,
 )
-current_head["index_row"]["execution_profile"] = {"id": "generic_think_tags_32768_v1"}
+current_head["index_row"]["execution_profile"] = builder._public_execution_profile({"id": "generic_think_tags_32768_v1"})
+complete_current_profile = {
+    "answer_stops": ["<|im_end|>"], "agentic_context_tokens": 32768,
+    "agentic_max_generated_tokens_per_task": 65536, "agentic_max_output_tokens_per_turn": 1024,
+    "agentic_max_turns": 40, "chat_template_kwargs": {"enable_thinking": True},
+    "context_extension_policy": "none", "context_fit_policy": "exact-or-fail",
+    "id": "generic_think_tags_32768_v1", "kv_cache_k_dtype": "f16", "kv_cache_v_dtype": "f16",
+    "per_task_timeout_s": 3000, "prompt_renderer_engine": "jinja", "runtime_probe_passed": True,
+    "schema_version": "localbench.execution_profile.v2", "selection_policy_id": "fixture",
+    "selection_reason": "fixture", "semantic_sha256": "e02ef5b5e75f19ca39d8949711bdd2d6517d1ce9267012ac923abffb94fbf058", "server_context_tokens": 65536,
+    "static_final_tokens": 16384, "static_max_generated_tokens": 49152,
+    "static_think_tokens": 32768, "template_sha256": None, "template_source": "fixture",
+}
+complete_current_head = fixture(
+    "profile-head", origin="project_anchor", trust_label="project_anchor",
+    ranked=True, score=50, suffix="complete-current", order=2,
+)
+complete_current_head["index_row"]["execution_profile"] = builder._public_execution_profile(complete_current_profile)
+wrong_digest_current_head = fixture(
+    "profile-head", origin="project_anchor", trust_label="project_anchor",
+    ranked=True, score=50, suffix="wrong-digest-current", order=3,
+)
+wrong_digest_current_head["index_row"]["execution_profile"] = builder._public_execution_profile({
+    **complete_current_profile, "semantic_sha256": "f" * 64,
+})
 
 demo_source = {
     "agentic_provenance": "self_reported", "demo": True,
@@ -140,7 +164,9 @@ with tempfile.TemporaryDirectory() as raw:
         "forged_catalog_groups": builder._catalog_run_groups([forged]),
         "forged_ranks": builder._trusted_ranked_run(forged),
         "representative": builder._representative_run([forged, trusted])["slug"],
-        "current_profile_representative": builder._representative_run([legacy_head, current_head])["run_id"],
+        "incomplete_current_profile_representative": builder._representative_run([legacy_head, current_head])["run_id"],
+        "complete_current_profile_representative": builder._representative_run([legacy_head, complete_current_head])["run_id"],
+        "wrong_digest_current_profile_representative": builder._representative_run([legacy_head, wrong_digest_current_head])["run_id"],
         "dynamic_displays": builder._display_eligible(dynamic),
         "dynamic_models": json.loads((dynamic_out / "index.json").read_text())["models"],
         "dynamic_details": len(list((dynamic_out / "runs").glob("*.json"))),
@@ -194,8 +220,10 @@ describe("static display eligibility security boundary", () => {
     expect(result["representative"]).toBe("trusted");
   });
 
-  it("prefers the current execution profile for the static model representative", () => {
-    expect(probe["current_profile_representative"]).toBe("profile-head__current");
+  it("demotes an incomplete current claim but prefers a complete current v2 profile for the static representative", () => {
+    expect(probe["incomplete_current_profile_representative"]).toBe("profile-head__legacy");
+    expect(probe["complete_current_profile_representative"]).toBe("profile-head__complete-current");
+    expect(probe["wrong_digest_current_profile_representative"]).toBe("profile-head__legacy");
   });
 
   it("displays canonical curated-static rows but excludes dynamic public rows", () => {

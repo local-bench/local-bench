@@ -18,6 +18,7 @@ export type QuantDecisionInputRun = {
   readonly bpw?: number | null | undefined;
   readonly composite: Score | null;
   readonly demo: boolean;
+  readonly executionProfileIsCurrent: boolean;
   readonly executionProfileSemanticSha256?: string | undefined;
   readonly file_gb?: number | null | undefined;
   readonly quant_label: string | null;
@@ -131,7 +132,13 @@ function chooseSweetSpot(rows: readonly QuantDecisionRow[], baseline: QuantDecis
   }
 
   const candidates = rows
-    .filter((row) => hasComposite(row.run) && !row.isBaseline && row.vramEstimate !== null)
+    .filter((row) => hasComposite(row.run)
+      && !row.isBaseline
+      && row.vramEstimate !== null
+      && matchingCompleteSemanticDigests(
+      row.run.executionProfileSemanticSha256,
+      baseline.executionProfileSemanticSha256,
+      ))
     .filter((row) => qualityRetention(row, baseline) >= SWEET_SPOT_MIN_BASELINE_RETENTION);
   const best = [...candidates].sort(compareSweetSpotRows)[0];
   return best?.quantLabel ?? null;
@@ -156,6 +163,9 @@ function hasComposite(run: QuantDecisionInputRun | null): run is QuantDecisionIn
 }
 
 function isBetterRun(candidate: QuantDecisionInputRun, current: QuantDecisionInputRun): boolean {
+  if (candidate.executionProfileIsCurrent !== current.executionProfileIsCurrent) {
+    return candidate.executionProfileIsCurrent;
+  }
   if (candidate.composite === null && current.composite !== null) {
     return false;
   }
