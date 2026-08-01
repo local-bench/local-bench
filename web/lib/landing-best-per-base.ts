@@ -6,11 +6,13 @@ import {
 } from "./family-resolution";
 import { isFullIndexRow, scoreForMode } from "./leaderboard-score";
 import type { IndexModel } from "./schemas";
+import { isCurrentExecutionProfile, type BoardExecutionProfile } from "./execution-profile";
 
 export type FamilyRankedSource = "community" | "maintainer";
 
 export type BestPerFamilyCandidate<T> = {
   readonly displayedComposite: number;
+  readonly executionProfile?: BoardExecutionProfile | undefined;
   readonly familyKey?: string;
   readonly resolution: FamilyResolution;
   readonly source: FamilyRankedSource;
@@ -54,6 +56,7 @@ export function selectLandingBestPerBase(
     if (score === null) return [];
     return [{
       displayedComposite: score.point,
+      executionProfile: model.execution_profile,
       resolution: resolveFamily(model, context),
       source: "maintainer" as const,
       value: model,
@@ -66,6 +69,11 @@ function isBetterCandidate<T>(
   candidate: BestPerFamilyCandidate<T>,
   incumbent: BestPerFamilyCandidate<T>,
 ): boolean {
+  const candidateCurrent = isCurrentExecutionProfile(candidate.executionProfile);
+  const incumbentCurrent = isCurrentExecutionProfile(incumbent.executionProfile);
+  if (candidateCurrent !== incumbentCurrent) {
+    return candidateCurrent;
+  }
   if (candidate.displayedComposite !== incumbent.displayedComposite) {
     return candidate.displayedComposite > incumbent.displayedComposite;
   }

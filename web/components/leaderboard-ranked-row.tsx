@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AgenticCell } from "@/components/agentic-column";
 import { DemoBadge } from "@/components/badges";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
+import { ExecutionProfileBadge } from "@/components/execution-profile-badge";
 import { RunByCell } from "@/components/leaderboard-provenance";
 import { AxisMiniBar } from "@/components/score-bar";
 import {
@@ -54,13 +55,16 @@ export function LeaderboardRankedRow({
         <RankMarker rank={laneRank} provisional={scoreMode === "static"} />
       </td>
       <td className="px-3 py-3">
-        <span className="flex items-center gap-2">
+        <span className="flex flex-wrap items-center gap-2">
           <FamilyLogoMark modelLabel={model.model_label} size={16} />
           <Link href={modelHref(model.slug)} className="font-semibold text-bench-text hover:text-bench-accent">
             {model.model_label}
           </Link>
           {model.demo ? <DemoBadge /> : null}
           {season2 ? <SeasonBadge indexVersion={displayIndexVersion(model)} /> : null}
+          {model.execution_profile === undefined ? null : (
+            <ExecutionProfileBadge profile={model.execution_profile} />
+          )}
         </span>
         {quantLabel === null ? null : (
           <div className="mt-0.5 font-mono text-xs text-bench-muted">{quantLabel}</div>

@@ -11,7 +11,12 @@ import {
   indexQualifierForAxes,
 } from "@/components/local-intelligence-index";
 import { axisLabel, displayDelta, formatCompactNumber, formatGb, formatScore, formatSignedScore } from "@/lib/format";
-import { getAxisDeltas, type AxisDelta, type CompareConfig } from "@/lib/compare";
+import {
+  compareSemanticDigestsMatch,
+  getAxisDeltas,
+  type AxisDelta,
+  type CompareConfig,
+} from "@/lib/compare";
 import type { FineTuneComparePreset } from "@/lib/vs-base";
 
 export function ComparePicker({
@@ -36,7 +41,12 @@ export function ComparePicker({
   const left = findConfig(configs, leftId) ?? defaultLeft;
   const right = findConfig(configs, rightId) ?? defaultRight;
   const axisDeltas = useMemo(() => (left && right ? getAxisDeltas(left, right) : []), [left, right]);
-  const canCompareIndex = left !== null && right !== null && isCurrentIndexConfig(left) && isCurrentIndexConfig(right);
+  const sameSemanticProfile = left !== null && right !== null && compareSemanticDigestsMatch(left, right);
+  const canCompareIndex = left !== null
+    && right !== null
+    && isCurrentIndexConfig(left)
+    && isCurrentIndexConfig(right)
+    && sameSemanticProfile;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -84,8 +94,9 @@ export function ComparePicker({
 
       {canCompareIndex ? null : (
         <div className="rounded border border-bench-warn/35 bg-bench-warn/[0.08] p-3 text-sm leading-6 text-bench-warn-soft">
-          Index delta withheld: previous-index diagnostics were measured under a retired lane and are not comparable to
-          the current {LOCAL_INTELLIGENCE_INDEX_NAME}.
+          {sameSemanticProfile
+            ? <>Index delta withheld: previous-index diagnostics were measured under a retired lane and are not comparable to the current {LOCAL_INTELLIGENCE_INDEX_NAME}.</>
+            : <>Index and axis deltas withheld: execution-profile semantic identities differ or are incomplete.</>}
         </div>
       )}
 

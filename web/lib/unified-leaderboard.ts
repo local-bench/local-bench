@@ -50,6 +50,9 @@ export function filterUnifiedLeaderboardRows(
         // Owner call (2026-07-22): every candidate — including overlay-resolved fine-tunes —
         // collapses under its base/root family key on the landing best-per-base board.
         displayedComposite: scoreValue(candidate),
+        executionProfile: candidate.source === "local-bench"
+          ? candidate.model.execution_profile
+          : candidate.row.executionProfile,
         resolution: candidate.source === "local-bench"
           ? resolveFamily(candidate.model, context)
           : resolveFamily(candidate.row, context),

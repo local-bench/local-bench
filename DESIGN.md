@@ -101,9 +101,18 @@ All spacing derives from 4px.
 
 ### Execution Profile Badge
 
-- Structure: one compact mono label beside the row identity, with the exact profile ID in its title.
-- Tone: low-emphasis cyan using the existing accent border and surface tokens.
-- Content: show a short reasoning-mode label; keep template hashes and renderer internals in the structured row data.
+- Structure: a prominent text-bearing `Current` or `Legacy` state badge followed by a naturally wrapping human-readable budget summary; expose the exact profile ID in both title and accessible text.
+- Current state: cyan accent border/surface tokens; reserved for `generic_think_tags_32768_v1` with its complete v2 identity.
+- Legacy state: mixed-status border/surface tokens; applies to all earlier valid profiles, including rich v1 and id-only historical rows. Legacy means a valid historical operating point, never invalid or superseded.
+- Content: summarize static reasoning, final-answer, and server-context budgets when present; id-only profiles use their known reasoning mode. Keep template hashes and renderer internals in structured row data.
+- Accessibility: state and summary remain explicit text at 200% zoom and never depend on color or hover.
+
+### Operating Point Notice
+
+- Structure: a semantic `role="status"` notice inside the board container, before filters and table content.
+- Gate: render only when at least one board row carries the complete current 32k profile; 8k-only boards render no empty placeholder.
+- Tone: warning border/surface tokens with primary text for the owner-pinned compute-mismatch copy.
+- Responsive behavior: wrap naturally at 375, 768, and 1280px without fixed dimensions or horizontal page overflow.
 
 ## 6. Motion & Interaction
 

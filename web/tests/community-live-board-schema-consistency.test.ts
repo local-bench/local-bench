@@ -131,6 +131,21 @@ describe("live-board-function <-> board-adapter schema consistency", () => {
     expect(row.execution_profile).toMatchObject({ id: "generic_think_tags_8192_v1" });
   });
 
+  it("does not supersede a valid 8k row when a future 32k rerun publishes", async () => {
+    const env = await schemaEnv();
+    await insertStoredProjection(env, "octocat", {
+      complete: true,
+      executionProfile: "deep",
+      submissionId: "ticket_32768000000000000000000000000000",
+    });
+
+    const payload = await rebuildCommunityLiveBoard(env);
+    const row = LiveBoardRowSchema.parse(payload.rows[0]);
+
+    expect(row.execution_profile).toMatchObject({ id: "generic_think_tags_32768_v1" });
+    expect(row.supersedes_submission_id).toBeUndefined();
+  });
+
   it("counts a row rejected by the client schema as omitted", async () => {
     const env = await schemaEnv();
     await insertStoredProjection(env, "invalid_login");
@@ -176,7 +191,7 @@ async function insertStoredProjection(
   githubLogin: string,
   fixture: {
     readonly complete?: boolean;
-    readonly executionProfile?: "absent" | "present";
+    readonly executionProfile?: "absent" | "deep" | "present";
     readonly hfIdentity?: "absent" | "present";
     readonly submissionId?: string;
   } = {},
@@ -192,13 +207,30 @@ async function insertStoredProjection(
       execution_profile: {
         answer_stops: ["</think>"],
         chat_template_kwargs: { enable_thinking: true },
-        id: "generic_think_tags_8192_v1",
+        id: fixture.executionProfile === "deep" ? "generic_think_tags_32768_v1" : "generic_think_tags_8192_v1",
         prompt_renderer_engine: "llama.cpp.apply-template",
         runtime_probe_passed: true,
         selection_policy_id: "gguf-effective-template-v1",
         selection_reason: "gguf_template_thinking_markers",
         template_sha256: "f".repeat(64),
         template_source: "gguf-default",
+        ...(fixture.executionProfile === "deep" ? {
+          agentic_context_tokens: 32768,
+          agentic_max_generated_tokens_per_task: 65536,
+          agentic_max_output_tokens_per_turn: 1024,
+          agentic_max_turns: 40,
+          context_extension_policy: "none",
+          context_fit_policy: "exact-or-fail",
+          kv_cache_k_dtype: "f16",
+          kv_cache_v_dtype: "f16",
+          per_task_timeout_s: 3000,
+          schema_version: "localbench.execution_profile.v2",
+          semantic_sha256: "e02ef5b5e75f19ca39d8949711bdd2d6517d1ce9267012ac923abffb94fbf058",
+          server_context_tokens: 65536,
+          static_final_tokens: 16384,
+          static_max_generated_tokens: 49152,
+          static_think_tokens: 32768,
+        } : {}),
       },
     }),
     model: {

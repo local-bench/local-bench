@@ -69,6 +69,17 @@ describe("quant decision matrix logic", () => {
     expect(rows.rows.find((row) => row.quantLabel === "Q6_K")?.deltaVsBaseline?.point).toBe(4);
   });
 
+  it("suppresses quant score deltas unless semantic digests are equal and complete", () => {
+    const rows = getQuantDecisionRows(modelWithRuns([
+      run("Q8_0", 30, 83.44, 89, "a".repeat(64)),
+      run("Q6_K", 25, 87.36, 104, "b".repeat(64)),
+      { ...run("Q5_K_M", 23, 86, 100), executionProfileSemanticSha256: undefined },
+    ]), 8192);
+
+    expect(rows.rows.find((row) => row.quantLabel === "Q6_K")?.deltaVsBaseline).toBeNull();
+    expect(rows.rows.find((row) => row.quantLabel === "Q5_K_M")?.deltaVsBaseline).toBeNull();
+  });
+
 });
 
 function modelWithRuns(runs: readonly QuantDecisionInputRun[]): QuantDecisionInputModel {
@@ -79,7 +90,13 @@ function modelWithRuns(runs: readonly QuantDecisionInputRun[]): QuantDecisionInp
   };
 }
 
-function run(quantLabel: string, vramFootprintGb: number, point: number, tokS: number): QuantDecisionInputRun {
+function run(
+  quantLabel: string,
+  vramFootprintGb: number,
+  point: number,
+  tokS: number,
+  executionProfileSemanticSha256: string | undefined = "a".repeat(64),
+): QuantDecisionInputRun {
   return {
     axes: {
       instruction: { point: point + 1, lo: point - 1, hi: point + 3, raw_accuracy: 0.8, n: 126, n_errors: 0, n_no_answer: 0 },
@@ -87,6 +104,7 @@ function run(quantLabel: string, vramFootprintGb: number, point: number, tokS: n
     },
     composite: { hi: point + 2, lo: point - 2, point },
     demo: true,
+    executionProfileSemanticSha256,
     quant_label: quantLabel,
     run_id: `run-${quantLabel.toLowerCase()}`,
     score_status: "measured",

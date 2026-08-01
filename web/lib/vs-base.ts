@@ -4,6 +4,7 @@ import { displayDelta } from "./format";
 import type { AxisScore, Score, ScoreStatus } from "./schemas";
 import { INDEX_VERSION_V3 } from "./scoring-seasons";
 import { modelHref } from "./routes";
+import { matchingCompleteSemanticDigests } from "./execution-profile";
 
 export type VsBaseBoardRow = {
   readonly axes: Record<string, AxisScore>;
@@ -11,6 +12,7 @@ export type VsBaseBoardRow = {
   readonly composite: Score | null;
   readonly diagnosticComposite: Score | null;
   readonly executionProfileId?: string | undefined;
+  readonly executionProfileSemanticSha256?: string | undefined;
   readonly indexVersion?: string | undefined;
   readonly lane: string | null;
   readonly origin?: string | undefined;
@@ -64,10 +66,9 @@ export function buildVsBaseComparison({
   const differentExecutionProfiles =
     measuredBase !== null &&
     measuredDerivative !== null &&
-    (
-      measuredBase.executionProfileId === undefined
-      || measuredDerivative.executionProfileId === undefined
-      || measuredBase.executionProfileId !== measuredDerivative.executionProfileId
+    !matchingCompleteSemanticDigests(
+      measuredBase.executionProfileSemanticSha256,
+      measuredDerivative.executionProfileSemanticSha256,
     );
   const axes =
     measuredBase === null || measuredDerivative === null || differentScoringSeasons || differentExecutionProfiles

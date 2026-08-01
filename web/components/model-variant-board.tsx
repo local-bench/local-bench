@@ -26,8 +26,14 @@ import { DEFAULT_CONTEXT_TOKENS, formatContextLength } from "@/lib/rig-match";
 import { modelHref, runHref } from "@/lib/routes";
 import { runtimeDisplay } from "@/lib/runtime-display";
 import { RuntimeBadge } from "@/components/runtime-badge";
+import { ExecutionProfileBadge } from "@/components/execution-profile-badge";
 import type { ModelData, ModelFamilyScatterModel, ModelFamilyScatterRelation } from "@/lib/data";
 import { displayIndexVersion, hasCompleteSeason2Coverage, headlineScoreForDisplay, INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
+import {
+  executionProfileSemanticSha256,
+  isCurrentExecutionProfile,
+  type BoardExecutionProfile,
+} from "@/lib/execution-profile";
 
 type VariantRun = ModelData["runs"][number];
 type OwnVariantRow = {
@@ -69,7 +75,13 @@ export function ModelVariantBoard({
     (run) => isCurrentIndexRun(run),
   );
   const decisionByQuant = new Map<string, QuantDecisionRow>(
-    getQuantDecisionRows(model, DEFAULT_CONTEXT_TOKENS).rows.map((row) => [
+    getQuantDecisionRows({
+      ...model,
+      runs: model.runs.map((run) => ({
+        ...run,
+        executionProfileSemanticSha256: executionProfileSemanticSha256(run.execution_profile),
+      })),
+    }, DEFAULT_CONTEXT_TOKENS).rows.map((row) => [
       row.quantLabel,
       row,
     ]),
@@ -108,8 +120,11 @@ export function ModelVariantBoard({
   const rows: readonly VariantRow[] = [...ownRows, ...familyRows, ...communityVariantRows];
   const axisKeys = variantAxisColumns(rows);
   const ranked = sortVariantRowsBySeason(rows.filter(isRankedVariantRow));
+  const currentProfileBestIndex = ranked.findIndex((row) => isCurrentExecutionProfile(variantExecutionProfile(row)));
   const currentSeasonBestIndex = ranked.findIndex((row) => variantRowSeason(row) === INDEX_VERSION_V4);
-  const bestRankedIndex = currentSeasonBestIndex === -1 && ranked.length > 0 ? 0 : currentSeasonBestIndex;
+  const bestRankedIndex = currentProfileBestIndex !== -1
+    ? currentProfileBestIndex
+    : currentSeasonBestIndex === -1 && ranked.length > 0 ? 0 : currentSeasonBestIndex;
   const effectiveBestIsLive = ranked[bestRankedIndex]?.kind === "community";
   const partial = rows.filter(isPartialVariantRow);
   const liveArtifactShas = new Set(communityRows.map((row) => row.artifactSha256));
@@ -147,7 +162,7 @@ export function ModelVariantBoard({
           <p className="mt-1 max-w-3xl text-sm leading-6 text-bench-muted">
             Complete rows are ordered by {LOCAL_INTELLIGENCE_INDEX_NAME}; partial rows show their measured axes but
             are not ranked. The VRAM/Fits columns ({formatContextLength(DEFAULT_CONTEXT_TOKENS)} context) tell you
-            what your card needs. Ranks are within this family&apos;s variants.
+            what your card needs. Ranks are within this family&apos;s variants and operating point.
           </p>
       </div>
       <details className="border-b border-bench-line bg-bench-panel-2/45 px-4 py-3 text-sm text-bench-muted">
@@ -241,7 +256,7 @@ export function ModelVariantBoard({
                     hasPerf={hasPerf}
                     isBest={index === bestRankedIndex}
                     provenance={provenanceForSha(row.row.artifactSha256)}
-                    rank={rankWithinRowSeason(ranked, index)}
+                    rank={rankWithinRowCohort(ranked, index)}
                     relation={relationForCommunityRow(row.row.artifactSha256)}
                     row={row.row}
                   />
@@ -256,12 +271,15 @@ export function ModelVariantBoard({
               );
               return (
                 <tr key={variantRowKey(row, index)} className={variantRowClass(row)}>
-                  <td className="px-3 py-3 font-mono text-bench-muted">{rankWithinRowSeason(ranked, index)}</td>
+                  <td className="px-3 py-3 font-mono text-bench-muted">{rankWithinRowCohort(ranked, index)}</td>
                   <td className="px-3 py-3">
                     <VariantCell provenance={provenance} row={row}>
                       {index === bestRankedIndex ? (
                         <VariantBadge tone="accent" title="Best measured variant — the row shown on the full leaderboard">best</VariantBadge>
                       ) : null}
+                      {run.execution_profile === undefined ? null : (
+                        <ExecutionProfileBadge profile={run.execution_profile} />
+                      )}
                       {/* A live winner supersedes the baked baseline used by quant-decision. */}
                       {!effectiveBestIsLive && row.kind === "this-model" && decision?.isSweetSpot ? (
                         <VariantBadge tone="better" title="Smallest variant that still holds the best variant's quality">sweet spot</VariantBadge>
@@ -601,10 +619,14 @@ function variantAxisColumns(rows: readonly VariantRow[]): readonly string[] {
 function sortVariantRowsBySeason(rows: readonly VariantRow[]): readonly VariantRow[] {
   const groups = new Map<string, VariantRow[]>();
   for (const row of rows) {
-    const season = variantRowSeason(row);
-    groups.set(season, [...(groups.get(season) ?? []), row]);
+    const cohort = variantRowCohort(row);
+    groups.set(cohort, [...(groups.get(cohort) ?? []), row]);
   }
-  return [...groups.values()].flatMap((group) => group.sort(
+  const orderedGroups = [...groups.values()].sort((left, right) =>
+    Number(isCurrentExecutionProfile(variantExecutionProfile(right[0])))
+      - Number(isCurrentExecutionProfile(variantExecutionProfile(left[0]))),
+  );
+  return orderedGroups.flatMap((group) => group.sort(
     (left, right) => variantCompositePoint(right) - variantCompositePoint(left),
   ));
 }
@@ -645,10 +667,19 @@ function variantRowSeason(row: VariantRow): string {
   return row.row.indexVersion ?? INDEX_VERSION_V4;
 }
 
-function rankWithinRowSeason(rows: readonly VariantRow[], index: number): number {
+function rankWithinRowCohort(rows: readonly VariantRow[], index: number): number {
   const row = rows[index];
   if (row === undefined) return 0;
   return rows.slice(0, index + 1).filter(
-    (candidate) => variantRowSeason(candidate) === variantRowSeason(row),
+    (candidate) => variantRowCohort(candidate) === variantRowCohort(row),
   ).length;
+}
+
+function variantRowCohort(row: VariantRow): string {
+  return `${variantRowSeason(row)}:${isCurrentExecutionProfile(variantExecutionProfile(row)) ? "current" : "legacy"}`;
+}
+
+function variantExecutionProfile(row: VariantRow | undefined): BoardExecutionProfile | undefined {
+  if (row === undefined) return undefined;
+  return row.kind === "community" ? row.row.executionProfile : row.run.execution_profile;
 }

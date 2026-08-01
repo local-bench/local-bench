@@ -67,7 +67,7 @@ export function CommunityLeaderboardRow({
     >
       <td className="px-3 py-3 font-mono text-bench-muted">{rank}</td>
       <td className="px-3 py-3">
-        <span className="flex items-center gap-2">
+        <span className="flex flex-wrap items-center gap-2">
           <FamilyLogoMark familyName={displayFamily} modelLabel={displayName} size={16} />
           {row.detailPath === null ? (
             <span className="font-semibold text-bench-text" title="family detail unavailable for this row">

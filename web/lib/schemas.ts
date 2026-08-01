@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BoardExecutionProfileSchema } from "./execution-profile";
 
 export const ModelSlugSchema = z.string().min(1).brand<"ModelSlug">();
 export const RunIdSchema = z.string().min(1).brand<"RunId">();
@@ -265,6 +266,7 @@ export const IndexModelSchema = z.object({
   composite: ScoreSchema.nullable(),
   diagnostic_composite: ScoreSchema.nullable().optional(),
   execution_profile_id: z.string().min(1).optional(),
+  execution_profile: BoardExecutionProfileSchema.optional(),
   composite_full: ScoreSchema.nullable().optional(),
   composite_static: ScoreSchema.nullable().optional(),
   legacy_composite: ScoreSchema.nullable().optional(),
@@ -342,6 +344,7 @@ export const ModelRunSchema = z.object({
   diagnostic_composite: ScoreSchema.nullable().optional(),
   composite_full: ScoreSchema.nullable().optional(),
   composite_static: ScoreSchema.nullable().optional(),
+  execution_profile: BoardExecutionProfileSchema.optional(),
   legacy_composite: ScoreSchema.nullable().optional(),
   index_version: z.string().optional(),
   season_bridge: SeasonBridgeSchema.optional(),
@@ -430,6 +433,7 @@ export const RunDetailSchema = z.object({
   diagnostic_composite: ScoreSchema.nullable().optional(),
   composite_full: ScoreSchema.nullable().optional(),
   composite_static: ScoreSchema.nullable().optional(),
+  execution_profile: BoardExecutionProfileSchema.optional(),
   legacy_composite: ScoreSchema.nullable().optional(),
   season_bridge: SeasonBridgeSchema.optional(),
   axes: AxesSchema,

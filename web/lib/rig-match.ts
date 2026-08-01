@@ -2,6 +2,7 @@ import type { AxisScore, ConformanceGates, Kind, Score, ScoreStatus } from "./sc
 import { quantBytesPerParam } from "./quant";
 import type { QuantFilter } from "./quant";
 import { isTrustedRankedPopulation } from "./trusted-population";
+import type { BoardExecutionProfile } from "./execution-profile";
 
 export const VRAM_TIERS = [8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512] as const;
 export const LANE_FILTERS = ["any", "answer-only"] as const;
@@ -26,6 +27,7 @@ export type RigMatchCandidate = {
   readonly axes: Readonly<Record<string, AxisScore>>;
   readonly conformanceGates?: ConformanceGates;
   readonly demo: boolean;
+  readonly executionProfile?: BoardExecutionProfile | undefined;
   readonly family: string;
   readonly kind: Kind;
   readonly lane: string | null;

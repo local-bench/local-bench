@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ComparePicker } from "../components/compare-picker";
-import { getCompareConfigs } from "../lib/compare";
+import { getAxisDeltas, getCompareConfigs, type CompareConfig } from "../lib/compare";
 import type { CommunityBoardRow } from "../lib/community-data";
 import { getIndexData, getModelData } from "../lib/data";
 import { HEADLINE_LANE } from "../lib/leaderboard-score";
@@ -12,6 +12,34 @@ const CURRENT_RUN_ID = "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q4kxl-s2v5";
 const LEGACY_RUN_ID = "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q4";
 
 describe("compare configs", () => {
+  it("allows axis deltas only for equal complete semantic digests", () => {
+    const digest = "a".repeat(64);
+    const left = compareConfig({ executionProfileSemanticSha256: digest, id: "left" });
+    const equal = compareConfig({ executionProfileSemanticSha256: digest, id: "equal" });
+    const unequal = compareConfig({ executionProfileSemanticSha256: "b".repeat(64), id: "unequal" });
+    const missing = compareConfig({ executionProfileSemanticSha256: undefined, id: "missing" });
+
+    expect(getAxisDeltas(left, equal)).toHaveLength(1);
+    expect(getAxisDeltas(left, unequal)).toEqual([]);
+    expect(getAxisDeltas(left, missing)).toEqual([]);
+  });
+
+  it("renders no score, axis, winner, or rank-change copy across profile digests", () => {
+    const html = renderToStaticMarkup(createElement(ComparePicker, {
+      configs: [
+        compareConfig({ executionProfileSemanticSha256: "a".repeat(64), id: "left" }),
+        compareConfig({ executionProfileSemanticSha256: "b".repeat(64), id: "right" }),
+      ],
+      fineTunePresets: [],
+      initialLeftId: "left",
+      initialRightId: "right",
+    }));
+
+    expect(html).toContain("semantic identities differ");
+    expect(html).not.toContain("Local Intelligence Index delta");
+    expect(html).not.toContain("wins</td>");
+    expect(html).not.toMatch(/rank (?:changed|moved)|moved (?:up|down)/iu);
+  });
   it("includes measured configs with nonstandard quant labels and labels index coverage", async () => {
     // Given measured site data that includes a project-anchor Unsloth dynamic quant.
     const index = await getIndexData();
@@ -70,7 +98,8 @@ describe("compare configs", () => {
     // Then an untrusted legacy URL id cannot enter the comparison population.
     expect(html).not.toContain("Diagnostic score (retired lane)");
     expect(html).not.toContain(LEGACY_RUN_ID);
-    expect(html).toContain("Local Intelligence Index delta");
+    expect(html).not.toContain("Local Intelligence Index delta");
+    expect(html).toContain("semantic identities differ or are incomplete");
   });
 
   it("uses diagnostic_composite for retired-lane configs when standard composite is null", () => {
@@ -169,6 +198,28 @@ describe("compare configs", () => {
     });
   });
 });
+
+function compareConfig(overrides: Partial<CompareConfig>): CompareConfig {
+  return {
+    axes: { knowledge: { hi: 51, lo: 49, n: 10, n_errors: 0, n_no_answer: 0, point: 50, raw_accuracy: 0.5 } },
+    composite: { hi: 51, lo: 49, point: 50 },
+    coverage: "full",
+    demo: false,
+    executionProfileSemanticSha256: "a".repeat(64),
+    fitTierGb: 24,
+    id: "fixture",
+    lane: HEADLINE_LANE,
+    modelLabel: "Fixture",
+    modelHref: "/model/fixture/",
+    modelSlug: "fixture",
+    quantLabel: "Q4_K_M",
+    runId: "fixture-run",
+    scoreScope: "current-index",
+    tokS: 30,
+    vramEstimate: null,
+    ...overrides,
+  };
+}
 
 async function realCompareConfigs() {
   const index = await getIndexData();

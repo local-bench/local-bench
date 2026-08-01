@@ -4,6 +4,8 @@ const SAFE_TEXT_RE = /^[^\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]+$
 const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/u);
 const ProfileTextSchema = z.string().min(1).max(160).regex(SAFE_TEXT_RE);
 
+export const CURRENT_EXECUTION_PROFILE_ID = "generic_think_tags_32768_v1" as const;
+
 const ExecutionProfileBaseShape = {
   answer_stops: z.array(ProfileTextSchema).max(16).readonly(),
   chat_template_kwargs: z.record(ProfileTextSchema, z.boolean())
@@ -38,7 +40,7 @@ const LegacySemanticShape = {
 const ExecutionProfileV1Schema = z.object({
   ...ExecutionProfileBaseShape,
   ...LegacySemanticShape,
-  id: ProfileTextSchema.refine((value) => value !== "generic_think_tags_32768_v1"),
+  id: ProfileTextSchema.refine((value) => value !== CURRENT_EXECUTION_PROFILE_ID),
   schema_version: z.undefined().optional(),
 }).strict().readonly();
 
@@ -50,7 +52,7 @@ const ExecutionProfileV2Schema = z.object({
   agentic_max_turns: z.literal(40),
   context_extension_policy: z.literal("none"),
   context_fit_policy: z.literal("exact-or-fail"),
-  id: z.literal("generic_think_tags_32768_v1"),
+  id: z.literal(CURRENT_EXECUTION_PROFILE_ID),
   kv_cache_k_dtype: z.literal("f16"),
   kv_cache_v_dtype: z.literal("f16"),
   per_task_timeout_s: z.literal(3000),
@@ -70,7 +72,7 @@ export const PublicExecutionProfileSchema = z.discriminatedUnion("schema_version
 export const ExecutionProfileSchema = PublicExecutionProfileSchema;
 
 export const LegacyExecutionProfileReferenceSchema = z.object({
-  id: ProfileTextSchema.refine((value) => value !== "generic_think_tags_32768_v1"),
+  id: ProfileTextSchema.refine((value) => value !== CURRENT_EXECUTION_PROFILE_ID),
 }).strict().readonly();
 
 export const BoardExecutionProfileSchema = z.union([
@@ -86,3 +88,44 @@ export type CommunityExecutionProfileFields = {
   readonly executionProfile?: BoardExecutionProfile;
   readonly supersedesSubmissionId?: string;
 };
+
+export function isCurrentExecutionProfile(
+  profile: BoardExecutionProfile | undefined,
+): boolean {
+  return profile?.id === CURRENT_EXECUTION_PROFILE_ID;
+}
+
+export function executionProfileSemanticSha256(
+  profile: BoardExecutionProfile | undefined,
+): string | undefined {
+  return profile !== undefined && "semantic_sha256" in profile
+    ? profile.semantic_sha256
+    : undefined;
+}
+
+export function matchingCompleteSemanticDigests(
+  left: string | undefined,
+  right: string | undefined,
+): boolean {
+  return left !== undefined && Sha256Schema.safeParse(left).success && left === right;
+}
+
+export function executionProfileSummary(profile: BoardExecutionProfile): string {
+  if ("static_think_tokens" in profile && profile.static_think_tokens !== undefined) {
+    const parts = [`${formatBudget(profile.static_think_tokens)} reasoning`];
+    if (profile.static_final_tokens !== undefined) {
+      parts.push(`${formatBudget(profile.static_final_tokens)} final`);
+    }
+    if (profile.server_context_tokens !== undefined) {
+      parts.push(`${formatBudget(profile.server_context_tokens)} context`);
+    }
+    return parts.join(" · ");
+  }
+  if (profile.id === "answer_only_8192_v1") return "8k answer-only";
+  if (profile.id.includes("8192")) return "8k static reasoning";
+  return "historical execution profile";
+}
+
+function formatBudget(tokens: number): string {
+  return tokens % 1024 === 0 ? `${tokens / 1024}k` : tokens.toLocaleString("en-US");
+}

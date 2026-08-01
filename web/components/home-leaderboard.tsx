@@ -5,6 +5,7 @@ import { BoardScopeHeader } from "@/components/board-scope-header";
 import { CommunityFreshness, useLiveCommunityRows } from "@/components/community-live-state";
 import { LeaderboardTable } from "@/components/leaderboard-table";
 import { LeaderboardVariantToggle } from "@/components/leaderboard-variant-toggle";
+import { OperatingPointNotice } from "@/components/operating-point-notice";
 import { axisColumns } from "@/components/leaderboard-table-cells";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import type { CommunityArtifactDetail } from "@/lib/community-artifact-details";
@@ -110,6 +111,12 @@ export function HomeLeaderboard({
         : "overflow-hidden rounded-lg border border-bench-line bg-bench-panel/82 shadow-2xl shadow-black/20"}
     >
       <BoardScopeHeader mode={scoreMode} indexVersion={season2 ? INDEX_VERSION_V4 : indexVersion} />
+      {scoreMode === "full" ? (
+        <OperatingPointNotice profiles={[
+          ...models.map((model) => model.execution_profile),
+          ...liveCommunity.rows.map((row) => row.executionProfile),
+        ]} />
+      ) : null}
       {scoreMode === "full" ? (
         <LeaderboardFilters
           family={family}

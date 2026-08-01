@@ -21,6 +21,10 @@ import {
 import { communityScore } from "./community-scores";
 import { SEASON_2_HEADLINE_AXES } from "./scoring-seasons";
 import { isTrustedPopulation } from "./trusted-population";
+import {
+  executionProfileSemanticSha256,
+  matchingCompleteSemanticDigests,
+} from "./execution-profile";
 
 export type CompareCoverage = "full" | "partial";
 export type CompareScoreScope = "current-index" | "previous-index";
@@ -30,6 +34,7 @@ export type CompareConfig = {
   readonly composite: Score;
   readonly coverage: CompareCoverage;
   readonly demo: boolean;
+  readonly executionProfileSemanticSha256: string | undefined;
   readonly fitTierGb: number | null;
   readonly id: string;
   readonly lane: string | null;
@@ -75,6 +80,7 @@ export function getCompareConfigs(
             composite: score,
             coverage: coverageForAxes(run.axes),
             demo: model.demo || run.demo,
+            executionProfileSemanticSha256: executionProfileSemanticSha256(run.execution_profile),
             fitTierGb: vramEstimate === null ? null : findMinimumVramTier(vramEstimate.effectiveRequiredGb),
             id: run.run_id,
             lane: run.lane,
@@ -105,6 +111,7 @@ export function getCompareConfigs(
       composite: communityScore(row.compositeFull),
       coverage: "full",
       demo: false,
+      executionProfileSemanticSha256: executionProfileSemanticSha256(row.executionProfile),
       fitTierGb: vramEstimate === null ? null : findMinimumVramTier(vramEstimate.effectiveRequiredGb),
       id: row.submissionId,
       lane: HEADLINE_LANE,
@@ -128,6 +135,7 @@ function modelSlugFromDetailPath(detailPath: string | null): string {
 }
 
 export function getAxisDeltas(left: CompareConfig, right: CompareConfig): readonly AxisDelta[] {
+  if (!compareSemanticDigestsMatch(left, right)) return [];
   const axes = left.axes["tool_use"] !== undefined || right.axes["tool_use"] !== undefined
     ? SEASON_2_HEADLINE_AXES
     : AXIS_KEYS;
@@ -140,6 +148,13 @@ export function getAxisDeltas(left: CompareConfig, right: CompareConfig): readon
     const delta = displayDelta(leftScore.point, rightScore.point);
     return [{ axis, delta, leftScore, rightScore, winner: winnerFor(delta) }];
   });
+}
+
+export function compareSemanticDigestsMatch(left: CompareConfig, right: CompareConfig): boolean {
+  return matchingCompleteSemanticDigests(
+    left.executionProfileSemanticSha256,
+    right.executionProfileSemanticSha256,
+  );
 }
 
 function coverageForAxes(axes: Readonly<Record<string, AxisScore>>): CompareCoverage {

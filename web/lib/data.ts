@@ -50,6 +50,7 @@ import { buildFamilyResolutionContext, resolveFamily } from "./family-resolution
 import { overlayLineageByArtifactSha } from "./overlay-lineage";
 import { estimateRunVram } from "./model-run-metrics";
 import { communityArtifactDetails, type CommunityArtifactDetail } from "./community-artifact-details";
+import { executionProfileSemanticSha256 } from "./execution-profile";
 import {
   ArtifactProvenanceRegistrySchema,
   type ArtifactProvenanceRegistry,
@@ -332,6 +333,7 @@ function toVsBaseBoardRow(row: IndexModel | null): VsBaseBoardRow | null {
     composite: row.composite,
     diagnosticComposite: row.diagnostic_composite ?? null,
     executionProfileId: row.execution_profile_id,
+    executionProfileSemanticSha256: executionProfileSemanticSha256(row.execution_profile),
     indexVersion: row.index_version,
     lane: row.lane,
     origin: row.origin,
@@ -624,6 +626,7 @@ function toRigMatchCandidate(model: ModelData, run: ModelRun): RigMatchCandidate
   const candidate = {
     axes: run.axes,
     demo: model.demo || run.demo,
+    executionProfile: run.execution_profile,
     family: model.family,
     kind: model.kind,
     lane: run.lane,

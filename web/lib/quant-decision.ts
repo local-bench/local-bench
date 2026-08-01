@@ -7,6 +7,7 @@ import {
 import { QUANT_OPTIONS, isQuantOption, quantOrder } from "./quant";
 import { displayDelta } from "./format";
 import { estimateRunVram } from "./model-run-metrics";
+import { matchingCompleteSemanticDigests } from "./execution-profile";
 import type { QuantOption } from "./quant";
 import type { AxisScore, Score, ScoreStatus } from "./schemas";
 
@@ -17,6 +18,7 @@ export type QuantDecisionInputRun = {
   readonly bpw?: number | null | undefined;
   readonly composite: Score | null;
   readonly demo: boolean;
+  readonly executionProfileSemanticSha256?: string | undefined;
   readonly file_gb?: number | null | undefined;
   readonly quant_label: string | null;
   readonly run_id: string | null;
@@ -96,7 +98,17 @@ function toDecisionRow(
     ? null
     : estimateRunVram(run, siblingRuns, contextTokens);
   return {
-    deltaVsBaseline: run?.composite === null || run === null || baseline?.composite === null || baseline === null ? null : deltaScore(run.composite, baseline.composite),
+    deltaVsBaseline:
+      run?.composite === null
+      || run === null
+      || baseline?.composite === null
+      || baseline === null
+      || !matchingCompleteSemanticDigests(
+        run.executionProfileSemanticSha256,
+        baseline.executionProfileSemanticSha256,
+      )
+        ? null
+        : deltaScore(run.composite, baseline.composite),
     fitTierGb: vramEstimate === null ? null : findMinimumVramTier(vramEstimate.effectiveRequiredGb),
     isBaseline: quantLabel === baselineQuantLabel && run !== null,
     isSweetSpot: false,

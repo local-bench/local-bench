@@ -80,6 +80,17 @@ precedence_trusted = fixture(
 )
 precedence_union = builder._trusted_precedence_union([precedence_trusted], [precedence_curated])
 
+legacy_head = fixture(
+    "profile-head", origin="project_anchor", trust_label="project_anchor",
+    ranked=True, score=90, suffix="legacy", order=0,
+)
+legacy_head["index_row"]["execution_profile"] = {"id": "generic-chat-v1-8192"}
+current_head = fixture(
+    "profile-head", origin="project_anchor", trust_label="project_anchor",
+    ranked=True, score=50, suffix="current", order=1,
+)
+current_head["index_row"]["execution_profile"] = {"id": "generic_think_tags_32768_v1"}
+
 demo_source = {
     "agentic_provenance": "self_reported", "demo": True,
     "demo_score": {"quality": 50, "ci": 2, "tok_s": 10},
@@ -129,6 +140,7 @@ with tempfile.TemporaryDirectory() as raw:
         "forged_catalog_groups": builder._catalog_run_groups([forged]),
         "forged_ranks": builder._trusted_ranked_run(forged),
         "representative": builder._representative_run([forged, trusted])["slug"],
+        "current_profile_representative": builder._representative_run([legacy_head, current_head])["run_id"],
         "dynamic_displays": builder._display_eligible(dynamic),
         "dynamic_models": json.loads((dynamic_out / "index.json").read_text())["models"],
         "dynamic_details": len(list((dynamic_out / "runs").glob("*.json"))),
@@ -180,6 +192,10 @@ describe("static display eligibility security boundary", () => {
     const result = probe;
     expect(result["forged_ranks"]).toBe(false);
     expect(result["representative"]).toBe("trusted");
+  });
+
+  it("prefers the current execution profile for the static model representative", () => {
+    expect(probe["current_profile_representative"]).toBe("profile-head__current");
   });
 
   it("displays canonical curated-static rows but excludes dynamic public rows", () => {

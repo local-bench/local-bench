@@ -331,6 +331,48 @@ describe("unified leaderboard community rows", () => {
     expect(selected[0]?.source).toBe("local-bench");
   });
 
+  it("prefers a current-profile family head over a higher-scoring legacy row", () => {
+    const baseCatalog = catalogModel("Base/Model", "base-model", "Base Model");
+    const tuneCatalog = catalogModel("Tune/Model", "tune-model", "Tune Model", baseCatalog.id);
+    const context = buildFamilyResolutionContext([baseCatalog, tuneCatalog]);
+    const legacy = {
+      ...rankedCatalogModel(15, 90, baseCatalog),
+      execution_profile: { id: "generic_think_tags_8192_v1" },
+    };
+    const current = {
+      ...resolvedCommunityRow(0.50, tuneCatalog.id, baseCatalog.id),
+      executionProfile: currentExecutionProfile(),
+      submissionId: "ticket_current_profile",
+    };
+
+    const selected = filterUnifiedLeaderboardRows([legacy], [current], { resolutionContext: context });
+
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.source === "community" ? selected[0].row.submissionId : null)
+      .toBe("ticket_current_profile");
+  });
+
+  it("shows the exact operating-point notice only after a complete 32k row exists", () => {
+    const source = liveCommunityRows[0];
+    if (source === undefined) throw new Error("missing legacy fixture");
+    const legacy = { ...source, executionProfile: { id: "generic_think_tags_8192_v1" } };
+    const legacyHtml = renderToStaticMarkup(
+      <HomeLeaderboard models={[]} communityRows={[legacy]} indexVersion="index-v4.2" />,
+    );
+    const mixedHtml = renderToStaticMarkup(
+      <HomeLeaderboard
+        models={[]}
+        communityRows={[legacy, { ...legacy, executionProfile: currentExecutionProfile(), submissionId: "ticket_32k" }]}
+        indexVersion="index-v4.2"
+      />,
+    );
+    const notice = "Operating point changed from 8k static reasoning to 32k. Cross-profile scores are not compute-matched.";
+
+    expect(legacyHtml).not.toContain(notice);
+    expect(mixedHtml).toContain(notice);
+    expect(mixedHtml).not.toMatch(/rank (?:changed|moved)|moved (?:up|down)/iu);
+  });
+
   it("treats a project-origin live row as maintainer-owned when family representatives tie", () => {
     const baseCatalog = catalogModel("Base/Model", "base-model", "Base Model");
     const tuneCatalog = catalogModel("Tune/Model", "tune-model", "Tune Model", baseCatalog.id);
@@ -497,4 +539,33 @@ function overlayLineage(
     repo: { id: childCatalogId, revision },
     resolution: { resolved_at: "2026-07-22T00:00:00Z", status: "complete" },
   };
+}
+
+function currentExecutionProfile() {
+  return {
+    agentic_context_tokens: 32768,
+    agentic_max_generated_tokens_per_task: 65536,
+    agentic_max_output_tokens_per_turn: 1024,
+    agentic_max_turns: 40,
+    answer_stops: ["</think>"],
+    chat_template_kwargs: { enable_thinking: true },
+    context_extension_policy: "none",
+    context_fit_policy: "exact-or-fail",
+    id: "generic_think_tags_32768_v1",
+    kv_cache_k_dtype: "f16",
+    kv_cache_v_dtype: "f16",
+    per_task_timeout_s: 3000,
+    prompt_renderer_engine: "llama.cpp.apply-template",
+    runtime_probe_passed: true,
+    schema_version: "localbench.execution_profile.v2",
+    selection_policy_id: "gguf-effective-template-v1",
+    selection_reason: "gguf_generic_think_confirmed",
+    semantic_sha256: "e02ef5b5e75f19ca39d8949711bdd2d6517d1ce9267012ac923abffb94fbf058",
+    server_context_tokens: 65536,
+    static_final_tokens: 16384,
+    static_max_generated_tokens: 49152,
+    static_think_tokens: 32768,
+    template_sha256: "f".repeat(64),
+    template_source: "gguf-default",
+  } as const;
 }

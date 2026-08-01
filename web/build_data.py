@@ -72,6 +72,7 @@ INDEX_VERSION: Final = "index-v3.0"
 # Current season-2 editorial label. index-v4.0 and index-v4.1 remain historical
 # scales with the same broad row shape but different scoring protocols.
 SEASON_2_INDEX_VERSION: Final = "index-v4.2"
+CURRENT_EXECUTION_PROFILE_ID: Final = "generic_think_tags_32768_v1"
 
 
 def _season_2_label(label: str | None) -> str | None:
@@ -546,6 +547,7 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     manifest = _object_or_empty(run.get("manifest"))
     suite = _object_or_empty(manifest.get("suite"))
     scorecard = _scorecard_detail(_object_or_empty(manifest.get("scorecard")))
+    execution_profile = _public_execution_profile(manifest.get("execution_profile"))
     conformance = _object_or_empty(run.get("conformance"))
     conformance_status = _text(conformance.get("status"))
     contamination_label = _contamination_label(_text(source.get("release_date")))
@@ -650,6 +652,10 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
         detail["score_status"] = "measured"
     model_row = {"axes": axes, "composite_full": composite_full, "composite_static": composite_static, "est_cost_usd": est_cost, "file_gb": None, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "ranked": ranked, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": tok_s, "latency_s_median": latency_s_median, "vram_footprint_gb": source["vram_footprint_gb"], "vram_required_gb_8k": None, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))} | score_fields | annotations
     index_row = {"axes": axes, "best_run_id": run_id, "gpu": _object(summary["hardware"], "summary.hardware").get("gpu"), "composite_full": composite_full, "composite_static": composite_static, "conformance_status": conformance_status, "contamination_label": contamination_label, "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "latency_s_median": latency_s_median, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds")), "model_label": model_label, "n_runs": 1, "ranked": ranked, "replicated": _bool(source["independent_replication"], "source.independent_replication"), "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "slug": slug, "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]} | score_fields | annotations
+    if execution_profile is not None:
+        detail["execution_profile"] = execution_profile
+        model_row["execution_profile"] = execution_profile
+        index_row["execution_profile"] = execution_profile
     if season_2:
         model_row["index_version"] = effective_index_version
         index_row["index_version"] = effective_index_version
@@ -944,6 +950,27 @@ def _scorecard_detail(scorecard: JsonObject) -> JsonObject:
     }
 
 
+def _public_execution_profile(value: JsonValue | None) -> JsonObject | None:
+    if not isinstance(value, dict):
+        return None
+    profile_id = _text(value.get("id"))
+    if profile_id is None:
+        return None
+    required = (
+        "answer_stops",
+        "chat_template_kwargs",
+        "prompt_renderer_engine",
+        "runtime_probe_passed",
+        "selection_policy_id",
+        "selection_reason",
+        "template_sha256",
+        "template_source",
+    )
+    if all(field in value for field in required):
+        return dict(value)
+    return {"id": profile_id}
+
+
 def _representative_run(group: list[JsonObject]) -> JsonObject:
     # Ranked (full-index, headline-scope) runs always represent the model entity: a
     # renormalized partial composite can be numerically larger than a full five-axis
@@ -953,10 +980,17 @@ def _representative_run(group: list[JsonObject]) -> JsonObject:
         key=lambda run: (
             _trusted_ranked_run(run),
             _trusted_run(run),
+            _current_execution_profile_run(run),
             _number(run["composite_raw"], "composite_raw"),
             -_int(run["order"], "order"),
         ),
     )
+
+
+def _current_execution_profile_run(run: JsonObject) -> bool:
+    row = _object(run["index_row"], "index_row")
+    profile = row.get("execution_profile")
+    return isinstance(profile, dict) and profile.get("id") == CURRENT_EXECUTION_PROFILE_ID
 
 
 def _trusted_run(run: JsonObject) -> bool:

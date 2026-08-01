@@ -1,21 +1,30 @@
-import type { BoardExecutionProfile } from "@/lib/execution-profile";
+import {
+  executionProfileSummary,
+  isCurrentExecutionProfile,
+  type BoardExecutionProfile,
+} from "@/lib/execution-profile";
 
 export function ExecutionProfileBadge({
   profile,
 }: {
   readonly profile: BoardExecutionProfile;
 }) {
-  const label = profile.id === "generic_think_tags_8192_v1"
-    ? "generic think"
-    : profile.id === "answer_only_8192_v1"
-      ? "answer only"
-      : "execution profile";
+  const current = isCurrentExecutionProfile(profile);
+  const state = current ? "Current" : "Legacy";
+  const summary = executionProfileSummary(profile);
   return (
     <span
-      className="inline-flex rounded border border-bench-accent/35 bg-bench-accent/[0.08] px-1.5 py-0.5 font-mono text-[10px] text-bench-accent"
+      aria-label={`${state} operating point: ${summary}. Execution profile ${profile.id}`}
+      className="inline-flex max-w-full flex-wrap items-center gap-1.5"
       title={`execution profile: ${profile.id}`}
     >
-      {label}
+      <span className={current
+        ? "rounded border border-bench-accent/45 bg-bench-accent/[0.10] px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-bench-accent"
+        : "rounded border border-bench-mixed/45 bg-bench-mixed/[0.10] px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-bench-mixed"}
+      >
+        {state}
+      </span>
+      <span className="text-xs leading-5 text-bench-muted">{summary}</span>
     </span>
   );
 }

@@ -53,6 +53,37 @@ describe("selectBestVariantPoints", () => {
     expect(points[0]?.runId).toBe("a-q4");
   });
 
+  it("keeps the current-profile best variant when a legacy run scores higher", () => {
+    const legacy = {
+      ...candidate({ modelSlug: "same", runId: "legacy", score: { point: 90, lo: 89, hi: 91 } }),
+      executionProfile: { id: "generic_think_tags_8192_v1" },
+    };
+    const current = {
+      ...candidate({ modelSlug: "same", runId: "current", score: { point: 50, lo: 49, hi: 51 } }),
+      executionProfile: currentExecutionProfile(),
+    };
+
+    const points = selectBestVariantPoints([legacy, current]);
+
+    expect(points.map((point) => point.runId)).toEqual(["current"]);
+  });
+
+  it("fronts current and legacy Pareto cohorts independently", () => {
+    const current = {
+      ...candidate({ family: "current", modelSlug: "current", runId: "current", score: { point: 50, lo: 49, hi: 51 }, vramFootprintGb: 20 }),
+      executionProfile: currentExecutionProfile(),
+    };
+    const legacy = {
+      ...candidate({ family: "legacy", modelSlug: "legacy", runId: "legacy", score: { point: 90, lo: 89, hi: 91 }, vramFootprintGb: 10 }),
+      executionProfile: { id: "generic_think_tags_8192_v1" },
+    };
+
+    const points = selectBestVariantPoints([current, legacy]);
+
+    expect(points.find((point) => point.runId === "current")?.isFrontier).toBe(true);
+    expect(points.find((point) => point.runId === "legacy")?.isFrontier).toBe(true);
+  });
+
   it("excludes demo, anchor, and unmeasured candidates while ignoring retired rank and tier flags", () => {
     const points = selectBestVariantPoints([
       candidate({ modelSlug: "demo", demo: true }),
@@ -260,3 +291,32 @@ describe("selectBestVariantPoints", () => {
     });
   });
 });
+
+function currentExecutionProfile() {
+  return {
+    agentic_context_tokens: 32768,
+    agentic_max_generated_tokens_per_task: 65536,
+    agentic_max_output_tokens_per_turn: 1024,
+    agentic_max_turns: 40,
+    answer_stops: ["</think>"],
+    chat_template_kwargs: { enable_thinking: true },
+    context_extension_policy: "none",
+    context_fit_policy: "exact-or-fail",
+    id: "generic_think_tags_32768_v1",
+    kv_cache_k_dtype: "f16",
+    kv_cache_v_dtype: "f16",
+    per_task_timeout_s: 3000,
+    prompt_renderer_engine: "llama.cpp.apply-template",
+    runtime_probe_passed: true,
+    schema_version: "localbench.execution_profile.v2",
+    selection_policy_id: "gguf-effective-template-v1",
+    selection_reason: "gguf_generic_think_confirmed",
+    semantic_sha256: "e02ef5b5e75f19ca39d8949711bdd2d6517d1ce9267012ac923abffb94fbf058",
+    server_context_tokens: 65536,
+    static_final_tokens: 16384,
+    static_max_generated_tokens: 49152,
+    static_think_tokens: 32768,
+    template_sha256: "f".repeat(64),
+    template_source: "gguf-default",
+  } as const;
+}

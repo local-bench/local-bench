@@ -6,6 +6,8 @@ function score(point: number) {
 }
 
 describe("buildVsBaseComparison", () => {
+  const semanticDigest = "a6bf105b73ad3f8120751151707ce2d15f4b20617a64250679a0dce8977d9bb3";
+
   it("computes composite and per-axis deltas from displayed operands where both rows are measured", () => {
     const comparison = buildVsBaseComparison({
       base: {
@@ -17,6 +19,7 @@ describe("buildVsBaseComparison", () => {
           composite: { point: 83.44, lo: 82.44, hi: 84.44 },
           diagnosticComposite: null,
           executionProfileId: "generic_think_tags_8192_v1",
+          executionProfileSemanticSha256: semanticDigest,
           axes: { knowledge: score(83.44), instruction: score(67), coding: score(20) },
           lane: "bounded-final-v2",
           origin: "project_anchor",
@@ -34,6 +37,7 @@ describe("buildVsBaseComparison", () => {
           composite: { point: 87.36, lo: 86.36, hi: 88.36 },
           diagnosticComposite: null,
           executionProfileId: "generic_think_tags_8192_v1",
+          executionProfileSemanticSha256: semanticDigest,
           axes: { knowledge: score(87.36), instruction: score(64), tool_calling: score(50) },
           lane: "bounded-final-v2",
           origin: "project_anchor",
@@ -54,9 +58,9 @@ describe("buildVsBaseComparison", () => {
   });
 
   it.each([
-    ["different", "answer_only_8192_v1"],
-    ["unknown", undefined],
-  ] as const)("withholds deltas when execution profiles are %s", (_case, derivativeProfileId) => {
+    ["same id but unequal semantic digests", "generic_think_tags_8192_v1", "b".repeat(64)],
+    ["missing a semantic digest", "generic_think_tags_8192_v1", undefined],
+  ] as const)("withholds deltas when execution profiles have %s", (_case, derivativeProfileId, derivativeDigest) => {
     // Given: measured rows from the same scoring season but non-comparable renderers.
     const comparison = buildVsBaseComparison({
       base: {
@@ -69,6 +73,7 @@ describe("buildVsBaseComparison", () => {
           composite: { point: 44.62, lo: 43, hi: 46 },
           diagnosticComposite: null,
           executionProfileId: "generic_think_tags_8192_v1",
+          executionProfileSemanticSha256: semanticDigest,
           indexVersion: "index-v4.2",
           lane: "bounded-final-v2",
           ranked: true,
@@ -85,6 +90,7 @@ describe("buildVsBaseComparison", () => {
           composite: { point: 52, lo: 51, hi: 53 },
           diagnosticComposite: null,
           executionProfileId: derivativeProfileId,
+          executionProfileSemanticSha256: derivativeDigest,
           indexVersion: "index-v4.2",
           lane: "bounded-final-v2",
           ranked: true,

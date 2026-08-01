@@ -21,6 +21,10 @@ import type { CommunityBoardRow } from "./community-data";
 import { communityDisplayAxes, communityScore } from "./community-scores";
 import { formatGpuShort } from "./format";
 import type { AxisScore, CatalogModel, ConformanceGates, Score } from "./schemas";
+import {
+  isCurrentExecutionProfile,
+  type BoardExecutionProfile,
+} from "./execution-profile";
 
 export type BestVariantPoint = {
   readonly modelSlug: string;
@@ -38,6 +42,7 @@ export type BestVariantPoint = {
   readonly latencySMedian: number | null;
   readonly wallTimeSeconds: number | null;
   readonly effectiveVramGb: number;
+  readonly executionProfile?: BoardExecutionProfile | undefined;
   readonly nRuns: number;
   readonly isFrontier: boolean;
   // Set only for live community-envelope rows benchmarked off the reference rig; baked
@@ -83,6 +88,11 @@ function isEligible(candidate: RigMatchCandidate): candidate is EligibleRigMatch
 // Best variant WITHIN one model: highest composite, then the cheaper-to-run / faster / more-certain
 // run. Mirrors the rig-match ordering intent so the landing chart and the finder agree.
 function isBetterWithinModel(candidate: BestVariantPoint, incumbent: BestVariantPoint): boolean {
+  const candidateCurrent = isCurrentExecutionProfile(candidate.executionProfile);
+  const incumbentCurrent = isCurrentExecutionProfile(incumbent.executionProfile);
+  if (candidateCurrent !== incumbentCurrent) {
+    return candidateCurrent;
+  }
   if (candidate.score.point !== incumbent.score.point) {
     return candidate.score.point > incumbent.score.point;
   }
@@ -103,6 +113,7 @@ function isDominated(point: BestVariantPoint, others: readonly BestVariantPoint[
   return others.some(
     (other) =>
       other !== point &&
+      isCurrentExecutionProfile(other.executionProfile) === isCurrentExecutionProfile(point.executionProfile) &&
       other.score.point >= point.score.point &&
       other.effectiveVramGb <= point.effectiveVramGb &&
       (other.score.point > point.score.point || other.effectiveVramGb < point.effectiveVramGb),
@@ -123,6 +134,7 @@ export function selectAcrossBestVariantCandidates(
 ): readonly BestVariantPoint[] {
   const selected = selectBestPerFamily(candidates.map((candidate) => ({
     displayedComposite: candidate.point.score.point,
+    executionProfile: candidate.point.executionProfile,
     resolution: candidate.resolution,
     source: candidate.source,
     value: candidate.point,
@@ -174,6 +186,7 @@ export function communityBestVariantCandidates(
       // Artifact-formula estimate at 8k, same family as the catalog figures the scatter's
       // baked shells use; live rows have no measured runtime footprint field to prefer.
       effectiveVramGb: detail.vramGb8k,
+      executionProfile: row.executionProfile,
       nRuns: 1,
       isFrontier: false,
       hardwareLabel: gpuName === null || gpuName === undefined || gpuName === ""
@@ -227,6 +240,7 @@ function selectBestPoints(
       latencySMedian: candidate.latencySMedian,
       wallTimeSeconds: candidate.wallTimeSeconds,
       effectiveVramGb: vram.effectiveRequiredGb,
+      executionProfile: candidate.executionProfile,
       nRuns: candidate.nRuns,
       isFrontier: false,
     };
