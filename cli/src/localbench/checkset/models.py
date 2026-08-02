@@ -38,11 +38,21 @@ class ModuleRecord:
     scored: int
     items: tuple[ItemRecord, ...]
     status: str = "ready"
+    source: JsonObject | None = None
+    scorer: JsonObject | None = None
+    selection: JsonObject | None = None
 
     def as_json(self) -> JsonObject:
-        return {
+        document: JsonObject = {
             "items": [item.as_json() for item in self.items],
             "name": self.name,
             "scored": self.scored,
             "status": self.status,
         }
+        if self.source is not None:
+            document["source"] = dict(self.source)
+        if self.scorer is not None:
+            document["scorer"] = dict(self.scorer)
+        if self.selection is not None:
+            document["selection"] = dict(self.selection)
+        return document

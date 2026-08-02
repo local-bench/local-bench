@@ -1,0 +1,12 @@
+{
+  "config": "wikitext-2-raw-v1",
+  "corpus_bytes": 1287656,
+  "corpus_sha256": "bbf94c53a05abe9ee670d3b6343608095822c85e26de37c70b24fc571964574a",
+  "materialization": "concatenate-test-text-rows-utf8-v1",
+  "repository": "Salesforce/wikitext",
+  "revision": "b08601e04326c79dfdd32d625aee71d232d685c3",
+  "row_count": 4358,
+  "source_file": "wikitext-2-raw-v1/test-00000-of-00001.parquet",
+  "source_sha256": "5f1bea067869d04849c0f975a2b29c4ff47d867f484f5010ea5e861eab246d91",
+  "split": "test"
+}

@@ -5,17 +5,27 @@ import json
 from pathlib import Path
 from typing import Final
 
+from localbench.checkset.input_runs import (
+    BENCHES,
+    RUN_NAMES,
+    load_verified_runs,
+    read_json,
+    read_jsonl,
+    required_str,
+)
 from localbench.checkset.models import (
     ChecksetBuildError,
-    ChecksetTypeError,
     ItemRecord,
     JsonObject,
     ModuleRecord,
 )
-from localbench.checkset.select import SourceItem, select_cost_aware, select_ifbench
+from localbench.checkset.select import (
+    SELECTION_SEED,
+    SourceItem,
+    select_cost_aware,
+    select_ifbench,
+)
 
-RUN_NAMES: Final = ("base_q5km", "q6k", "udq2", "fusion")
-BENCHES: Final = ("bigcodebench_hard", "ifbench", "olymmath_hard", "amo", "tc_json_v1")
 CODING_EXCLUSIONS: Final = (
     "bcbh-006",
     "bcbh-007",
@@ -37,9 +47,14 @@ IFBENCH_QUOTAS: Final = {
 
 
 def build_local_modules(repo_root: Path) -> tuple[tuple[ModuleRecord, ...], tuple[JsonObject, ...]]:
-    suite_rows = {bench: _read_jsonl(repo_root / "suite" / "v2" / f"{bench}.jsonl") for bench in BENCHES}
-    manifest = _read_json(repo_root / "docs" / "v2" / "inputs" / "inputs-manifest.json")
-    correctness, latency = _load_verified_runs(manifest)
+    suite_root = repo_root / "suite" / "v2"
+    suite_rows = {bench: read_jsonl(suite_root / f"{bench}.jsonl") for bench in BENCHES}
+    suite_hashes = {
+        bench: hashlib.sha256((suite_root / f"{bench}.jsonl").read_bytes()).hexdigest()
+        for bench in BENCHES
+    }
+    manifest = read_json(repo_root / "docs" / "v2" / "inputs" / "inputs-manifest.json")
+    correctness, latency = load_verified_runs(manifest, suite_root=suite_root)
     source_items = {
         bench: _source_items(bench, rows, correctness, latency)
         for bench, rows in suite_rows.items()
@@ -47,6 +62,8 @@ def build_local_modules(repo_root: Path) -> tuple[tuple[ModuleRecord, ...], tupl
     coding_pool = tuple(
         item for item in source_items["bigcodebench_hard"] if item.item_id not in CODING_EXCLUSIONS
     )
+    if len(coding_pool) != 141:
+        raise ChecksetBuildError(f"Coding usable pool is {len(coding_pool)}, expected 141 after exclusions.")
     coding_informative = tuple(item for item in coding_pool if item.informative)
     coding_complement = tuple(item for item in coding_pool if not item.informative)
     coding = tuple(sorted(coding_informative, key=lambda item: item.item_id)) + select_cost_aware(
@@ -57,7 +74,7 @@ def build_local_modules(repo_root: Path) -> tuple[tuple[ModuleRecord, ...], tupl
     if len(coding_informative) != 38 or len(coding) != 96:
         raise ChecksetBuildError(f"Coding selection mismatch: {len(coding_informative)} informative, {len(coding)} total.")
 
-    instruction = select_ifbench(source_items["ifbench"], IFBENCH_QUOTAS, informative_quota=72)
+    instruction = select_ifbench(source_items["ifbench"], IFBENCH_QUOTAS)
     informative_count = sum(item.informative for item in instruction)
     if informative_count != 72 or len(instruction) != 120:
         raise ChecksetBuildError(f"IFBench selection mismatch: {informative_count} informative, {len(instruction)} total.")
@@ -74,7 +91,7 @@ def build_local_modules(repo_root: Path) -> tuple[tuple[ModuleRecord, ...], tupl
 
     tools_pool = source_items["tc_json_v1"]
     fresh_ids = {
-        _required_str(row, "id")
+        required_str(row, "id")
         for row in suite_rows["tc_json_v1"]
         if row.get("stratum") == "fresh_common_tools"
     }
@@ -94,10 +111,44 @@ def build_local_modules(repo_root: Path) -> tuple[tuple[ModuleRecord, ...], tupl
         )
 
     modules = (
-        _module("coding", coding),
-        _module("instruction", instruction),
-        _module("math-legacy", math_legacy),
-        _module("tools-single", tools),
+        _module(
+            "coding",
+            coding,
+            source={"dataset": "suite/v2/bigcodebench_hard", "revision": suite_hashes["bigcodebench_hard"], "split": "pool"},
+            scorer="coding_exec",
+            algorithm="all-informative-plus-cost-aware-complement-v1",
+            selection_pool=coding_pool,
+        ),
+        _module(
+            "instruction",
+            instruction,
+            source={"dataset": "suite/v2/ifbench", "revision": suite_hashes["ifbench"], "split": "pool"},
+            scorer="ifbench",
+            algorithm="primary-stratum-informative-preferred-v1",
+            selection_pool=source_items["ifbench"],
+        ),
+        _module(
+            "math-legacy",
+            math_legacy,
+            source={
+                "dataset": "suite/v2/olymmath_hard+amo",
+                "revision": _content_sha256(
+                    {"amo": suite_hashes["amo"], "olymmath_hard": suite_hashes["olymmath_hard"]}
+                ),
+                "split": "informative-pools",
+            },
+            scorer="math_symbolic_numeric",
+            algorithm="legacy-informative-cost-aware-v1",
+            selection_pool=legacy_pool,
+        ),
+        _module(
+            "tools-single",
+            tools,
+            source={"dataset": "suite/v2/tc_json_v1", "revision": suite_hashes["tc_json_v1"], "split": "pool"},
+            scorer="tc_json_v1",
+            algorithm="fresh-plus-informative-plus-lowest-multitool-v1",
+            selection_pool=tools_pool,
+        ),
     )
     exclusions = tuple(_coding_exclusion(item_id) for item_id in CODING_EXCLUSIONS)
     return modules, exclusions
@@ -111,9 +162,44 @@ def _coding_exclusion(item_id: str) -> JsonObject:
     }
 
 
-def _module(name: str, items: tuple[SourceItem, ...]) -> ModuleRecord:
+def _module(
+    name: str,
+    items: tuple[SourceItem, ...],
+    *,
+    source: JsonObject,
+    scorer: str,
+    algorithm: str,
+    selection_pool: tuple[SourceItem, ...],
+) -> ModuleRecord:
     records = tuple(ItemRecord(item.item_id, item.content_sha256) for item in items)
-    return ModuleRecord(name=name, scored=len(records), items=records)
+    return ModuleRecord(
+        name=name,
+        scored=len(records),
+        items=records,
+        source=source,
+        scorer={"name": scorer, "version": "localbench-v1"},
+        selection={
+            "algorithm": algorithm,
+            "inputs_sha256": _selection_inputs_sha256(selection_pool),
+            "seed": SELECTION_SEED,
+        },
+    )
+
+
+def _selection_inputs_sha256(items: tuple[SourceItem, ...]) -> str:
+    payload = [
+        {
+            "content_sha256": item.content_sha256,
+            "informative": item.informative,
+            "instruction_ids": list(item.instruction_ids),
+            "item_id": item.item_id,
+            "latency_seconds": item.latency_seconds,
+            "tool_count": item.tool_count,
+        }
+        for item in items
+    ]
+    data = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(data).hexdigest()
 
 
 def _source_items(
@@ -124,7 +210,7 @@ def _source_items(
 ) -> tuple[SourceItem, ...]:
     items: list[SourceItem] = []
     for row in rows:
-        item_id = _required_str(row, "id")
+        item_id = required_str(row, "id")
         correct_count = sum(correctness[run][bench][item_id] for run in RUN_NAMES)
         raw_instruction_ids = row.get("instruction_id_list", [])
         instruction_ids = tuple(value for value in raw_instruction_ids if isinstance(value, str)) if isinstance(raw_instruction_ids, list) else ()
@@ -143,83 +229,6 @@ def _source_items(
     return tuple(items)
 
 
-def _load_verified_runs(
-    manifest: JsonObject,
-) -> tuple[dict[str, dict[str, dict[str, bool]]], dict[str, dict[str, float | None]]]:
-    correctness: dict[str, dict[str, dict[str, bool]]] = {}
-    base_latency: dict[str, dict[str, float | None]] = {}
-    for run_name in RUN_NAMES:
-        entry = manifest[run_name]
-        if not isinstance(entry, dict):
-            raise ChecksetTypeError(f"Invalid input manifest entry {run_name!r}.")
-        root = Path(_required_str(entry, "source_path"))
-        _verify_run_files(root, entry)
-        run = _read_json(root / "localbench-run.json")
-        items = run.get("items")
-        if not isinstance(items, list):
-            raise ChecksetTypeError(f"Run {run_name!r} has no item list.")
-        per_bench = {bench: {} for bench in BENCHES}
-        for raw_item in items:
-            if not isinstance(raw_item, dict):
-                continue
-            bench = raw_item.get("bench")
-            item_id = raw_item.get("id")
-            if isinstance(bench, str) and bench in per_bench and isinstance(item_id, str):
-                per_bench[bench][item_id] = bool(raw_item.get("correct"))
-        correctness[run_name] = per_bench
-        if run_name == "base_q5km":
-            for bench in BENCHES:
-                base_latency[bench] = _read_latencies(root / "benchmarks" / f"{bench}.scored_items.jsonl")
-    return correctness, base_latency
-
-
-def _verify_run_files(root: Path, entry: JsonObject) -> None:
-    hashes = entry.get("sha256")
-    if not isinstance(hashes, dict):
-        raise ChecksetTypeError(f"Missing hashes for {root}.")
-    for relative, expected in hashes.items():
-        if not isinstance(expected, str):
-            raise ChecksetTypeError(f"Invalid expected hash for {relative}.")
-        actual = hashlib.sha256((root / relative).read_bytes()).hexdigest()
-        if actual != expected:
-            raise ChecksetBuildError(f"Pinned input hash mismatch: {root / relative}.")
-
-
-def _read_latencies(path: Path) -> dict[str, float | None]:
-    result: dict[str, float | None] = {}
-    for record in _read_jsonl(path):
-        item_id = _required_str(record, "item_id")
-        payload = record.get("payload")
-        latency = payload.get("latency_seconds") if isinstance(payload, dict) else None
-        result[item_id] = float(latency) if isinstance(latency, int | float) else None
-    return result
-
-
 def _content_sha256(row: JsonObject) -> str:
     data = json.dumps(row, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(data).hexdigest()
-
-
-def _read_json(path: Path) -> JsonObject:
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise ChecksetTypeError(f"Expected JSON object in {path}.")
-    return value
-
-
-def _read_jsonl(path: Path) -> tuple[JsonObject, ...]:
-    return tuple(_read_json_line(line, path) for line in path.read_text(encoding="utf-8").splitlines() if line)
-
-
-def _read_json_line(line: str, path: Path) -> JsonObject:
-    value = json.loads(line)
-    if not isinstance(value, dict):
-        raise ChecksetTypeError(f"Expected JSON object rows in {path}.")
-    return value
-
-
-def _required_str(row: JsonObject, key: str) -> str:
-    value = row.get(key)
-    if not isinstance(value, str):
-        raise ChecksetTypeError(f"{key} must be a string.")
-    return value

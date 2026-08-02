@@ -23,9 +23,9 @@ class SourceItem:
 
 
 @dataclass(frozen=True, slots=True)
-class MediumMathItem:
+class AimeMathItem:
     upstream_index: int
-    topic: str
+    subject: str
     content_sha256: str
 
 
@@ -53,99 +53,50 @@ def select_cost_aware(
 def select_ifbench(
     items: Sequence[SourceItem],
     quotas: Mapping[str, int],
-    *,
-    informative_quota: int | None = None,
 ) -> tuple[SourceItem, ...]:
     primary_strata: dict[str, list[SourceItem]] = defaultdict(list)
     for item in items:
+        if not item.instruction_ids:
+            raise ChecksetBuildError(f"IFBench item {item.item_id!r} has no instruction ids.")
         primary = min(item.instruction_ids)
         primary_strata[primary].append(item)
-    family_items: dict[str, list[SourceItem]] = defaultdict(list)
-    for primary, primary_items in primary_strata.items():
-        family_items[primary.split(":", 1)[0]].extend(primary_items)
-    if informative_quota is None:
-        selected: list[SourceItem] = []
-        for family, quota in quotas.items():
-            ranked = sorted(family_items[family], key=lambda item: (not item.informative, item.item_id))
-            if len(ranked) < quota:
-                raise ChecksetBuildError(f"IFBench stratum {family!r} has {len(ranked)} items for quota {quota}.")
-            selected.extend(ranked[:quota])
-        return tuple(selected)
-
-    informative_capacity = {
-        family: sum(item.informative for item in items_in_family)
-        for family, items_in_family in family_items.items()
-        if family in quotas
-    }
-    informative_by_family = _apportion(informative_capacity, informative_quota)
-    selected = []
+    selected: list[SourceItem] = []
     for family, quota in quotas.items():
-        informative_count = informative_by_family[family]
-        family_strata = {
-            primary: primary_items
-            for primary, primary_items in primary_strata.items()
-            if primary.split(":", 1)[0] == family
-        }
-        selected.extend(_select_kind_by_primary(family_strata, informative=True, quota=informative_count))
-        selected.extend(_select_kind_by_primary(family_strata, informative=False, quota=quota - informative_count))
+        candidates: list[tuple[float, bool, str, SourceItem]] = []
+        for primary, stratum in primary_strata.items():
+            if primary.split(":", 1)[0] != family:
+                continue
+            ranked = sorted(stratum, key=lambda item: (not item.informative, item.item_id))
+            denominator = max(1, len(ranked) - 1)
+            candidates.extend(
+                (rank / denominator, not item.informative, item.item_id, item)
+                for rank, item in enumerate(ranked)
+            )
+        if len(candidates) < quota:
+            raise ChecksetBuildError(f"IFBench stratum {family!r} has {len(candidates)} items for quota {quota}.")
+        selected.extend(item for _, _, _, item in sorted(candidates, key=lambda candidate: candidate[:3])[:quota])
     return tuple(selected)
 
 
-def _apportion(capacities: Mapping[str, int], quota: int) -> dict[str, int]:
-    total = sum(capacities.values())
-    raw = {name: quota * capacity / total for name, capacity in capacities.items()}
-    apportioned = {name: min(int(raw[name]), capacity) for name, capacity in capacities.items()}
-    remaining = quota - sum(apportioned.values())
-    order = sorted(capacities, key=lambda name: (-(raw[name] - int(raw[name])), name))
-    while remaining:
-        eligible = [name for name in order if apportioned[name] < capacities[name]]
-        if not eligible:
-            raise ChecksetBuildError(f"Cannot apportion quota {quota} across capacity {total}.")
-        for name in eligible:
-            apportioned[name] += 1
-            remaining -= 1
-            if not remaining:
-                break
-    return apportioned
-
-
-def _select_kind_by_primary(
-    strata: Mapping[str, Sequence[SourceItem]],
-    *,
-    informative: bool,
-    quota: int,
-) -> tuple[SourceItem, ...]:
-    candidates = {
-        primary: tuple(item for item in items if item.informative is informative)
-        for primary, items in strata.items()
-    }
-    nonempty = {primary: len(items) for primary, items in candidates.items() if items}
-    apportioned = _apportion(nonempty, quota)
-    selected = [
-        item
-        for primary in sorted(nonempty)
-        for item in sorted(candidates[primary], key=lambda candidate: candidate.item_id)[: apportioned[primary]]
-    ]
-    return tuple(selected)
-
-
-def select_math_medium(
+def select_math_aime(
     rows: Sequence[Mapping[str, JsonValue]],
     *,
     quota: int,
     seed: int = SELECTION_SEED,
-) -> tuple[MediumMathItem, ...]:
+) -> tuple[AimeMathItem, ...]:
     import hashlib
     import json
 
+    if not rows:
+        raise ChecksetBuildError("OlymMATH en-easy input is empty.")
     strata: dict[str, list[tuple[int, Mapping[str, JsonValue]]]] = defaultdict(list)
     for index, row in enumerate(rows):
-        raw_topic = row.get("topic")
+        raw_topic = row.get("subject")
         topic = raw_topic if isinstance(raw_topic, str) and raw_topic else f"index-bucket-{index % 10:02d}"
         strata[topic].append((index, row))
     topics = sorted(strata)
     base_quota, remainder = divmod(quota, len(topics))
-    selected: list[MediumMathItem] = []
+    selected: list[AimeMathItem] = []
     rng = random.Random(seed)
     topic_priority = topics.copy()
     rng.shuffle(topic_priority)
@@ -156,7 +107,7 @@ def select_math_medium(
         count = base_quota + int(topic in bonuses)
         for index, row in sorted(candidates[:count], key=lambda pair: pair[0]):
             canonical = json.dumps(row, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
-            selected.append(MediumMathItem(index, topic, hashlib.sha256(canonical).hexdigest()))
+            selected.append(AimeMathItem(index, topic, hashlib.sha256(canonical).hexdigest()))
     if len(selected) != quota:
-        raise ChecksetBuildError(f"Math medium draw produced {len(selected)} rows, expected {quota}.")
+        raise ChecksetBuildError(f"Math AIME-band draw produced {len(selected)} rows, expected {quota}.")
     return tuple(sorted(selected, key=lambda item: item.upstream_index))

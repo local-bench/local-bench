@@ -10,15 +10,15 @@ from typing import Final
 from localbench.checkset.models import ItemRecord, JsonObject, JsonValue, ModuleRecord
 from localbench.checkset.select import (
     SELECTION_SEED,
-    MediumMathItem,
-    select_math_medium,
+    AimeMathItem,
+    select_math_aime,
 )
 
 GPQA_REPO: Final = "Idavidrein/gpqa"
 GPQA_CONFIG: Final = "gpqa_diamond"
 GPQA_REVISION: Final = "633f5ee89ab8ad4522a9f850766b73f62147ffdd"
 OLYMMATH_REPO: Final = "RUC-AIBOX/OlymMATH"
-OLYMMATH_MEDIUM_CONFIG: Final = "en-medium"
+OLYMMATH_AIME_CONFIG: Final = "en-easy"
 OLYMMATH_REVISION: Final = "2c6532ea2cf929ac1c421532af5951553eaee727"
 
 
@@ -39,6 +39,7 @@ def prepare_gpqa(
     rng = random.Random(SELECTION_SEED)
     records: list[ItemRecord] = []
     canary_log: list[JsonObject] = []
+    row_documents: list[JsonValue] = [dict(row) for row in rows]
     for index, row in enumerate(rows):
         record_id = _required_str(row, "Record ID")
         choices = [
@@ -65,7 +66,18 @@ def prepare_gpqa(
                 "removed_sha256": hashlib.sha256(canary.encode("utf-8")).hexdigest(),
             }
         )
-    return ModuleRecord(name="knowledge", scored=len(records), items=tuple(records)), tuple(canary_log)
+    return ModuleRecord(
+        name="knowledge",
+        scored=len(records),
+        items=tuple(records),
+        source={"dataset": GPQA_REPO, "revision": revision, "split": "train"},
+        scorer={"name": "mcq", "version": "localbench-v1"},
+        selection={
+            "algorithm": "complete-seeded-choice-shuffle-v1",
+            "inputs_sha256": _json_sha256(row_documents),
+            "seed": SELECTION_SEED,
+        },
+    ), tuple(canary_log)
 
 
 def fetch_gpqa() -> tuple[ModuleRecord, tuple[JsonObject, ...]]:
@@ -85,28 +97,76 @@ def fetch_gpqa() -> tuple[ModuleRecord, tuple[JsonObject, ...]]:
     return prepare_gpqa(rows, revision=GPQA_REVISION)
 
 
-def fetch_math_medium() -> tuple[MediumMathItem, ...]:
+def fetch_math_aime() -> tuple[AimeMathItem, ...]:
     try:
         from datasets import Dataset, get_dataset_config_names, load_dataset
     except ModuleNotFoundError as error:
         raise UpstreamError(OLYMMATH_REPO, "datasets build dependency is not installed") from error
     configs = get_dataset_config_names(OLYMMATH_REPO, revision=OLYMMATH_REVISION)
-    if OLYMMATH_MEDIUM_CONFIG not in configs:
+    if OLYMMATH_AIME_CONFIG not in configs:
         available = ", ".join(configs)
         raise UpstreamError(
             OLYMMATH_REPO,
-            f"locked revision {OLYMMATH_REVISION} has no {OLYMMATH_MEDIUM_CONFIG!r} config; available: {available}",
+            f"locked revision {OLYMMATH_REVISION} has no {OLYMMATH_AIME_CONFIG!r} config; available: {available}",
         )
     dataset = load_dataset(
         OLYMMATH_REPO,
-        OLYMMATH_MEDIUM_CONFIG,
+        OLYMMATH_AIME_CONFIG,
         split="test",
         revision=OLYMMATH_REVISION,
     )
     if not isinstance(dataset, Dataset):
         raise UpstreamError(OLYMMATH_REPO, "loader did not return a Dataset")
     rows = tuple(dict(row) for row in dataset)
-    return select_math_medium(rows, quota=30)
+    return select_math_aime(rows, quota=30)
+
+
+def combine_math_module(legacy: ModuleRecord, aime: Sequence[AimeMathItem]) -> ModuleRecord:
+    if legacy.name != "math-legacy" or legacy.scored != 30 or len(legacy.items) != 30:
+        raise UpstreamError(OLYMMATH_REPO, "legacy math input must contain exactly 30 authored records")
+    if len(aime) != 30:
+        raise UpstreamError(OLYMMATH_REPO, f"AIME-band draw contains {len(aime)} rows, expected 30")
+    aime_records = tuple(
+        ItemRecord(f"olymmath-en-easy-{item.upstream_index:05d}", item.content_sha256)
+        for item in aime
+    )
+    legacy_revision = legacy.source.get("revision") if isinstance(legacy.source, dict) else _json_sha256(
+        [item.as_json() for item in legacy.items]
+    )
+    legacy_inputs = legacy.selection.get("inputs_sha256") if isinstance(legacy.selection, dict) else legacy_revision
+    return ModuleRecord(
+        name="math",
+        scored=60,
+        items=legacy.items + aime_records,
+        source={
+            "dataset": "suite/v2/legacy-math+RUC-AIBOX/OlymMATH",
+            "revision": _json_sha256({"legacy": legacy_revision, "olymmath": OLYMMATH_REVISION}),
+            "split": "legacy-informative+test",
+        },
+        scorer={"name": "math_symbolic_numeric", "version": "localbench-v1"},
+        selection={
+            "algorithm": "legacy-cost-aware-plus-model-blind-subject-stratified-v1",
+            "inputs_sha256": _json_sha256(
+                {
+                    "aime": [
+                        {
+                            "content_sha256": item.content_sha256,
+                            "subject": item.subject,
+                            "upstream_index": item.upstream_index,
+                        }
+                        for item in aime
+                    ],
+                    "legacy": legacy_inputs,
+                }
+            ),
+            "seed": SELECTION_SEED,
+        },
+    )
+
+
+def _json_sha256(value: JsonValue) -> str:
+    data = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(data).hexdigest()
 
 
 def _required_str(row: Mapping[str, JsonValue], key: str) -> str:
