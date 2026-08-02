@@ -44,6 +44,7 @@ from localbench._scoring import (
 from localbench._suite import RenderedBench, read_json_object, render_benches
 from localbench._types import ItemResult, JsonObject, JsonValue
 from localbench.campaign import campaign_paths
+from localbench.checkset.command import build_command as build_checkset_command
 from localbench.coding_exec import OPT_IN_WARNING
 from localbench.coding_exec.orchestrate import (
     CodingExecConfig,
@@ -299,6 +300,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _compose_facet_backfill(args)
     if args.command == "tc-json":
         return _tc_json(args)
+    if args.command == "checkset":
+        exit_code, message = build_checkset_command(
+            args.repo_root,
+            args.output,
+            offline_upstream=args.offline_upstream,
+        )
+        print(message)
+        return exit_code
     parser.print_help()
     return 2
 
@@ -836,6 +845,16 @@ def _parser() -> argparse.ArgumentParser:
     tc_json_parser.add_argument("--api-key-env")
     tc_json_parser.add_argument("--max-items", type=int)
     tc_json_parser.add_argument("--concurrency", type=int, default=4)
+    checkset_parser = subparsers.add_parser("checkset", help=argparse.SUPPRESS)
+    checkset_subparsers = checkset_parser.add_subparsers(dest="checkset_command", required=True)
+    checkset_build_parser = checkset_subparsers.add_parser("build", help=argparse.SUPPRESS)
+    checkset_build_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    checkset_build_parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("checkset/check-set-v1.t2-draft.json"),
+    )
+    checkset_build_parser.add_argument("--offline-upstream", action="store_true", help=argparse.SUPPRESS)
     return parser
 
 
