@@ -142,8 +142,8 @@ describe("MethodologyPage", () => {
     expect(text).toContain("no arm reached 10%, so the pre-registered default of 40 was adopted");
     expect(text).toContain("length-finish rate was 0.27% (5/1863)");
     expect(text).toContain("below the 2% trigger, so R3 keeps 1024");
-    expect(text).toContain("canonical scored stage of the two-run stability campaign");
-    expect(text).toContain("drift was 0.0pp");
+    expect(text).toContain("executed per-turn cap was 3072");
+    expect(text).toContain("pooled over two bit-identical reruns per arm");
     expect(text).toContain("generic_think_tags_8192_v1");
     expect(text).toContain("Qwen35 native context is 262144");
     expect(text).toContain("26,574 MiB");
