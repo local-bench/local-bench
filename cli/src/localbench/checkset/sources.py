@@ -118,6 +118,10 @@ def build_local_modules(repo_root: Path) -> tuple[tuple[ModuleRecord, ...], tupl
             scorer="coding_exec",
             algorithm="all-informative-plus-cost-aware-complement-v1",
             selection_pool=coding_pool,
+            selection_strata={
+                item.item_id: "informative" if item.informative else "complement"
+                for item in coding
+            },
         ),
         _module(
             "instruction",
@@ -126,6 +130,10 @@ def build_local_modules(repo_root: Path) -> tuple[tuple[ModuleRecord, ...], tupl
             scorer="ifbench",
             algorithm="primary-stratum-informative-preferred-v1",
             selection_pool=source_items["ifbench"],
+            selection_strata={
+                item.item_id: min(item.instruction_ids).split(":", 1)[0]
+                for item in instruction
+            },
         ),
         _module(
             "math-legacy",
@@ -140,6 +148,7 @@ def build_local_modules(repo_root: Path) -> tuple[tuple[ModuleRecord, ...], tupl
             scorer="math_symbolic_numeric",
             algorithm="legacy-informative-cost-aware-v1",
             selection_pool=legacy_pool,
+            selection_strata={item.item_id: "legacy-informative" for item in math_legacy},
         ),
         _module(
             "tools-single",
@@ -148,6 +157,16 @@ def build_local_modules(repo_root: Path) -> tuple[tuple[ModuleRecord, ...], tupl
             scorer="tc_json_v1",
             algorithm="fresh-plus-informative-plus-lowest-multitool-v1",
             selection_pool=tools_pool,
+            selection_strata={
+                item.item_id: (
+                    "fresh-common-tools"
+                    if item.item_id in fresh_ids
+                    else "bfcl-informative"
+                    if item.informative
+                    else "bfcl-complement"
+                )
+                for item in tools
+            },
         ),
     )
     exclusions = tuple(_coding_exclusion(item_id) for item_id in CODING_EXCLUSIONS)
@@ -170,8 +189,12 @@ def _module(
     scorer: str,
     algorithm: str,
     selection_pool: tuple[SourceItem, ...],
+    selection_strata: dict[str, str],
 ) -> ModuleRecord:
-    records = tuple(ItemRecord(item.item_id, item.content_sha256) for item in items)
+    records = tuple(
+        ItemRecord(item.item_id, item.content_sha256, selection_strata[item.item_id])
+        for item in items
+    )
     return ModuleRecord(
         name=name,
         scored=len(records),

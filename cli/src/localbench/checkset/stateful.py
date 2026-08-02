@@ -55,7 +55,14 @@ def build_stateful(repo_root: Path) -> tuple[ModuleRecord, JsonObject]:
     module = ModuleRecord(
         name="tools-stateful",
         scored=48,
-        items=tuple(ItemRecord(_required_str(record, "item_id"), _required_str(record, "content_sha256")) for record in instances),
+        items=tuple(
+            ItemRecord(
+                _required_str(record, "item_id"),
+                _required_str(record, "content_sha256"),
+                "stateful",
+            )
+            for record in instances
+        ),
         source={"dataset": "checkset/stateful-templates.json", "revision": source_sha256, "split": "authored"},
         scorer={"name": "state-machine-exact", "version": "localbench-v1"},
         selection={"algorithm": "seeded-state-machine-4-per-template-v1", "inputs_sha256": source_sha256, "seed": SELECTION_SEED},

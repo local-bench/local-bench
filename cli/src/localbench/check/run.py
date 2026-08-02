@@ -7,6 +7,7 @@ from typing import cast
 
 from localbench._types import JsonObject, JsonValue
 from localbench.check.artifact import identify_artifact
+from localbench.check.analysis import analyze_run
 from localbench.check.budget import generation_parameters
 from localbench.check.execution import mock_lce_identity
 from localbench.check.reference import load_reference_bundle
@@ -56,6 +57,8 @@ def run_check(request: CheckRequest) -> tuple[Path, JsonObject]:
         else "unpaired"
     )
     grading = write_grades(run_dir, items)
+    artifact_class = _required_str(identity, "artifact_class")
+    statistics, verdict = analyze_run(run_dir, manifest, artifact_class=artifact_class)
     item_values: list[JsonValue] = [item for item in items]
     record: JsonObject = {
         "artifact": identity,
@@ -75,6 +78,8 @@ def run_check(request: CheckRequest) -> tuple[Path, JsonObject]:
         },
         "items": item_values,
         "grading": grading,
+        "statistics": statistics,
+        "verdict": verdict,
         "lifecycle": {
             "resume_explicit": request.resume is not None,
             "status": "dry-run-executed" if request.dry_run else "executed",

@@ -27,9 +27,14 @@ class ChecksetTypeError(TypeError):
 class ItemRecord:
     item_id: str
     content_sha256: str
+    selection_stratum: str = "complete"
 
     def as_json(self) -> JsonObject:
-        return {"content_sha256": self.content_sha256, "item_id": self.item_id}
+        return {
+            "content_sha256": self.content_sha256,
+            "item_id": self.item_id,
+            "selection_stratum": self.selection_stratum,
+        }
 
 
 @dataclass(frozen=True, slots=True)

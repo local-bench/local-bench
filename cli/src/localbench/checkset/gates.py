@@ -43,7 +43,14 @@ def build_sanity_gates(repo_root: Path) -> tuple[ModuleRecord, JsonObject]:
     module = ModuleRecord(
         name="sanity-gates",
         scored=18,
-        items=tuple(ItemRecord(_required_str(record, "item_id"), _required_str(record, "content_sha256")) for record in definitions),
+        items=tuple(
+            ItemRecord(
+                _required_str(record, "item_id"),
+                _required_str(record, "content_sha256"),
+                "gates",
+            )
+            for record in definitions
+        ),
         source={"dataset": "checkset/sanity-gates.json", "revision": source_sha256, "split": "authored"},
         scorer={"name": "sanity-gates-exact", "version": "localbench-v1"},
         selection={"algorithm": "complete-authored-gate-set-v1", "inputs_sha256": source_sha256, "seed": SELECTION_SEED},

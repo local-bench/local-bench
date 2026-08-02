@@ -32,12 +32,34 @@ def test_offline_regrade_is_byte_stable_and_never_mutates_generation_rows(
     assert (run_dir / "items.jsonl").read_bytes() == items_before
     assert first["n_items"] == 594
     assert record["grading"] == first
+    statistics = record["statistics"]
+    assert isinstance(statistics, dict)
+    gates = statistics["gates"]
+    assert isinstance(gates, dict)
+    assert gates["validity_total"] == 12
+    assert gates["behavioral_total"] == 6
+    design = statistics["resampling_design"]
+    assert isinstance(design, dict)
+    instruction = design["instruction"]
+    tools = design["tools"]
+    assert isinstance(instruction, dict) and instruction["strata"] == {
+        "count": 23,
+        "custom": 4,
+        "format": 35,
+        "ratio": 16,
+        "repeat": 2,
+        "sentence": 10,
+        "words": 30,
+    }
+    assert isinstance(tools, dict) and tools["cluster_count"] == 66
+    assert (run_dir / "statistics.json").is_file()
+    assert (run_dir / "verdict.json").is_file()
 
 
 def _fixture_gguf(path: Path) -> Path:
     key = b"general.architecture"
     value = b"qwen3"
-    path.write_bytes(
+    _ = path.write_bytes(
         b"GGUF"
         + struct.pack("<IQQ", 3, 0, 1)
         + struct.pack("<Q", len(key))

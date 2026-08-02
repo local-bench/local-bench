@@ -57,7 +57,13 @@ def prepare_gpqa(
             "source_revision": revision,
         }
         canonical = json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-        records.append(ItemRecord(f"gpqa-diamond-{record_id or index:}", hashlib.sha256(canonical).hexdigest()))
+        records.append(
+            ItemRecord(
+                f"gpqa-diamond-{record_id or index:}",
+                hashlib.sha256(canonical).hexdigest(),
+                "complete",
+            )
+        )
         canary = _required_str(row, "Canary String")
         canary_log.append(
             {
@@ -127,7 +133,11 @@ def combine_math_module(legacy: ModuleRecord, aime: Sequence[AimeMathItem]) -> M
     if len(aime) != 30:
         raise UpstreamError(OLYMMATH_REPO, f"AIME-band draw contains {len(aime)} rows, expected 30")
     aime_records = tuple(
-        ItemRecord(f"olymmath-en-easy-{item.upstream_index:05d}", item.content_sha256)
+        ItemRecord(
+            f"olymmath-en-easy-{item.upstream_index:05d}",
+            item.content_sha256,
+            f"aime:{item.subject}",
+        )
         for item in aime
     )
     legacy_revision = legacy.source.get("revision") if isinstance(legacy.source, dict) else _json_sha256(

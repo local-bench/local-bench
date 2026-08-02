@@ -73,7 +73,7 @@ def _validate_modules(modules: Sequence[ModuleRecord]) -> list[str]:
                 f"Manifest module item list {module.name!r} has {len(module.items)} records, expected {module.scored}."
             )
         for item in module.items:
-            if not item.item_id or not _is_sha256(item.content_sha256):
+            if not item.item_id or not _is_sha256(item.content_sha256) or not item.selection_stratum:
                 raise ChecksetBuildError(f"Manifest module {module.name!r} contains an invalid authored record.")
             module_ids.append(item.item_id)
         _validate_module_contract(module)

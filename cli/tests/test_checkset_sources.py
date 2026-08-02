@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -57,6 +58,27 @@ def test_real_pinned_inputs_produce_locked_t2_local_selections() -> None:
     assert len(by_name["tools-single"].items) == 54
     assert all(item.item_id.startswith("bcbh-") for item in by_name["coding"].items)
     assert all(item.item_id.startswith("ifbench-") for item in by_name["instruction"].items)
+    assert Counter(item.selection_stratum for item in by_name["coding"].items) == {
+        "complement": 58,
+        "informative": 38,
+    }
+    assert Counter(item.selection_stratum for item in by_name["instruction"].items) == {
+        "count": 23,
+        "custom": 4,
+        "format": 35,
+        "ratio": 16,
+        "repeat": 2,
+        "sentence": 10,
+        "words": 30,
+    }
+    assert Counter(item.selection_stratum for item in by_name["math-legacy"].items) == {
+        "legacy-informative": 30,
+    }
+    assert Counter(item.selection_stratum for item in by_name["tools-single"].items) == {
+        "bfcl-complement": 1,
+        "bfcl-informative": 23,
+        "fresh-common-tools": 30,
+    }
     assert exclusions == (
         {"item_id": "bcbh-006", "module": "coding", "reason": "sandbox-unscoreable"},
         {"item_id": "bcbh-007", "module": "coding", "reason": "sandbox-unscoreable"},

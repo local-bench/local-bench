@@ -35,6 +35,9 @@ def test_math_aime_draw_combines_with_legacy_math() -> None:
     assert tuple(item.item_id for item in combined.items[30:]) == tuple(
         f"olymmath-en-easy-{index:05d}" for index in range(30)
     )
+    assert tuple(item.selection_stratum for item in combined.items[30:]) == tuple(
+        f"aime:subject-{index % 3}" for index in range(30)
+    )
 
 
 def test_gpqa_preparation_strips_canary_and_shuffles_deterministically() -> None:
