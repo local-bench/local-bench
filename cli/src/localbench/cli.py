@@ -44,6 +44,7 @@ from localbench._scoring import (
 from localbench._suite import RenderedBench, read_json_object, render_benches
 from localbench._types import ItemResult, JsonObject, JsonValue
 from localbench.campaign import campaign_paths
+from localbench.check.command import check_command
 from localbench.checkset.command import build_command as build_checkset_command
 from localbench.coding_exec import OPT_IN_WARNING
 from localbench.coding_exec.orchestrate import (
@@ -300,6 +301,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _compose_facet_backfill(args)
     if args.command == "tc-json":
         return _tc_json(args)
+    if args.command == "check":
+        exit_code, message = check_command(
+            args.file,
+            parent=args.parent,
+            dry_run=args.dry_run,
+            manifest=args.manifest,
+            out=args.out,
+            resume=args.resume,
+            reference_bundle=args.reference_bundle,
+            reference_public_key=args.reference_public_key,
+            reference_checkset_edition=args.reference_checkset_edition,
+        )
+        print(message)
+        return exit_code
     if args.command == "checkset":
         exit_code, message = build_checkset_command(
             args.repo_root,
@@ -328,6 +343,21 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="store_true", help="print the localbench package version")
     subparsers = parser.add_subparsers(dest="command", required=True)
+    check_parser = subparsers.add_parser("check", help="compare a local GGUF with its pinned family reference")
+    check_parser.add_argument("file", type=Path, help="candidate GGUF file")
+    check_parser.add_argument("--parent", help="explicit parent/reference lineage id")
+    check_parser.add_argument("--dry-run", action="store_true", help="run the complete pipeline with the mock runner")
+    check_parser.add_argument("--resume", type=Path, help="explicitly resume an existing check run directory")
+    check_parser.add_argument("--out", type=Path, help="new run directory")
+    check_parser.add_argument(
+        "--manifest",
+        type=Path,
+        default=Path(__file__).resolve().parents[3] / "checkset" / "check-set-v1.manifest.json",
+        help=argparse.SUPPRESS,
+    )
+    check_parser.add_argument("--reference-bundle", type=Path, help="signed immutable reference-edition bundle")
+    check_parser.add_argument("--reference-public-key", help="trusted Ed25519 reference-edition public key")
+    check_parser.add_argument("--reference-checkset-edition", help=argparse.SUPPRESS)
     run_parser = subparsers.add_parser("run", help="run a local benchmark suite")
     run_parser.add_argument("--endpoint", help="OpenAI-compatible base URL")
     run_parser.add_argument("--model", help="model name to send in requests")
