@@ -139,8 +139,9 @@ describe("MethodologyPage", () => {
     expect(text).toContain("32768 thinking tokens + 16384 final tokens = 49152 promised generated tokens");
     expect(text).toContain("65536-token server context");
     expect(text).toContain("32768-token agentic context");
-    expect(text).toContain("max_turns 40 is provisional pending R2 PRO 6000 DEV calibration");
-    expect(text).toContain("0.32% length-finish rate was below the 2% trigger, so R3 keeps 1024");
+    expect(text).toContain("no arm reached 10%, so the pre-registered default of 40 was adopted");
+    expect(text).toContain("length-finish rate was 0.27% (5/1863)");
+    expect(text).toContain("below the 2% trigger, so R3 keeps 1024");
     expect(text).toContain("canonical scored stage of the two-run stability campaign");
     expect(text).toContain("drift was 0.0pp");
     expect(text).toContain("generic_think_tags_8192_v1");

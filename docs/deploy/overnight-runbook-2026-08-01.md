@@ -127,3 +127,44 @@ Dense checkpoint covering: Codex fix verdict + diff summary; gemma rerun evidenc
 chain; R2 curve + adopted cap; release state (published/held + why); queue position;
 the two tonight-catches (gemma budget-flow defect, appliance 3072 default shadow) and
 what now guards each.
+
+---
+
+## Addendum — R2 execution record (2026-08-02, post-oracle)
+
+Topology pivot chain: the pre-registered WSL-funnel→Windows-server topology is dead on
+this box (ProtonVPN kill-switch WFP filters drop WSL→host traffic; VPN config is
+owner-only) → all-WSL lane chosen after oracle consult `r2-path-forward` (GPT-5.6 Sol
+Pro, 2026-08-02) plus the post-consult discovery that WSL carries a complete system
+CUDA 13.3.1 toolkit at /usr/local/cuda. Server = llama.cpp b10076 (305ba51) built in
+WSL with that toolkit — same CUDA 13.3 family as the Windows campaign runtime; the
+residual parity gap (OS/compiler) is the consult's lowest-ranked validity threat. The
+oracle's A-path (owner Proton toggle) was not required: its own decision rule — "run R2
+iff A passes preflight or B succeeds in one clean build attempt" — was satisfied by B.
+
+Oracle gates implemented (topology-independent, ranked above parity by the consult):
+1. Per-task watchdog = 3000s (operating point), not the 1800s LoopConfig default that
+   censors the t48 tail. Funnel gained diagnostic `--per-task-timeout-s` (commit
+   de70bcc); driver GATE0 asserts the effective value from the printed loop line.
+2. Decision denominator frozen PRE-LAUNCH: runs 1+2 pooled per arm (72 task-runs);
+   ASR-drift-triggered 3rd runs are diagnostic-only. Decision rule: smallest cap with
+   cap_exceeded ≤ 10% (7/72 passes, 8/72 fails); flat / knife-edge / non-monotonic →
+   40. No post-hoc tie-breakers.
+3. GATE0 asserts manifest hash a77c910a8b24… / size 36 / seed 20260624 before any GPU
+   use; mismatch stops the driver.
+4. Smoke gate requires funnel exit 0 + serve-log growth + ≥1 persisted report, after a
+   direct chat probe returning HTTP 200 with a choices object (log growth alone is not
+   success). An EXIT/INT/TERM trap kills the server — no stale-server contamination.
+
+Post-R2, before the Phase 5 queue: one production-direction Windows→WSL smoke to
+reconfirm the scored lane (consult aftercare). VPN and Windows production lane
+untouched throughout.
+
+**R2 VERDICT (2026-08-02 12:10, run complete, overall_ok=true):** pooled cap_exceeded —
+t32 14/72 (19.44%), t40 10/72 (13.89%), t48 8/72 (11.11%); none ≤ 7/72, t48 misses by one
+event. ASR identical (0.1389) at all three caps across six bit-identical reruns; extra
+turns relabel cap_exceeded→failure, never produce successes. Per the pre-registered rule
+and the pre-stated none-pass treatment: **turn cap = 40**, per-task bound 65536 — the
+provisional contract v9 values, so **no re-mint and no ceremony**. Transport 4,201/0
+failures; 0 harness errors; per-turn format failures ≤1.67% (< the 2% R3 trigger — the
+1024 per-turn cap stands). Proceed to Phase 4.

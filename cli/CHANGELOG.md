@@ -7,10 +7,21 @@
   (49152 promised generated tokens), a 65536-token server context, and a
   32768-token agentic context. The 8k profiles remain historical/explicit;
   cross-profile scores are not compute-matched.
-- Records the decided R3 per-turn cap (1024 after the 0.32% length-finish rate
-  at the canonical scored stage of the two-run stability campaign, with 0.0pp
-  drift), the provisional 40-turn and 65536 cumulative task bounds pending R2
-  DEV calibration, and the fail-closed 64k context and runtime-evidence policy.
+- Records the decided R3 per-turn cap: 1024, contract-owned. Correction folded
+  in: the 0.4.13 stability campaign executed a 3072 per-turn cap (a worker
+  appliance LoopConfig default shadowed the host constant — a flow the
+  contract-owned budgets eliminate); measured length-finish at that cap was
+  0.27% (5/1863, per-turn p95 373 / p99 886 / max 3072), projecting to 0.75%
+  at 1024 — under the 2% trigger.
+- Freezes the agentic caps per the executed R2 dev calibration (2026-08-02,
+  RTX 5090, llama.cpp b10076, per-task watchdog 3000s): cap_exceeded_dev
+  19.44% at 32 turns, 13.89% at 40, 11.11% at 48 over two bit-identical
+  reruns per arm — no arm at or under 10%, so the pre-registered default of
+  40 turns stands, with the 65536 cumulative per-task bound never reached by
+  any task-run. Agentic success was identical (13.89%) at all three caps.
+- Adds a diagnostic `--per-task-timeout-s` override to the AppWorld funnel
+  tool (dev-split calibration only) and keeps the fail-closed 64k context and
+  runtime-evidence policy.
 
 ## 0.4.13 - 2026-07-31
 
