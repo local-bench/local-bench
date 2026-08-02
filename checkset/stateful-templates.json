@@ -1,0 +1,126 @@
+{
+  "schema_version": "localbench-stateful-templates-v1",
+  "templates": [
+    {
+      "name": "booking ledger",
+      "primary_id_argument": "booking_id",
+      "related_id_arguments": ["guest_id", "room_id"],
+      "states": ["requested", "held", "confirmed"],
+      "transitions": [
+        {"from": "requested", "to": "held", "tool": "hold_booking", "required": ["booking_id", "room_id"]},
+        {"from": "held", "to": "confirmed", "tool": "confirm_booking", "required": ["booking_id", "guest_id"]}
+      ]
+    },
+    {
+      "name": "inventory",
+      "primary_id_argument": "sku_id",
+      "related_id_arguments": ["bin_id", "order_id"],
+      "states": ["counted", "reserved", "decremented"],
+      "transitions": [
+        {"from": "counted", "to": "reserved", "tool": "reserve_stock", "required": ["sku_id", "bin_id", "quantity"]},
+        {"from": "reserved", "to": "decremented", "tool": "commit_stock", "required": ["sku_id", "order_id", "quantity"]}
+      ]
+    },
+    {
+      "name": "ticket triage",
+      "primary_id_argument": "ticket_id",
+      "related_id_arguments": ["queue_id", "agent_id"],
+      "states": ["new", "classified", "assigned", "resolved"],
+      "transitions": [
+        {"from": "new", "to": "classified", "tool": "classify_ticket", "required": ["ticket_id", "priority"]},
+        {"from": "classified", "to": "assigned", "tool": "assign_ticket", "required": ["ticket_id", "queue_id", "agent_id"]},
+        {"from": "assigned", "to": "resolved", "tool": "resolve_ticket", "required": ["ticket_id", "resolution_code"]}
+      ]
+    },
+    {
+      "name": "bank-lite ops",
+      "primary_id_argument": "transfer_id",
+      "related_id_arguments": ["source_account_id", "destination_account_id"],
+      "states": ["draft", "authorized", "posted"],
+      "transitions": [
+        {"from": "draft", "to": "authorized", "tool": "authorize_transfer", "required": ["transfer_id", "source_account_id", "amount_cents"]},
+        {"from": "authorized", "to": "posted", "tool": "post_transfer", "required": ["transfer_id", "destination_account_id", "amount_cents"]}
+      ]
+    },
+    {
+      "name": "calendar constraints",
+      "primary_id_argument": "event_id",
+      "related_id_arguments": ["calendar_id", "room_id"],
+      "states": ["proposed", "checked", "scheduled"],
+      "transitions": [
+        {"from": "proposed", "to": "checked", "tool": "check_conflicts", "required": ["event_id", "calendar_id", "slot"]},
+        {"from": "checked", "to": "scheduled", "tool": "schedule_event", "required": ["event_id", "room_id", "slot"]}
+      ]
+    },
+    {
+      "name": "config migration",
+      "primary_id_argument": "config_id",
+      "related_id_arguments": ["schema_id", "environment_id"],
+      "states": ["legacy", "validated", "migrated"],
+      "transitions": [
+        {"from": "legacy", "to": "validated", "tool": "validate_config", "required": ["config_id", "schema_id", "revision"]},
+        {"from": "validated", "to": "migrated", "tool": "migrate_config", "required": ["config_id", "environment_id", "revision"]}
+      ]
+    },
+    {
+      "name": "shipment tracking",
+      "primary_id_argument": "shipment_id",
+      "related_id_arguments": ["carrier_id", "destination_id"],
+      "states": ["created", "dispatched", "delivered"],
+      "transitions": [
+        {"from": "created", "to": "dispatched", "tool": "dispatch_shipment", "required": ["shipment_id", "carrier_id", "tracking_code"]},
+        {"from": "dispatched", "to": "delivered", "tool": "confirm_delivery", "required": ["shipment_id", "destination_id", "tracking_code"]}
+      ]
+    },
+    {
+      "name": "library loans",
+      "primary_id_argument": "loan_id",
+      "related_id_arguments": ["book_id", "patron_id"],
+      "states": ["available", "reserved", "loaned"],
+      "transitions": [
+        {"from": "available", "to": "reserved", "tool": "reserve_book", "required": ["loan_id", "book_id", "patron_id"]},
+        {"from": "reserved", "to": "loaned", "tool": "issue_loan", "required": ["loan_id", "patron_id", "due_day"]}
+      ]
+    },
+    {
+      "name": "seat allocation",
+      "primary_id_argument": "allocation_id",
+      "related_id_arguments": ["seat_id", "passenger_id"],
+      "states": ["open", "held", "allocated"],
+      "transitions": [
+        {"from": "open", "to": "held", "tool": "hold_seat", "required": ["allocation_id", "seat_id"]},
+        {"from": "held", "to": "allocated", "tool": "allocate_seat", "required": ["allocation_id", "passenger_id", "seat_id"]}
+      ]
+    },
+    {
+      "name": "subscription lifecycle",
+      "primary_id_argument": "subscription_id",
+      "related_id_arguments": ["plan_id", "customer_id"],
+      "states": ["trial", "approved", "active"],
+      "transitions": [
+        {"from": "trial", "to": "approved", "tool": "approve_subscription", "required": ["subscription_id", "customer_id", "plan_id"]},
+        {"from": "approved", "to": "active", "tool": "activate_subscription", "required": ["subscription_id", "plan_id", "start_day"]}
+      ]
+    },
+    {
+      "name": "warehouse picking",
+      "primary_id_argument": "pick_id",
+      "related_id_arguments": ["order_id", "bin_id"],
+      "states": ["queued", "picked", "packed"],
+      "transitions": [
+        {"from": "queued", "to": "picked", "tool": "pick_order", "required": ["pick_id", "order_id", "bin_id", "quantity"]},
+        {"from": "picked", "to": "packed", "tool": "pack_order", "required": ["pick_id", "order_id", "package_code"]}
+      ]
+    },
+    {
+      "name": "access-control admin",
+      "primary_id_argument": "request_id",
+      "related_id_arguments": ["user_id", "role_id"],
+      "states": ["requested", "approved", "granted"],
+      "transitions": [
+        {"from": "requested", "to": "approved", "tool": "approve_access", "required": ["request_id", "user_id", "role_id"]},
+        {"from": "approved", "to": "granted", "tool": "grant_role", "required": ["request_id", "user_id", "role_id", "scope"]}
+      ]
+    }
+  ]
+}

@@ -86,7 +86,9 @@ def test_checkset_build_cli_emits_an_explicit_offline_scaffold(tmp_path: Path) -
     document = json.loads(output.read_text(encoding="utf-8"))
     assert exit_code == 2
     assert document["status"] == "pending_dependencies"
-    assert document["pending_dependencies"] == ["knowledge", "math-aime", "tools-stateful", "sanity-gates"]
+    assert document["pending_dependencies"] == ["knowledge", "math-aime"]
+    assert document["stateful"]["status"] == "ready"
+    assert document["sanity_gates"]["status"] == "ready"
 
 
 def test_online_build_carries_provenance_and_combined_math(
@@ -99,6 +101,13 @@ def test_online_build_carries_provenance_and_combined_math(
         name="knowledge",
         scored=198,
         items=tuple(ItemRecord(f"gpqa-{index:03d}", f"{index:064x}") for index in range(198)),
+        source={
+            "dataset": "Idavidrein/gpqa",
+            "revision": "633f5ee89ab8ad4522a9f850766b73f62147ffdd",
+            "split": "train",
+        },
+        scorer={"name": "mcq", "version": "localbench-v1"},
+        selection={"algorithm": "complete-seeded-choice-shuffle-v1", "inputs_sha256": "f" * 64, "seed": 20260802},
     )
     canary_log = tuple(
         {"field": "Canary String", "item_id": item.item_id, "removed_sha256": "a" * 64}
@@ -108,16 +117,21 @@ def test_online_build_carries_provenance_and_combined_math(
     monkeypatch.setattr(checkset_command, "fetch_gpqa", lambda: (knowledge, canary_log))
     monkeypatch.setattr(checkset_command, "fetch_math_aime", lambda: aime)
 
-    # When the online T2 builder runs.
+    # When the online final builder runs with all T3-authored content available.
     output = tmp_path / "t2-draft.json"
     exit_code, _ = checkset_command.build_command(repo_root, output, offline_upstream=False)
 
-    # Then provenance, the complete canary log, and both math halves reach the scaffold.
+    # Then it emits the complete 600-item draft with provenance and both math halves.
     document = json.loads(output.read_text(encoding="utf-8"))
     modules = {module["name"]: module for module in document["modules"]}
-    assert exit_code == 2
-    assert document["pending_dependencies"] == ["tools-stateful", "sanity-gates"]
+    assert exit_code == 0
+    assert document["status"] == "complete-draft"
+    assert len(document["stateful"]["instances"]) == 48
+    assert len(document["stateful"]["spares_ordered"]) == 6
+    assert len(document["sanity_gates"]["definitions"]) == 18
+    assert sum(module["scored"] for module in document["modules"]) == 594
     assert len(document["source_metadata"]["gpqa_canary_strip_log"]) == 198
     assert document["source_metadata"]["math_aime"]["config"] == "en-easy"
     assert modules["math"]["scored"] == 60
     assert len(modules["math"]["items"]) == 60
+    assert output.with_name(f"{output.name}.sha256").is_file()

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from localbench.checkset.build import build_t2_scaffold
+from localbench.checkset.build import build_t2_scaffold, emit_manifest
+from localbench.checkset.gates import build_sanity_gates
 from localbench.checkset.models import JsonObject, ModuleRecord
 from localbench.checkset.sources import build_local_modules
+from localbench.checkset.stateful import build_stateful
 from localbench.checkset.upstream import (
     GPQA_CONFIG,
     GPQA_REPO,
@@ -21,8 +23,10 @@ from localbench.checkset.upstream import (
 
 def build_command(repo_root: Path, output: Path, *, offline_upstream: bool) -> tuple[int, str]:
     local_modules, exclusions = build_local_modules(repo_root)
-    pending = ["tools-stateful", "sanity-gates"]
-    modules: tuple[ModuleRecord, ...] = local_modules
+    stateful_module, stateful = build_stateful(repo_root)
+    gates_module, sanity_gates = build_sanity_gates(repo_root)
+    pending: list[str] = []
+    modules: tuple[ModuleRecord, ...] = (*local_modules, stateful_module, gates_module)
     metadata: JsonObject = {
         "gpqa": {"repository": GPQA_REPO, "config": GPQA_CONFIG, "revision": GPQA_REVISION},
         "math_aime": {
@@ -68,7 +72,17 @@ def build_command(repo_root: Path, output: Path, *, offline_upstream: bool) -> t
                     }
                     for item in aime
                 ]
-    build_t2_scaffold(
+    if not pending:
+        _ = emit_manifest(
+            output,
+            modules=modules,
+            stateful=stateful,
+            sanity_gates=sanity_gates,
+            source_metadata=metadata,
+            pool_exclusions=exclusions,
+        )
+        return 0, f"wrote deterministic complete draft to {output}"
+    _ = build_t2_scaffold(
         output,
         modules=modules,
         knowledge_status=knowledge_status,
@@ -76,6 +90,8 @@ def build_command(repo_root: Path, output: Path, *, offline_upstream: bool) -> t
         pool_exclusions=exclusions,
         pending_dependencies=pending,
         source_metadata=metadata,
+        stateful=stateful,
+        sanity_gates=sanity_gates,
     )
     detail = ", ".join(pending)
     return 2, f"wrote deterministic T2 scaffold to {output}; pending: {detail}"

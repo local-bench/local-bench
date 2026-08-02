@@ -8,12 +8,14 @@ from pathlib import Path
 import pytest
 
 from localbench.checkset.build import build_t2_scaffold, emit_manifest
+from localbench.checkset.gates import build_sanity_gates
 from localbench.checkset.models import (
     ChecksetBuildError,
     ItemRecord,
     JsonObject,
     ModuleRecord,
 )
+from localbench.checkset.stateful import build_stateful
 
 
 def _locked_modules() -> tuple[ModuleRecord, ...]:
@@ -27,6 +29,9 @@ def _locked_modules() -> tuple[ModuleRecord, ...]:
         "sanity-gates": 18,
     }
     modules: list[ModuleRecord] = []
+    repo_root = Path(__file__).resolve().parents[2]
+    authored_stateful, _ = build_stateful(repo_root)
+    authored_gates, _ = build_sanity_gates(repo_root)
     for name, count in counts.items():
         items = tuple(ItemRecord(f"{name}-{index:03d}", f"{index:064x}") for index in range(count))
         if name == "math":
@@ -34,6 +39,12 @@ def _locked_modules() -> tuple[ModuleRecord, ...]:
                 ItemRecord(f"olymmath-en-easy-{index:05d}", f"{index + 1000:064x}")
                 for index in range(30)
             )
+        if name == "tools-stateful":
+            modules.append(authored_stateful)
+            continue
+        if name == "sanity-gates":
+            modules.append(authored_gates)
+            continue
         modules.append(
             ModuleRecord(
             name=name,
@@ -48,18 +59,13 @@ def _locked_modules() -> tuple[ModuleRecord, ...]:
 
 
 def _stateful_metadata() -> JsonObject:
-    return {
-        "templates": [f"template-{index:02d}" for index in range(12)],
-        "instances": [
-            {"content_sha256": f"{index:064x}", "item_id": f"tools-stateful-{index:03d}"}
-            for index in range(48)
-        ],
-        "spares_ordered": [
-            {"content_sha256": f"{index + 1000:064x}", "item_id": f"stateful-spare-{index:03d}"}
-            for index in range(6)
-        ],
-        "cluster_map": {f"tools-stateful-{index:03d}": f"template-{index // 4:02d}" for index in range(48)},
-    }
+    _, metadata = build_stateful(Path(__file__).resolve().parents[2])
+    return metadata
+
+
+def _sanity_gates_metadata() -> JsonObject:
+    _, metadata = build_sanity_gates(Path(__file__).resolve().parents[2])
+    return metadata
 
 
 def _source_metadata() -> JsonObject:
@@ -105,6 +111,7 @@ def _emit(output: Path, *, modules: tuple[ModuleRecord, ...] | None = None, stat
         output,
         modules=modules or _locked_modules(),
         stateful=stateful or _stateful_metadata(),
+        sanity_gates=_sanity_gates_metadata(),
         source_metadata=source_metadata or _source_metadata(),
         pool_exclusions=_pool_exclusions(),
     )
@@ -147,7 +154,13 @@ def test_final_emit_rejects_non_locked_authored_totals(tmp_path: Path) -> None:
 
     # When final manifest emission is attempted, then it fails loudly.
     with pytest.raises(ValueError, match=r"576 scored \+ 18 gates \+ 6 spares = 600"):
-        emit_manifest(tmp_path / "manifest.json", modules=modules, stateful={}, source_metadata={})
+        emit_manifest(
+            tmp_path / "manifest.json",
+            modules=modules,
+            stateful={},
+            sanity_gates={},
+            source_metadata={},
+        )
 
 
 def test_final_emit_rejects_declared_counts_without_authored_items(tmp_path: Path) -> None:
@@ -160,6 +173,7 @@ def test_final_emit_rejects_declared_counts_without_authored_items(tmp_path: Pat
             tmp_path / "manifest.json",
             modules=modules,
             stateful=_stateful_metadata(),
+            sanity_gates=_sanity_gates_metadata(),
             source_metadata={},
         )
 

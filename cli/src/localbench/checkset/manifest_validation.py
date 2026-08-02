@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from collections import Counter
 from collections.abc import Sequence
 
+from localbench.checkset.gates import GATE_COUNTS
 from localbench.checkset.models import (
     ChecksetBuildError,
     JsonObject,
@@ -11,6 +13,7 @@ from localbench.checkset.models import (
     ModuleRecord,
 )
 from localbench.checkset.sources import CODING_EXCLUSIONS
+from localbench.checkset.stateful import TEMPLATE_NAMES
 from localbench.checkset.upstream import (
     GPQA_CONFIG,
     GPQA_REPO,
@@ -19,6 +22,7 @@ from localbench.checkset.upstream import (
     OLYMMATH_REPO,
     OLYMMATH_REVISION,
 )
+from localbench.submissions.canon import canonical_json_bytes
 
 LOCKED_COUNTS = {
     "knowledge": 198,
@@ -37,6 +41,7 @@ def validate_manifest_inputs(
     *,
     modules: Sequence[ModuleRecord],
     stateful: JsonObject,
+    sanity_gates: JsonObject,
     source_metadata: JsonObject,
     pool_exclusions: Sequence[JsonObject],
 ) -> None:
@@ -49,6 +54,7 @@ def validate_manifest_inputs(
         raise ChecksetBuildError("Manifest must contain 576 scored + 18 gates + 6 spares = 600 authored items.")
     module_ids = _validate_modules(modules)
     _validate_stateful(stateful, modules=modules, module_ids=module_ids)
+    _validate_sanity_gates(sanity_gates, modules=modules)
     knowledge = next(module for module in modules if module.name == "knowledge")
     math = next(module for module in modules if module.name == "math")
     _validate_source_metadata(
@@ -101,14 +107,13 @@ def _validate_module_contract(module: ModuleRecord) -> None:
 
 def _validate_stateful(stateful: JsonObject, *, modules: Sequence[ModuleRecord], module_ids: list[str]) -> None:
     templates = stateful.get("templates")
-    if not isinstance(templates, list) or len(templates) != 12 or len(set(_strings(templates))) != 12:
-        raise ChecksetBuildError("Manifest stateful templates must contain exactly 12 unique names.")
+    if not isinstance(templates, list) or templates != list(TEMPLATE_NAMES):
+        raise ChecksetBuildError("Manifest stateful templates must match the locked twelve names and ordering.")
     template_names = _strings(templates)
-    if len(template_names) != 12:
-        raise ChecksetBuildError("Manifest stateful templates must be strings.")
-    instance_ids = _authored_ids(stateful.get("instances"), label="stateful instances", expected=48)
+    instance_records = _authored_records(stateful.get("instances"), label="stateful instances", expected=48)
+    instance_ids = tuple(item_id for item_id, _ in instance_records)
     stateful_module = next(module for module in modules if module.name == "tools-stateful")
-    if set(instance_ids) != {item.item_id for item in stateful_module.items}:
+    if set(instance_records) != {(item.item_id, item.content_sha256) for item in stateful_module.items}:
         raise ChecksetBuildError("Manifest stateful authored records must match the tools-stateful module items.")
     cluster_map = stateful.get("cluster_map")
     if not isinstance(cluster_map, dict) or set(cluster_map) != set(instance_ids):
@@ -118,9 +123,42 @@ def _validate_stateful(stateful: JsonObject, *, modules: Sequence[ModuleRecord],
         raise ChecksetBuildError("Manifest stateful cluster map references an unknown template.")
     if Counter(clusters) != Counter({template: 4 for template in template_names}):
         raise ChecksetBuildError("Manifest stateful cluster map must assign four instances per template.")
-    spare_ids = _authored_ids(stateful.get("spares_ordered"), label="stateful spares", expected=6)
+    spare_records = _authored_records(stateful.get("spares_ordered"), label="stateful spares", expected=6)
+    spare_ids = tuple(item_id for item_id, _ in spare_records)
     if set(module_ids) & set(spare_ids) or len(set(spare_ids)) != len(spare_ids):
         raise ChecksetBuildError("Manifest authored item and spare ids must be globally unique.")
+    generator = stateful.get("generator")
+    if not isinstance(generator, dict) or generator.get("seed") != 20260802 or not _is_sha256(generator.get("source_sha256")):
+        raise ChecksetBuildError("Manifest stateful generator provenance is invalid.")
+
+
+def _validate_sanity_gates(sanity_gates: JsonObject, *, modules: Sequence[ModuleRecord]) -> None:
+    definitions = sanity_gates.get("definitions")
+    records = _authored_records(definitions, label="sanity gates", expected=18)
+    module = next(module for module in modules if module.name == "sanity-gates")
+    if set(records) != {(item.item_id, item.content_sha256) for item in module.items}:
+        raise ChecksetBuildError("Manifest sanity-gate definitions must match the sanity-gates module items.")
+    if not isinstance(definitions, list):
+        raise ChecksetBuildError("Manifest sanity-gate definitions must be a list.")
+    categories = Counter(record.get("category") for record in definitions if isinstance(record, dict))
+    if categories != Counter(GATE_COUNTS):
+        raise ChecksetBuildError("Manifest sanity gates must match the locked 18-item taxonomy.")
+    determinism_classes = [
+        value
+        for record in definitions
+        if isinstance(record, dict) and record.get("category") == "determinism"
+        for value in [record.get("canary_class")]
+        if isinstance(value, str)
+    ]
+    if set(determinism_classes) != {"short-form", "tool-or-stateful", "long-context"}:
+        raise ChecksetBuildError("Manifest determinism gates must cover the three locked canary classes.")
+    contract = sanity_gates.get("determinism_contract")
+    if contract != {
+        "comparison_fields": ["token_ids", "finish_reason", "parsed_tool_calls", "scorer_result"],
+        "independent_server_restarts": True,
+        "tolerance": 0,
+    }:
+        raise ChecksetBuildError("Manifest determinism gate contract must require exact independent-restart comparison.")
 
 
 def _validate_source_metadata(
@@ -195,19 +233,25 @@ def _validate_exclusions(pool_exclusions: Sequence[JsonObject]) -> None:
         raise ChecksetBuildError("Manifest must carry the seven pinned coding pool exclusions.")
 
 
-def _authored_ids(raw: JsonValue, *, label: str, expected: int) -> tuple[str, ...]:
+def _authored_records(raw: JsonValue, *, label: str, expected: int) -> tuple[tuple[str, str], ...]:
     if not isinstance(raw, list) or len(raw) != expected:
         count = len(raw) if isinstance(raw, list) else 0
         raise ChecksetBuildError(f"Manifest {label} has {count} records, expected {expected}.")
-    item_ids: list[str] = []
+    records: list[tuple[str, str]] = []
     for record in raw:
-        if not isinstance(record, dict) or set(record) != {"content_sha256", "item_id"}:
+        if not isinstance(record, dict) or not {"content_sha256", "item_id"}.issubset(record):
             raise ChecksetBuildError(f"Manifest {label} must contain authored records.")
         item_id = record.get("item_id")
-        if not isinstance(item_id, str) or not item_id or not _is_sha256(record.get("content_sha256")):
+        digest = record.get("content_sha256")
+        if not isinstance(item_id, str) or not item_id or not isinstance(digest, str) or not _is_sha256(digest):
             raise ChecksetBuildError(f"Manifest {label} contains an invalid authored record.")
-        item_ids.append(item_id)
-    return tuple(item_ids)
+        if len(record) > 2:
+            content = dict(record)
+            del content["content_sha256"]
+            if hashlib.sha256(canonical_json_bytes(content)).hexdigest() != digest:
+                raise ChecksetBuildError(f"Manifest {label} contains a content-hash mismatch.")
+        records.append((item_id, digest))
+    return tuple(records)
 
 
 def _is_sha256(value: JsonValue) -> bool:

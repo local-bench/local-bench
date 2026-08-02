@@ -21,6 +21,8 @@ def build_t2_scaffold(
     pool_exclusions: Sequence[JsonObject] = (),
     pending_dependencies: Sequence[str] = ("tools-stateful", "sanity-gates"),
     source_metadata: JsonObject | None = None,
+    stateful: JsonObject | None = None,
+    sanity_gates: JsonObject | None = None,
 ) -> JsonObject:
     document = policy_blocks()
     document.update(
@@ -33,7 +35,8 @@ def build_t2_scaffold(
             "modules": [module.as_json() for module in modules],
             "knowledge": {"status": knowledge_status, "error": knowledge_error},
             "pool_exclusions": list(pool_exclusions),
-            "stateful": {"status": "pending_t3", "templates": [], "instances": [], "spares_ordered": [], "cluster_map": {}},
+            "stateful": stateful or {"status": "pending_t3", "templates": [], "instances": [], "spares_ordered": [], "cluster_map": {}},
+            "sanity_gates": sanity_gates or {"status": "pending_t3", "definitions": []},
             "preregistration": {"spec_sha256": SPEC_SHA256, "locked_utc": LOCKED_UTC},
             "source_metadata": source_metadata or {},
         }
@@ -47,12 +50,14 @@ def emit_manifest(
     *,
     modules: Sequence[ModuleRecord],
     stateful: JsonObject,
+    sanity_gates: JsonObject,
     source_metadata: JsonObject,
     pool_exclusions: Sequence[JsonObject] = (),
 ) -> JsonObject:
     validate_manifest_inputs(
         modules=modules,
         stateful=stateful,
+        sanity_gates=sanity_gates,
         source_metadata=source_metadata,
         pool_exclusions=pool_exclusions,
     )
@@ -66,6 +71,7 @@ def emit_manifest(
             "modules": [module.as_json() for module in modules],
             "pool_exclusions": list(pool_exclusions),
             "stateful": stateful,
+            "sanity_gates": sanity_gates,
             "source_metadata": source_metadata,
             "preregistration": {"spec_sha256": SPEC_SHA256, "locked_utc": LOCKED_UTC},
         }
@@ -77,10 +83,10 @@ def emit_manifest(
 def _write_canonical(output: Path, document: JsonValue, *, sidecar: bool) -> None:
     data = canonical_json_bytes(document) + b"\n"
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_bytes(data)
+    _ = output.write_bytes(data)
     if sidecar:
         digest = hashlib.sha256(data).hexdigest()
-        output.with_name(f"{output.name}.sha256").write_text(
+        _ = output.with_name(f"{output.name}.sha256").write_text(
             f"{digest}  {output.name}\n",
             encoding="ascii",
             newline="\n",

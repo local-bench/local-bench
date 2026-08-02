@@ -852,7 +852,7 @@ def _parser() -> argparse.ArgumentParser:
     checkset_build_parser.add_argument(
         "--output",
         type=Path,
-        default=Path("checkset/check-set-v1.t2-draft.json"),
+        default=Path("checkset/check-set-v1.manifest.json"),
     )
     checkset_build_parser.add_argument("--offline-upstream", action="store_true", help=argparse.SUPPRESS)
     return parser
