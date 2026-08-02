@@ -10,6 +10,7 @@ from localbench.check.artifact import identify_artifact
 from localbench.check.budget import generation_parameters
 from localbench.check.execution import mock_lce_identity
 from localbench.check.reference import load_reference_bundle
+from localbench.check.regrade import write_grades
 from localbench.check.types import CheckError, ReferenceEdition
 from localbench.checkset.input_runs import read_json
 from localbench.submissions.canon import (
@@ -54,6 +55,7 @@ def run_check(request: CheckRequest) -> tuple[Path, JsonObject]:
         if reference.checkset_edition == manifest_edition and reference.execution_edition == "LCE-1"
         else "unpaired"
     )
+    grading = write_grades(run_dir, items)
     item_values: list[JsonValue] = [item for item in items]
     record: JsonObject = {
         "artifact": identity,
@@ -72,6 +74,7 @@ def run_check(request: CheckRequest) -> tuple[Path, JsonObject]:
             "outcome_conditioned_reruns": False,
         },
         "items": item_values,
+        "grading": grading,
         "lifecycle": {
             "resume_explicit": request.resume is not None,
             "status": "dry-run-executed" if request.dry_run else "executed",
