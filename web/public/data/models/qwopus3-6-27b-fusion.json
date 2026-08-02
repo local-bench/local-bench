@@ -1,0 +1,26 @@
+{
+  "artifacts": [
+    {
+      "file_gb": 19.5,
+      "file_sha256": "eeb9b184a180136b21fdd58e1cc66a47e031c176f7c1a76234ee469ce776609c",
+      "filename": "Qwopus3.6-27B-Fusion-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "KyleHessling1/Qwopus3.6-27B-Fusion-GGUF",
+      "revision": "99786cdf11a49e33164bd538262515a48283223c",
+      "vram_gb_8k": 21.7
+    }
+  ],
+  "base_model": "Qwen/Qwen3.6-27B",
+  "catalog_id": "KyleHessling1/Qwopus3.6-27B-Fusion",
+  "demo": false,
+  "family": "Qwen3.6",
+  "gguf_repo": "KyleHessling1/Qwopus3.6-27B-Fusion-GGUF",
+  "hf_model_id": null,
+  "kind": "community",
+  "license": "other",
+  "model_kind": "finetune",
+  "model_label": "Qwopus 3.6 27B Fusion",
+  "org": "KyleHessling1",
+  "runs": [],
+  "slug": "qwopus3-6-27b-fusion"
+}

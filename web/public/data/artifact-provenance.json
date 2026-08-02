@@ -13,6 +13,27 @@
     "verified": "hf-lfs-oid",
     "verified_at": "2026-07-26"
   },
+  "37d93cb02a08e42a2b8e917d79efc340709b90546cac1fa655121ccadf4aa791": {
+    "filename": "ThinkingCap-Qwen3.6-27B-Q6_K.gguf",
+    "repo_id": "bottlecapai/ThinkingCap-Qwen3.6-27B-GGUF",
+    "revision": "0982db1be5e1e6cf7163ba89d7f63a9f18d2f4f0",
+    "verified": "hf-lfs-oid",
+    "verified_at": "2026-08-02"
+  },
+  "3db422cf36c7efacb027396a11df287c0fc469829bd7daf1867a3505a9e44af6": {
+    "filename": "Qwen3.6-27B-UD-Q2_K_XL.gguf",
+    "repo_id": "unsloth/Qwen3.6-27B-GGUF",
+    "revision": "82d411acf4a06cfb8d9b073a5211bf410bfc29bf",
+    "verified": "hf-lfs-oid",
+    "verified_at": "2026-08-02"
+  },
+  "85a5709aec6e2f5f086eb2aa7cb53081fd7021198490ad24cb0463569a12f238": {
+    "filename": "Qwen3.6-27B-Fable-Fus-711-UnHeretic-NM-DAU-NEO-MAX-NEO-LOW-MTP-Q6_K.gguf",
+    "repo_id": "DavidAU/Qwen3.6-27B-Fable-Fusion-711-Uncensored-Heretic-NM-DAU-NEO-MAX-MTP-GGUF",
+    "revision": "8b3bbc383f223d7cc2ae6931864b578a76b2ef3e",
+    "verified": "hf-lfs-oid",
+    "verified_at": "2026-08-02"
+  },
   "ac0e2c1189e055faa36eff361580e79c5bd6f8e76bffb4ce547f167d53e31a61": {
     "filename": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
     "repo_id": "unsloth/Qwen3.6-35B-A3B-GGUF",
@@ -26,5 +47,12 @@
     "revision": "f18012b8f690e563b7f872cb764b4cb3de90b14a",
     "verified": "hf-lfs-oid",
     "verified_at": "2026-07-27"
+  },
+  "eeb9b184a180136b21fdd58e1cc66a47e031c176f7c1a76234ee469ce776609c": {
+    "filename": "Qwopus3.6-27B-Fusion-Q5_K_M.gguf",
+    "repo_id": "KyleHessling1/Qwopus3.6-27B-Fusion-GGUF",
+    "revision": "99786cdf11a49e33164bd538262515a48283223c",
+    "verified": "hf-lfs-oid",
+    "verified_at": "2026-08-02"
   }
 }
