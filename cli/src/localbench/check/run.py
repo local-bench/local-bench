@@ -10,6 +10,7 @@ from localbench.check.artifact import identify_artifact
 from localbench.check.analysis import analyze_run
 from localbench.check.budget import generation_parameters
 from localbench.check.execution import mock_lce_identity
+from localbench.check.kld import unavailable_kld
 from localbench.check.reference import load_reference_bundle
 from localbench.check.regrade import write_grades
 from localbench.check.types import CheckError, ReferenceEdition
@@ -59,6 +60,8 @@ def run_check(request: CheckRequest) -> tuple[Path, JsonObject]:
     grading = write_grades(run_dir, items)
     artifact_class = _required_str(identity, "artifact_class")
     statistics, verdict = analyze_run(run_dir, manifest, artifact_class=artifact_class)
+    kld = unavailable_kld("pinned reference weights are not local in dry-run mode")
+    write_json_file(run_dir / "kld.json", kld)
     item_values: list[JsonValue] = [item for item in items]
     record: JsonObject = {
         "artifact": identity,
@@ -84,6 +87,7 @@ def run_check(request: CheckRequest) -> tuple[Path, JsonObject]:
             "resume_explicit": request.resume is not None,
             "status": "dry-run-executed" if request.dry_run else "executed",
         },
+        "kld": kld,
         "manifest": {"edition": manifest_edition, "sha256": manifest_sha256},
         "schema_version": "localbench-check-run-v1",
     }
