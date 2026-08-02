@@ -1,0 +1,46 @@
+{
+  "base_q5km": {
+    "source_path": "C:\\Users\\Michael\\lb-rung0\\runs\\qwen36-27b-q5km-0411",
+    "sha256": {
+      "localbench-run.json": "a7b2f4cd2531ee2dc937b7111c8246e28f2f2e0f2b83dd98f222575be6034a24",
+      "benchmarks/bigcodebench_hard.scored_items.jsonl": "dcde8504e915e740af6acd783a46ff6c55d8240244d2ef31b7c3a2cba30448b8",
+      "benchmarks/ifbench.scored_items.jsonl": "5d48e1d5602d331865d5433892e7e887f725490db3675758746f9edb94d44406",
+      "benchmarks/olymmath_hard.scored_items.jsonl": "2c9c994299cf23664d68b027da9d02efc40eceab845b25f6c02399fc4a356fe6",
+      "benchmarks/amo.scored_items.jsonl": "22eb48a24f8ad87fce4ce2d3889604051e1e81905efec27e785f0de55b079dcf",
+      "benchmarks/tc_json_v1.scored_items.jsonl": "28c476be1dbe19243edfd962fea17a9915ca7dc8e2fdfe7507ee6856f1db3dd3"
+    }
+  },
+  "q6k": {
+    "source_path": "C:\\Users\\Michael\\lb-rung0\\runs\\qwen36-27b-q6k-046",
+    "sha256": {
+      "localbench-run.json": "07503cf76542c703d564c71d0235395800315fb9ffff8c5949e2b1acc05c4f07",
+      "benchmarks/bigcodebench_hard.scored_items.jsonl": "fa68d0a3a7d1a35f95909e73072da2afefd24208e89053fa94de904ef0306bfb",
+      "benchmarks/ifbench.scored_items.jsonl": "c96694d9700052933eac0e14c7b8cf369efa6c4aa3fd2338710ccddfeb9d39f4",
+      "benchmarks/olymmath_hard.scored_items.jsonl": "96981538809087ae3a5ee338966b17172d1e2ececd071825903f907dfc4348c8",
+      "benchmarks/amo.scored_items.jsonl": "ee9c51146a463f320f42056510e5f1a72751e96ae04697865e60cfdaf44d17bd",
+      "benchmarks/tc_json_v1.scored_items.jsonl": "1d7cd4909efd1bdda6be9027d7c875f8604a413a8a9fee7d52848d06e16aea12"
+    }
+  },
+  "udq2": {
+    "source_path": "C:\\Users\\Michael\\lb-rung0\\runs\\qwen36-27b-udq2-045",
+    "sha256": {
+      "localbench-run.json": "6e729b828a57d5dac9b18acca98a2f43f599b75a1886dec7006cc5b60feb541d",
+      "benchmarks/bigcodebench_hard.scored_items.jsonl": "4abaf89fe796d28095a88beeb67ce7eef405852ca33ebe55d00a6d2e0f0d8fbb",
+      "benchmarks/ifbench.scored_items.jsonl": "96974105915f4a85e59981fe7b5c477346ff0b6e44f777a2f7102d87e4b90087",
+      "benchmarks/olymmath_hard.scored_items.jsonl": "3b0d823af6b2fe7a845d858573dcb38a068a22099981330d7710c15191bb9c45",
+      "benchmarks/amo.scored_items.jsonl": "edad2d21217b798f675c8105c87eeebd973017e14270d0210c40d6adfddc6309",
+      "benchmarks/tc_json_v1.scored_items.jsonl": "51c82d3fa4df6854d1184d0d633094e7f3d5c99ac4547b83c719ae91979f1b17"
+    }
+  },
+  "fusion": {
+    "source_path": "C:\\Users\\Michael\\lb-rung0\\runs\\qwopus-fusion-q5km-0413",
+    "sha256": {
+      "localbench-run.json": "7b746d38d81ef01d27d8d52b59546f61a826dfba7777cbd04d63b896e9ed8952",
+      "benchmarks/bigcodebench_hard.scored_items.jsonl": "c6790dee997570dfb7eaab9da9ce24f69c73b47ea4118da0dec6aa188d736bcc",
+      "benchmarks/ifbench.scored_items.jsonl": "20429684a6cbdab45cc7fb442819b7db8cad9b8e3b51003bdd08cbdf99aa9c9e",
+      "benchmarks/olymmath_hard.scored_items.jsonl": "7f30cfc9167ac9bc60b8db3fa588dacd0217ea2fc192847cb4d5f61c56e90314",
+      "benchmarks/amo.scored_items.jsonl": "079cdb9ce993132a6bd477860934bcab86e94b214dcab29909916eb9def220b9",
+      "benchmarks/tc_json_v1.scored_items.jsonl": "bd00e97b341f7b76f45fc13ea00dc02b09265670caeea740ad52ae1db9764e18"
+    }
+  }
+}
