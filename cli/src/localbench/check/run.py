@@ -11,6 +11,7 @@ from localbench.check.analysis import analyze_run
 from localbench.check.budget import generation_parameters
 from localbench.check.execution import mock_lce_identity
 from localbench.check.kld import unavailable_kld
+from localbench.check.performance import mock_performance
 from localbench.check.reference import load_reference_bundle
 from localbench.check.regrade import write_grades
 from localbench.check.types import CheckError, ReferenceEdition
@@ -61,7 +62,10 @@ def run_check(request: CheckRequest) -> tuple[Path, JsonObject]:
     artifact_class = _required_str(identity, "artifact_class")
     statistics, verdict = analyze_run(run_dir, manifest, artifact_class=artifact_class)
     kld = unavailable_kld("pinned reference weights are not local in dry-run mode")
+    execution = mock_lce_identity()
+    performance = mock_performance(items, execution)
     write_json_file(run_dir / "kld.json", kld)
+    write_json_file(run_dir / "performance.json", performance)
     item_values: list[JsonValue] = [item for item in items]
     record: JsonObject = {
         "artifact": identity,
@@ -72,7 +76,7 @@ def run_check(request: CheckRequest) -> tuple[Path, JsonObject]:
             "reference_edition": reference.as_dict(),
             "verdict": "pending-grading" if pairing_status == "paired" else "unpaired",
         },
-        "execution": mock_lce_identity(),
+        "execution": execution,
         "failure_policy": {
             "denominator_reduction": False,
             "infrastructure": "invalidate-or-explicit-resume-with-prior-records-immutable",
@@ -89,6 +93,7 @@ def run_check(request: CheckRequest) -> tuple[Path, JsonObject]:
         },
         "kld": kld,
         "manifest": {"edition": manifest_edition, "sha256": manifest_sha256},
+        "performance": performance,
         "schema_version": "localbench-check-run-v1",
     }
     write_json_file(run_dir / "check-record.json", record)

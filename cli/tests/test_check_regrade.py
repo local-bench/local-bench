@@ -54,6 +54,17 @@ def test_offline_regrade_is_byte_stable_and_never_mutates_generation_rows(
     assert isinstance(tools, dict) and tools["cluster_count"] == 66
     assert (run_dir / "statistics.json").is_file()
     assert (run_dir / "verdict.json").is_file()
+    performance = record["performance"]
+    assert isinstance(performance, dict)
+    controlled = performance["controlled"]
+    task_phase = performance["task_phase"]
+    assert isinstance(controlled, dict)
+    assert isinstance(task_phase, dict)
+    assert controlled["runner"] == "mock"
+    task_rows = task_phase["items"]
+    assert isinstance(task_rows, list) and len(task_rows) == 594
+    assert task_phase["label"] == "naturalistic"
+    assert (run_dir / "performance.json").is_file()
 
 
 def _fixture_gguf(path: Path) -> Path:
