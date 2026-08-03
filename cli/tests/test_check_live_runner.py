@@ -98,7 +98,7 @@ class _StubHandler(BaseHTTPRequestHandler):
                 return
             stop = body.get("stop")
             if stop == ["</think>"]:
-                self._sse("<think>stub reasoning", "length", completion_tokens=4096)
+                self._sse("<think>stub reasoning", "stop", completion_tokens=32)
             else:
                 assert "</think>" in str(body.get("prompt"))
                 self._sse("101", "stop", completion_tokens=1)
@@ -201,7 +201,7 @@ def test_lce_argv_pins_binary_context_batch_and_all_normative_flags(tmp_path: Pa
     ):
         index = argv.index(pair[0])
         assert argv[index : index + 2] == list(pair)
-    for pair in (("-ctk", "f16"), ("-ctv", "f16"), ("--fit", "off"), ("-lv", "4")):
+    for pair in (("-ctk", "f16"), ("-ctv", "f16"), ("--fit", "off"), ("--reasoning-format", "none"), ("-lv", "4")):
         index = argv.index(pair[0])
         assert argv[index : index + 2] == list(pair)
 
@@ -257,7 +257,7 @@ def test_live_runner_streams_forced_budget_and_restarts_determinism_canary(
     repeated = row["candidate_repeat"]
     assert isinstance(candidate, dict) and isinstance(repeated, dict)
     assert candidate["server_start_id"] != repeated["server_start_id"]
-    assert candidate["protocol_flag"] == "think-budget-exhausted"
+    assert candidate["protocol_flag"] is None
     assert candidate["token_ids"] == [31, 32, 33]
     completions = [request for request in state.requests if request.get("stream") is True]
     assert len(completions) == 4

@@ -3,9 +3,13 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+import pytest
+
 from localbench._types import JsonObject
 from localbench.check.budget import generation_parameters, normalize_generation
 from localbench.check.execution import collect_lce_identity
+from localbench.check.live_reference import validate_execution_pair
+from localbench.check.types import CheckError
 
 
 def test_lce_identity_hashes_the_exact_binaries_and_captures_props(tmp_path: Path) -> None:
@@ -24,6 +28,7 @@ def test_lce_identity_hashes_the_exact_binaries_and_captures_props(tmp_path: Pat
     assert identity["commit"] == "305ba51"
     assert identity["cuda_version"] == "13.3"
     assert identity["flags"] == ["-ctk", "f16", "-ctv", "f16", "--fit", "off", "-lv", "4"]
+    assert identity["reasoning_transport"] == "inline"
     binaries = identity["binaries"]
     assert isinstance(binaries, dict)
     assert binaries["llama-server.exe"] == hashlib.sha256(b"server").hexdigest()
@@ -40,6 +45,14 @@ def test_generation_parameters_are_explicit_and_use_locked_module_budgets() -> N
         "think_budget_tokens": 4096,
     }
     assert generation_parameters("tools-stateful")["max_tokens"] == 4864
+
+
+def test_execution_pair_requires_identical_reasoning_transport() -> None:
+    candidate: JsonObject = {"reasoning_transport": "inline"}
+    reference: JsonObject = {"reasoning_transport": "separate-field"}
+
+    with pytest.raises(CheckError, match="reasoning_transport"):
+        validate_execution_pair(candidate, reference)
 
 
 def test_budget_normalization_force_closes_without_rerun_and_scores_length_as_is() -> None:

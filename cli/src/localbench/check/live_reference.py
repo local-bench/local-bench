@@ -22,6 +22,7 @@ _PAIR_IDENTITY_KEYS: Final = (
     "edition",
     "flags",
     "prompt_rendering",
+    "reasoning_transport",
     "repo_defaults_disabled",
     "server_defaults_disabled",
 )
