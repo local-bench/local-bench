@@ -3,7 +3,7 @@
   "gates": [
     {"item_id": "gate-stop-token-01", "category": "stop-token", "gate_kind": "validity", "prompt": "Return ALPHA then stop at <END>.", "expected": {"required": "ALPHA", "stop_marker": "<END>", "forbidden_suffix": "OMEGA"}},
     {"item_id": "gate-stop-token-02", "category": "stop-token", "gate_kind": "validity", "prompt": "Return BRAVO and terminate at </final>.", "expected": {"required": "BRAVO", "stop_marker": "</final>", "forbidden_suffix": "CHARLIE"}},
-    {"item_id": "gate-stop-token-03", "category": "stop-token", "gate_kind": "validity", "prompt": "Emit 31415 followed by the stop token.", "expected": {"required": "31415", "stop_marker": "<STOP>", "forbidden_suffix": "926"}},
+    {"item_id": "gate-stop-token-03", "category": "stop-token", "gate_kind": "validity", "prompt": "Emit 31415 then stop at <STOP>.", "expected": {"required": "31415", "stop_marker": "<STOP>", "forbidden_suffix": "926"}},
     {"item_id": "gate-budget-control-01", "category": "budget-control", "gate_kind": "validity", "prompt": "Use the full bounded think phase, then answer red.", "expected": {"answer": "red", "answer_budget": 512, "think_budget": 4096}},
     {"item_id": "gate-budget-control-02", "category": "budget-control", "gate_kind": "validity", "prompt": "Close thinking before answering seven.", "expected": {"answer": "seven", "answer_budget": 512, "think_budget": 4096}},
     {"item_id": "gate-budget-control-03", "category": "budget-control", "gate_kind": "validity", "prompt": "Give the final answer cobalt after bounded reasoning.", "expected": {"answer": "cobalt", "answer_budget": 512, "think_budget": 4096}},
@@ -18,6 +18,6 @@
     {"item_id": "gate-long-context-24576", "category": "long-context-needle", "gate_kind": "behavioral", "prompt": "Read the padded context and return only the embedded needle value.", "needle": "MORETON-24576", "nominal_target_tokens": 24576, "pinned_word_count": 16948, "construction_tokens_per_word_bound": 1.45, "padding": {"algorithm": "sha256-wordbank-padding-v1", "seed": 20260802, "depth_ppm": 500000}, "expected": {"answer": "MORETON-24576"}},
     {"item_id": "gate-determinism-short", "category": "determinism", "gate_kind": "validity", "prompt": "Return the next prime after 100.", "canary_class": "short-form", "expected": {"answer": "101"}},
     {"item_id": "gate-determinism-tool", "category": "determinism", "gate_kind": "validity", "prompt": "Call lookup with id det-7 and return its value.", "canary_class": "tool-or-stateful", "expected": {"tool": "lookup", "arguments": {"id": "det-7"}}},
-    {"item_id": "gate-determinism-long", "category": "determinism", "gate_kind": "validity", "prompt": "Recover the final checksum from a 24k context.", "canary_class": "long-context", "target_tokens": 24576, "expected": {"answer": "D3T-24576"}}
+    {"item_id": "gate-determinism-long", "category": "determinism", "gate_kind": "validity", "prompt": "Recover only the final checksum from the padded context.", "canary_class": "long-context", "checksum": "D3T-24576", "nominal_target_tokens": 24576, "pinned_word_count": 16948, "construction_tokens_per_word_bound": 1.45, "padding": {"algorithm": "sha256-wordbank-padding-v1", "seed": 20260802, "depth_ppm": 950000}, "expected": {"answer": "D3T-24576"}}
   ]
 }

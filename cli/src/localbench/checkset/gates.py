@@ -128,11 +128,16 @@ def determinism_canary_matches(first: JsonObject, second: JsonObject) -> bool:
 
 
 def _materialize_gate(source: JsonObject) -> JsonObject:
-    if source.get("category") != "long-context-needle":
+    is_needle = source.get("category") == "long-context-needle"
+    is_long_determinism = (
+        source.get("category") == "determinism"
+        and source.get("canary_class") == "long-context"
+    )
+    if not is_needle and not is_long_determinism:
         return dict(source)
     item_id = _required_str(source, "item_id")
     prompt = _required_str(source, "prompt")
-    needle = _required_str(source, "needle")
+    embedded_value = _required_str(source, "needle" if is_needle else "checksum")
     nominal_target_tokens = source.get("nominal_target_tokens")
     pinned_word_count = source.get("pinned_word_count")
     tokens_per_word_bound = source.get("construction_tokens_per_word_bound")
@@ -154,25 +159,26 @@ def _materialize_gate(source: JsonObject) -> JsonObject:
         raise ChecksetBuildError("Long-context padding algorithm and seed must be pinned.")
     if not isinstance(depth_ppm, int) or not 0 < depth_ppm < 1_000_000:
         raise ChecksetBuildError("Long-context padding depth_ppm must be between zero and one million.")
-    if expected.get("answer") != needle:
-        raise ChecksetBuildError("Long-context expected answer must equal its needle.")
-    needle_index = pinned_word_count * depth_ppm // 1_000_000
-    if needle_index <= 0 or needle_index >= pinned_word_count - 1:
-        raise ChecksetBuildError("Long-context needle must have non-empty prefix and suffix padding.")
+    if expected.get("answer") != embedded_value:
+        raise ChecksetBuildError("Long-context expected answer must equal its embedded value.")
+    embedding_index = pinned_word_count * depth_ppm // 1_000_000
+    if embedding_index <= 0 or embedding_index >= pinned_word_count - 1:
+        raise ChecksetBuildError("Long-context value must have non-empty prefix and suffix padding.")
     words = [_padding_word(seed, item_id, index) for index in range(pinned_word_count)]
-    words[needle_index] = f"NEEDLE={needle}"
+    words[embedding_index] = f"{'NEEDLE' if is_needle else 'CHECKSUM'}={embedded_value}"
     context = " ".join(words)
     record = dict(source)
     record["prompt"] = f"{prompt}\n<context>\n{context}\n</context>"
-    record["needle_embedding"] = {
+    embedding: JsonObject = {
         "algorithm": PADDING_ALGORITHM,
-        "depth_ratio": round(needle_index / (pinned_word_count - 1), 6),
-        "needle_word_index": needle_index,
-        "prefix_words": needle_index,
-        "suffix_words": pinned_word_count - needle_index - 1,
+        "depth_ratio": round(embedding_index / (pinned_word_count - 1), 6),
+        "prefix_words": embedding_index,
+        "suffix_words": pinned_word_count - embedding_index - 1,
         "window_sha256": hashlib.sha256(context.encode("utf-8")).hexdigest(),
         "window_words": pinned_word_count,
     }
+    embedding["needle_word_index" if is_needle else "checksum_word_index"] = embedding_index
+    record["needle_embedding" if is_needle else "checksum_embedding"] = embedding
     return record
 
 

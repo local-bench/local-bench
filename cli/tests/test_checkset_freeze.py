@@ -45,8 +45,8 @@ def test_freeze_records_review_when_fresh_draft_matches_reviewed_sha() -> None:
         },
         "status": "frozen",
         "supersedes": {
-            "previous_frozen_sha256": "96896021d6befb40187d8cef53a98beadde4cd2348c719ee0c492176e59cf0a7",
-            "reason": "pre-validation construction defect: deepest needle window exceeded LCE context under real tokenizers",
+            "previous_frozen_sha256": "482be15bf30485a07c0442ff7168f11778011a59c5cb58d017346993ee45b759",
+            "reason": "pre-validation gate content corrections from smoke evidence; zero scored results exist",
             "corrected_local": "2026-08-03",
         },
     }
