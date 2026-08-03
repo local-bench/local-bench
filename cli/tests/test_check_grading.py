@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from localbench.check.grading import grade_response, sandbox_command
+from localbench.checkset.models import JsonObject
 from localbench.coding_exec.sandbox import MANDATORY_SECURITY_FLAGS
 
 
@@ -34,8 +35,8 @@ def test_grade_response_routes_v1_knowledge_instruction_and_math_scorers() -> No
 
 
 def test_grade_response_routes_tc_json_and_stateful_scorers() -> None:
-    call = {"name": "weather.get", "arguments": {"location": "Brisbane"}}
-    tc_item = {
+    call: JsonObject = {"name": "weather.get", "arguments": {"location": "Brisbane"}}
+    tc_item: JsonObject = {
         "id": "tc-test",
         "source": "fixture",
         "stratum": "single",
@@ -63,7 +64,7 @@ def test_grade_response_routes_tc_json_and_stateful_scorers() -> None:
     tc_text = json.dumps({"schema_version": "localbench.tc.v1", "calls": [call]})
     tc = grade_response("tools-single", tc_item, {"text": tc_text, "finish_reason": "stop"})
 
-    instance = {
+    instance: JsonObject = {
         "initial_state": {"current": "new", "entity_id": "x"},
         "canonical_final_state": {"current": "done", "entity_id": "x"},
         "required_arguments": {"finish": {"id": "x"}},
@@ -110,12 +111,12 @@ def test_sandbox_command_keeps_all_v1_security_flags() -> None:
 
 
 def test_sanity_gate_determinism_requires_independent_identical_restarts() -> None:
-    source = {
+    source: JsonObject = {
         "category": "determinism",
         "gate_kind": "validity",
         "expected": {"answer": "101"},
     }
-    first = {
+    first: JsonObject = {
         "server_start_id": "one",
         "text": "101",
         "token_ids": [1, 0, 1],
@@ -123,13 +124,47 @@ def test_sanity_gate_determinism_requires_independent_identical_restarts() -> No
         "parsed_tool_calls": [],
         "scorer_result": True,
     }
-    second = {**first, "server_start_id": "two"}
+    second: JsonObject = {**first, "server_start_id": "two"}
 
     passing = grade_response("sanity-gates", source, first, repeated_generation=second)
     failing = grade_response("sanity-gates", source, first, repeated_generation={**second, "token_ids": [9]})
 
     assert passing["correct"] is True
     assert failing["correct"] is False
+
+
+def test_repetition_gate_rejects_ngram_loop_even_when_answer_and_stop_are_present() -> None:
+    source: JsonObject = {
+        "category": "repetition",
+        "gate_kind": "behavioral",
+        "expected": {
+            "answer": "A B A B C STOP",
+            "stop_marker": "STOP",
+            "loop_detection": {
+                "max_occurrences": 2,
+                "ngram_size": 2,
+                "tokenization": "unicode-word-punctuation-v1",
+            },
+        },
+    }
+
+    passing = grade_response(
+        "sanity-gates",
+        source,
+        {"text": "A B A B C STOP", "finish_reason": "stop"},
+    )
+    looping = grade_response(
+        "sanity-gates",
+        source,
+        {"text": "A B A B A B A B C STOP", "finish_reason": "stop"},
+    )
+
+    assert passing["correct"] is True
+    passing_detail = passing["detail"]
+    assert isinstance(passing_detail, dict) and passing_detail["loop_detected"] is False
+    assert looping["correct"] is False
+    looping_detail = looping["detail"]
+    assert isinstance(looping_detail, dict) and looping_detail["loop_detected"] is True
 
 
 def test_signed_chance_correction_keeps_wrong_four_choice_item_negative() -> None:

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import json
+import re
 import string
+from collections import Counter
 from collections.abc import Sequence
 from typing import cast
 
@@ -114,6 +115,7 @@ def _grade_gate(
     if not isinstance(expected, dict) or not isinstance(category, str):
         return _result(False, detail={"failure": "invalid-gate-source"})
     correct = False
+    loop_detected: bool | None = None
     if category == "stop-token":
         required = expected.get("required")
         stop_marker = expected.get("stop_marker")
@@ -129,20 +131,31 @@ def _grade_gate(
         answer = expected.get("answer")
         correct = isinstance(answer, str) and answer in response and generation.get("protocol_flag") in {None, "none"}
     elif category == "repetition":
-        exact_count = expected.get("exact_count")
-        if isinstance(exact_count, int):
-            token = expected.get("token", expected.get("phrase"))
-            if isinstance(token, str):
-                correct = response.count(token) == exact_count
-            else:
-                key = expected.get("json_key")
-                try:
-                    parsed = cast(object, json.loads(response))
-                except json.JSONDecodeError:
-                    parsed = None
-                if isinstance(key, str) and isinstance(parsed, dict):
-                    parsed_object = cast(dict[object, object], parsed)
-                    correct = sum(parsed_key == key for parsed_key in parsed_object) == exact_count
+        answer = expected.get("answer")
+        stop_marker = expected.get("stop_marker")
+        loop_detection = expected.get("loop_detection")
+        if isinstance(answer, str) and isinstance(stop_marker, str) and isinstance(loop_detection, dict):
+            ngram_size = loop_detection.get("ngram_size")
+            max_occurrences = loop_detection.get("max_occurrences")
+            tokenization = loop_detection.get("tokenization")
+            if (
+                isinstance(ngram_size, int)
+                and ngram_size > 0
+                and isinstance(max_occurrences, int)
+                and max_occurrences > 0
+                and tokenization == "unicode-word-punctuation-v1"
+            ):
+                loop_detected = _has_ngram_loop(
+                    response,
+                    ngram_size=ngram_size,
+                    max_occurrences=max_occurrences,
+                )
+                correct = (
+                    response.strip() == answer
+                    and response.rstrip().endswith(stop_marker)
+                    and generation.get("protocol_flag") in {None, "none"}
+                    and not loop_detected
+                )
     elif category == "determinism":
         answer = expected.get("answer")
         tool = expected.get("tool")
@@ -155,14 +168,22 @@ def _grade_gate(
             and repeated_generation is not None
             and determinism_canary_matches(generation, repeated_generation)
         )
-    return _result(
-        correct,
-        detail={
-            "category": category,
-            "gate_kind": source_item.get("gate_kind"),
-            "scorer": "sanity-gates-exact",
-        },
-    )
+    detail: JsonObject = {
+        "category": category,
+        "gate_kind": source_item.get("gate_kind"),
+        "scorer": "sanity-gates-exact",
+    }
+    if loop_detected is not None:
+        detail["loop_detected"] = loop_detected
+    return _result(correct, detail=detail)
+
+
+def _has_ngram_loop(response: str, *, ngram_size: int, max_occurrences: int) -> bool:
+    tokens = re.findall(r"\w+|[^\w\s]", response.casefold(), flags=re.UNICODE)
+    if len(tokens) < ngram_size:
+        return False
+    ngrams = Counter(tuple(tokens[index : index + ngram_size]) for index in range(len(tokens) - ngram_size + 1))
+    return any(count > max_occurrences for count in ngrams.values())
 
 
 def _result(correct: bool, *, chance: float = 0.0, detail: JsonObject) -> JsonObject:

@@ -39,6 +39,58 @@ def test_authored_sanity_gates_match_the_locked_eighteen_item_taxonomy() -> None
     assert needles == [8192, 16384, 24576]
 
 
+def test_long_context_needles_are_embedded_at_recorded_mid_context_depth() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    _, metadata = build_sanity_gates(repo_root)
+    definitions = metadata["definitions"]
+    assert isinstance(definitions, list)
+    needles = [
+        record
+        for record in definitions
+        if isinstance(record, dict) and record.get("category") == "long-context-needle"
+    ]
+
+    for record in needles:
+        prompt = record["prompt"]
+        expected = record["expected"]
+        embedding = record["needle_embedding"]
+        assert isinstance(prompt, str) and isinstance(expected, dict) and isinstance(embedding, dict)
+        context = prompt.split("<context>\n", maxsplit=1)[1].split("\n</context>", maxsplit=1)[0]
+        context_tokens = context.split()
+        needle_index = embedding["needle_token_index"]
+        window_tokens = embedding["window_tokens"]
+        depth_ratio = embedding["depth_ratio"]
+        assert embedding["algorithm"] == "sha256-wordbank-padding-v1"
+        assert isinstance(needle_index, int) and isinstance(window_tokens, int)
+        assert isinstance(depth_ratio, float) and 0.4 <= depth_ratio <= 0.6
+        assert len(context_tokens) == window_tokens == record["target_tokens"]
+        assert context_tokens[needle_index] == f"NEEDLE={expected['answer']}"
+        assert needle_index < len(context_tokens) - 1
+
+
+def test_repetition_gates_pin_loop_detection_and_required_stop_contracts() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    _, metadata = build_sanity_gates(repo_root)
+    definitions = metadata["definitions"]
+    assert isinstance(definitions, list)
+    repetition = [
+        record
+        for record in definitions
+        if isinstance(record, dict) and record.get("category") == "repetition"
+    ]
+
+    assert len(repetition) == 3
+    for record in repetition:
+        expected = record["expected"]
+        assert isinstance(expected, dict)
+        assert isinstance(expected["answer"], str)
+        assert isinstance(expected["stop_marker"], str)
+        assert expected["loop_detection"] in (
+            {"max_occurrences": 2, "ngram_size": 2, "tokenization": "unicode-word-punctuation-v1"},
+            {"max_occurrences": 1, "ngram_size": 2, "tokenization": "unicode-word-punctuation-v1"},
+        )
+
+
 def test_determinism_canary_requires_independent_restarts_and_exact_outputs() -> None:
     first: JsonObject = {
         "server_start_id": "start-a",

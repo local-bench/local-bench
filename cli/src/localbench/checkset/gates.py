@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from collections import Counter
 from pathlib import Path
+from typing import Final
 
 from localbench.checkset.input_runs import read_json
 from localbench.checkset.models import (
@@ -24,6 +25,53 @@ GATE_COUNTS = {
     "determinism": 3,
 }
 DETERMINISM_FIELDS = ("token_ids", "finish_reason", "parsed_tool_calls", "scorer_result")
+PADDING_ALGORITHM: Final = "sha256-wordbank-padding-v1"
+PADDING_WORDS: Final = (
+    "acacia",
+    "amber",
+    "banyan",
+    "breeze",
+    "canyon",
+    "cedar",
+    "coral",
+    "dawn",
+    "delta",
+    "dune",
+    "ember",
+    "fern",
+    "flint",
+    "grove",
+    "harbor",
+    "heath",
+    "iris",
+    "island",
+    "jade",
+    "kelp",
+    "lagoon",
+    "linen",
+    "maple",
+    "meadow",
+    "mist",
+    "myrtle",
+    "oasis",
+    "ochre",
+    "olive",
+    "orchid",
+    "pebble",
+    "pine",
+    "quartz",
+    "reed",
+    "ridge",
+    "river",
+    "sand",
+    "shore",
+    "spruce",
+    "stone",
+    "tide",
+    "vale",
+    "willow",
+    "wren",
+)
 
 
 def build_sanity_gates(repo_root: Path) -> tuple[ModuleRecord, JsonObject]:
@@ -35,7 +83,7 @@ def build_sanity_gates(repo_root: Path) -> tuple[ModuleRecord, JsonObject]:
     raw = document.get("gates")
     if not isinstance(raw, list) or not all(isinstance(record, dict) for record in raw):
         raise ChecksetBuildError("Sanity-gate source must contain object definitions.")
-    definitions = [_with_digest(record) for record in raw if isinstance(record, dict)]
+    definitions = [_with_digest(_materialize_gate(record)) for record in raw if isinstance(record, dict)]
     definition_values: list[JsonValue] = [record for record in definitions]
     counts = Counter(record.get("category") for record in definitions)
     if counts != Counter(GATE_COUNTS):
@@ -76,6 +124,53 @@ def determinism_canary_matches(first: JsonObject, second: JsonObject) -> bool:
     if first_start == second_start:
         return False
     return all(first.get(field) == second.get(field) for field in DETERMINISM_FIELDS)
+
+
+def _materialize_gate(source: JsonObject) -> JsonObject:
+    if source.get("category") != "long-context-needle":
+        return dict(source)
+    item_id = _required_str(source, "item_id")
+    prompt = _required_str(source, "prompt")
+    needle = _required_str(source, "needle")
+    target_tokens = source.get("target_tokens")
+    padding = source.get("padding")
+    expected = source.get("expected")
+    if not isinstance(target_tokens, int) or target_tokens < 3:
+        raise ChecksetBuildError("Long-context target_tokens must be an integer of at least three.")
+    if not isinstance(padding, dict) or not isinstance(expected, dict):
+        raise ChecksetBuildError("Long-context gates require padding and expected objects.")
+    algorithm = padding.get("algorithm")
+    seed = padding.get("seed")
+    depth_ppm = padding.get("depth_ppm")
+    if algorithm != PADDING_ALGORITHM or not isinstance(seed, int):
+        raise ChecksetBuildError("Long-context padding algorithm and seed must be pinned.")
+    if not isinstance(depth_ppm, int) or not 0 < depth_ppm < 1_000_000:
+        raise ChecksetBuildError("Long-context padding depth_ppm must be between zero and one million.")
+    if expected.get("answer") != needle:
+        raise ChecksetBuildError("Long-context expected answer must equal its needle.")
+    needle_index = target_tokens * depth_ppm // 1_000_000
+    if needle_index <= 0 or needle_index >= target_tokens - 1:
+        raise ChecksetBuildError("Long-context needle must have non-empty prefix and suffix padding.")
+    tokens = [_padding_word(seed, item_id, index) for index in range(target_tokens)]
+    tokens[needle_index] = f"NEEDLE={needle}"
+    context = " ".join(tokens)
+    record = dict(source)
+    record["prompt"] = f"{prompt}\n<context>\n{context}\n</context>"
+    record["needle_embedding"] = {
+        "algorithm": PADDING_ALGORITHM,
+        "depth_ratio": round(needle_index / (target_tokens - 1), 6),
+        "needle_token_index": needle_index,
+        "prefix_tokens": needle_index,
+        "suffix_tokens": target_tokens - needle_index - 1,
+        "window_sha256": hashlib.sha256(context.encode("utf-8")).hexdigest(),
+        "window_tokens": target_tokens,
+    }
+    return record
+
+
+def _padding_word(seed: int, item_id: str, index: int) -> str:
+    digest = hashlib.sha256(f"{seed}:{item_id}:{index}".encode()).digest()
+    return PADDING_WORDS[int.from_bytes(digest[:2], "big") % len(PADDING_WORDS)]
 
 
 def _with_digest(source: JsonObject) -> JsonObject:
