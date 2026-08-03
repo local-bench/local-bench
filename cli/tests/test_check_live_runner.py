@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import struct
 import threading
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -12,6 +13,8 @@ from typing import ClassVar, cast, final, override
 import pytest
 
 import localbench.check.live_full as live_full
+import localbench.check.live_runner as live_runner
+import localbench.check.run as check_run
 
 from localbench.check.execution import DEFAULT_LCE_SERVER_BIN, LceLaunchConfig, lce_server_argv
 from localbench._types import JsonObject
@@ -19,6 +22,7 @@ from localbench.check.live_full import run_full_live_check
 from localbench.check.live_runner import LiveExecutionResult
 from localbench.check.live_runner import LiveItem, run_live_items
 from localbench.check.live_reference import attach_reference_rows, validate_execution_pair
+from localbench.check.run import CheckRequest, run_check
 from localbench.check.live_server import InfrastructureFailure, LiveRunnerConfig, ServerController
 from localbench.check.live_sources import PINNED_SMOKE_ITEMS, load_smoke_items
 from localbench.check.stateful_live import run_stateful_item
@@ -34,6 +38,7 @@ class _StubState:
         self.health_calls: int = 0
         self.props_calls: int = 0
         self.requests: list[JsonObject] = []
+        self.completion_error: tuple[int, str] | None = None
 
 
 class _StubHandler(BaseHTTPRequestHandler):
@@ -76,6 +81,10 @@ class _StubHandler(BaseHTTPRequestHandler):
             self._json(200, {"tokens": [31, 32, 33]})
             return
         if self.path == "/v1/completions":
+            completion_error = self.state.completion_error
+            if completion_error is not None:
+                self._json_text(*completion_error)
+                return
             stop = body.get("stop")
             if stop == ["</think>"]:
                 self._sse("<think>stub reasoning", "length", completion_tokens=4096)
@@ -92,6 +101,12 @@ class _StubHandler(BaseHTTPRequestHandler):
 
     def _json(self, status: int, payload: object) -> None:
         data = json.dumps(payload).encode()
+        self._json_bytes(status, data)
+
+    def _json_text(self, status: int, payload: str) -> None:
+        self._json_bytes(status, payload.encode())
+
+    def _json_bytes(self, status: int, data: bytes) -> None:
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
@@ -249,6 +264,91 @@ def test_live_runner_streams_forced_budget_and_restarts_determinism_canary(
         "total_slots": 1,
     }
     assert result.execution["prompt_template_sha256"] == hashlib.sha256(b"{{ messages }}").hexdigest()
+
+
+def test_check_smoke_records_streaming_status_failure_from_live_server(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given a live llama-server response that rejects a request exceeding its context size.
+    key = b"general.architecture"
+    value = b"qwen3"
+    model = tmp_path / "fixture-Q5_K_M.gguf"
+    _ = model.write_bytes(
+        b"GGUF"
+        + struct.pack("<IQQ", 3, 0, 1)
+        + struct.pack("<Q", len(key))
+        + key
+        + struct.pack("<I", 8)
+        + struct.pack("<Q", len(value))
+        + value
+    )
+    binary = tmp_path / "llama-server.exe"
+    _ = binary.write_bytes(b"server")
+    state = _StubState(model)
+    response_body = (
+        '{"error":{"code":400,"message":"request (34629 tokens) exceeds the available context size '
+        '(32768 tokens), try increasing it","type":"exceed_context_size_error",'
+        '"n_prompt_tokens":34629,"n_ctx":32768}}'
+    )
+    state.completion_error = (400, response_body)
+    stopped: list[int] = []
+
+    def factory(_argv: list[str], _cwd: Path, _log_path: Path) -> ServerController:
+        return _FakeController(9100, stopped)
+
+    run_dir = tmp_path / "run"
+    repo_root = Path(__file__).resolve().parents[2]
+    manifest = repo_root / "checkset" / "check-set-v1.manifest.json"
+
+    with _stub_server(state) as (host, port):
+
+        def run_real_live_items(
+            config: LiveRunnerConfig,
+            items: Sequence[LiveItem],
+        ) -> LiveExecutionResult:
+            return live_runner.run_live_items(
+                LiveRunnerConfig(
+                    model_file=config.model_file,
+                    run_dir=config.run_dir,
+                    server_bin=binary,
+                    host=host,
+                    port=port,
+                    startup_timeout_seconds=2,
+                    poll_interval_seconds=0.01,
+                    allow_untrusted_code=config.allow_untrusted_code,
+                ),
+                items,
+                server_factory=factory,
+            )
+
+        monkeypatch.setattr(check_run, "run_live_items", run_real_live_items)
+
+        # When the smoke check traverses the real live runner and streaming HTTP client.
+        with pytest.raises(InfrastructureFailure) as caught:
+            _ = run_check(
+                CheckRequest(
+                    artifact=model,
+                    manifest=manifest,
+                    parent=None,
+                    dry_run=False,
+                    out=run_dir,
+                    resume=None,
+                    smoke=True,
+                )
+            )
+
+    # Then the existing failure policy classifies and records the exact server response.
+    expected_message = f"live completion failed for ifbench-066: HTTP 400: {response_body}"
+    assert caught.value.failure_class == "infrastructure"
+    assert caught.value.kind == "execution"
+    assert caught.value.detail == expected_message
+    assert read_json(run_dir / "infrastructure-failure.json") == {
+        "failure_class": "infrastructure",
+        "kind": "execution",
+        "message": expected_message,
+    }
+    assert stopped == [9100]
 
 
 def test_live_runner_classifies_health_timeout_as_infrastructure_and_stops_only_owned_pid(

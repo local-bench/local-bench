@@ -10,8 +10,10 @@ from localbench._types import JsonObject, JsonValue
 from localbench._response import ResponseParseError
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)  # noqa: MUTABLE_OK
 class StreamingStatusError(RuntimeError):
+    """Allow Python to attach mutable traceback state during async propagation."""
+
     status_code: int
     body: str
 
