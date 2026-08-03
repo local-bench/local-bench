@@ -167,7 +167,12 @@ def test_lce_argv_pins_binary_context_batch_and_all_normative_flags(tmp_path: Pa
 
     assert DEFAULT_LCE_SERVER_BIN == Path(r"C:\Users\Michael\llamacpp\b10076\llama-server.exe")
     assert argv[0] == str(DEFAULT_LCE_SERVER_BIN)
-    for pair in (("--ctx-size", "32768"), ("--batch-size", "1"), ("--parallel", "1")):
+    for pair in (
+        ("--ctx-size", "32768"),
+        ("--batch-size", "2048"),
+        ("--ubatch-size", "512"),
+        ("--parallel", "1"),
+    ):
         index = argv.index(pair[0])
         assert argv[index : index + 2] == list(pair)
     for pair in (("-ctk", "f16"), ("-ctv", "f16"), ("--fit", "off"), ("-lv", "4")):
