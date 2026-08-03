@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import tomllib
 from pathlib import Path
 
@@ -20,6 +21,7 @@ _BYTE_STABLE_OUTPUTS = (
     "statistics.json",
     "verdict.json",
 )
+_FROZEN_MANIFEST_SHA256 = "f035c2d36663bf2b1e127fe1d0e12d4c59efa0e6080e3995abe8a814f8e64f7b"
 
 
 def test_fresh_temp_dry_run_is_complete_valid_and_byte_stable(
@@ -44,11 +46,13 @@ def test_fresh_temp_dry_run_is_complete_valid_and_byte_stable(
     assert (first / "check-record.json").read_bytes() == golden.read_bytes()
 
 
-def test_packaged_manifest_is_the_complete_draft() -> None:
-    manifest = default_manifest_path()
+def test_packaged_manifest_matches_the_frozen_source_bytes() -> None:
+    packaged = default_manifest_path()
+    source = Path(__file__).resolve().parents[2] / "checkset" / "check-set-v1.manifest.json"
 
-    assert manifest.is_file()
-    assert manifest.read_bytes() == (Path(__file__).resolve().parents[2] / "checkset" / "check-set-v1.manifest.json").read_bytes()
+    assert packaged.is_file()
+    assert packaged.read_bytes() == source.read_bytes()
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == _FROZEN_MANIFEST_SHA256
 
 
 def test_v2_default_install_has_the_live_check_runtime_dependencies() -> None:
