@@ -3,12 +3,10 @@ from __future__ import annotations
 import hashlib
 import json
 import struct
-import threading
-from collections.abc import Generator, Sequence
-from contextlib import contextmanager
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
-from typing import ClassVar, cast, final, override
+from typing import cast
 
 import pytest
 
@@ -18,166 +16,21 @@ import localbench.check.run as check_run
 
 from localbench.check.execution import DEFAULT_LCE_SERVER_BIN, LceLaunchConfig, lce_server_argv
 from localbench._types import JsonObject
-from localbench.check.live_full import run_full_live_check
-from localbench.check.live_runner import LiveExecutionResult
+from localbench.check.live_full import FullLiveProgress, FullLiveRequest, run_full_live_check
+from localbench.check.live_runner import LiveExecutionResult, LiveRunOptions
 from localbench.check.live_runner import LiveItem, run_live_items
 from localbench.check.live_reference import attach_reference_rows, validate_execution_pair
 from localbench.check.run import CheckRequest, run_check
+from localbench.check.run_progress import ItemJournal
 from localbench.check.live_server import InfrastructureFailure, LiveRunnerConfig, ServerController
 from localbench.check.live_sources import PINNED_SMOKE_ITEMS, load_smoke_items
 from localbench.check.stateful_live import run_stateful_item
 from localbench.check.types import CheckError, ReferenceEdition
 from localbench.checkset.input_runs import read_json
-
-
-@final
-class _StubState:
-    def __init__(self, model_file: Path) -> None:
-        self.model_file: Path = model_file
-        self.health_failures_remaining: int = 0
-        self.health_calls: int = 0
-        self.props_calls: int = 0
-        self.requests: list[JsonObject] = []
-        self.request_paths: list[str] = []
-        self.completion_error: tuple[int, str] | None = None
-        self.oversized_prompt_marker: str | None = None
-        self.oversized_prompt_tokens: int = 3
-
-
-class _StubHandler(BaseHTTPRequestHandler):
-    state: ClassVar[_StubState]
-
-    def do_GET(self) -> None:  # noqa: N802
-        if self.path == "/health":
-            self.state.health_calls += 1
-            if self.state.health_failures_remaining:
-                self.state.health_failures_remaining -= 1
-                self._json(503, {"status": "loading"})
-            else:
-                self._json(200, {"status": "ok"})
-            return
-        if self.path == "/props":
-            self.state.props_calls += 1
-            self._json(
-                200,
-                {
-                    "backend": "CUDA",
-                    "chat_template": "{{ messages }}",
-                    "driver_version": "stub-driver",
-                    "model_path": str(self.state.model_file.resolve()),
-                    "total_slots": 1,
-                },
-            )
-            return
-        self._json(404, {"error": "not found"})
-
-    def do_POST(self) -> None:  # noqa: N802
-        size = int(self.headers.get("Content-Length", "0"))
-        raw_body = cast(object, json.loads(self.rfile.read(size)))
-        assert isinstance(raw_body, dict)
-        body = cast(JsonObject, raw_body)
-        self.state.requests.append(body)
-        self.state.request_paths.append(self.path)
-        if self.path == "/apply-template":
-            self._json(200, {"prompt": f"rendered:{body['messages']}"})
-            return
-        if self.path == "/tokenize":
-            content = body.get("content")
-            marker = self.state.oversized_prompt_marker
-            count = (
-                self.state.oversized_prompt_tokens
-                if isinstance(content, str) and isinstance(marker, str) and marker in content
-                else 3
-            )
-            self._json(200, {"tokens": [31, 32, 33] if count == 3 else list(range(count))})
-            return
-        if self.path == "/v1/completions":
-            completion_error = self.state.completion_error
-            if completion_error is not None:
-                self._json_text(*completion_error)
-                return
-            stop = body.get("stop")
-            if stop == ["</think>"]:
-                self._sse("<think>stub reasoning", "stop", completion_tokens=32)
-            else:
-                assert "</think>" in str(body.get("prompt"))
-                self._sse("101", "stop", completion_tokens=1)
-            return
-        self._json(404, {"error": "not found"})
-
-    @override
-    def log_message(self, format: str, *args: object) -> None:
-        _ = format, args
-        return
-
-    def _json(self, status: int, payload: object) -> None:
-        data = json.dumps(payload).encode()
-        self._json_bytes(status, data)
-
-    def _json_text(self, status: int, payload: str) -> None:
-        self._json_bytes(status, payload.encode())
-
-    def _json_bytes(self, status: int, data: bytes) -> None:
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        _ = self.wfile.write(data)
-
-    def _sse(self, text: str, finish_reason: str, *, completion_tokens: int) -> None:
-        payload = {
-            "choices": [{"finish_reason": finish_reason, "index": 0, "text": text}],
-            "usage": {
-                "completion_tokens": completion_tokens,
-                "prompt_tokens": 7,
-                "total_tokens": completion_tokens + 7,
-            },
-        }
-        data = f"data: {json.dumps(payload)}\n\ndata: [DONE]\n\n".encode()
-        self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        _ = self.wfile.write(data)
-
-
-@contextmanager
-def _stub_server(state: _StubState) -> Generator[tuple[str, int]]:
-    _StubHandler.state = state
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _StubHandler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        address = server.server_address
-        host, port = address[0], address[1]
-        assert isinstance(host, str) and isinstance(port, int)
-        yield host, port
-    finally:
-        server.shutdown()
-        thread.join(timeout=5)
-        server.server_close()
-
-
-class _FakeController:
-    pid: int
-    _stopped: list[int]
-
-    def __init__(self, pid: int, stopped: list[int]) -> None:
-        self.pid = pid
-        self._stopped = stopped
-
-    def poll(self) -> int | None:
-        return None
-
-    def stop(self) -> None:
-        self._stopped.append(self.pid)
-
-
-@final
-class _CrashedController(_FakeController):
-    @override
-    def poll(self) -> int | None:
-        return 23
+from live_stub_server import CrashedController as _CrashedController
+from live_stub_server import FakeController as _FakeController
+from live_stub_server import StubState as _StubState
+from live_stub_server import stub_server as _stub_server
 
 
 def test_lce_argv_pins_binary_context_batch_and_all_normative_flags(tmp_path: Path) -> None:
@@ -245,7 +98,7 @@ def test_live_runner_streams_forced_budget_and_restarts_determinism_canary(
                 poll_interval_seconds=0.01,
             ),
             (item,),
-            server_factory=factory,
+            LiveRunOptions(server_factory=factory),
         )
 
     assert len(launched_argv) == 2
@@ -357,7 +210,7 @@ def test_fit_preflight_real_http_covers_full_selected_set_before_generation(tmp_
                 poll_interval_seconds=0.01,
             ),
             (*non_needles, *needles),
-            server_factory=factory,
+            LiveRunOptions(server_factory=factory),
         )
 
     # Then each independently expected candidate is rendered and tokenized before generation.
@@ -422,6 +275,7 @@ def test_check_smoke_preflight_failure_writes_construction_defect_before_complet
         def run_real_live_items(
             config: LiveRunnerConfig,
             items: Sequence[LiveItem],
+            options: LiveRunOptions,
         ) -> LiveExecutionResult:
             return live_runner.run_live_items(
                 LiveRunnerConfig(
@@ -435,7 +289,7 @@ def test_check_smoke_preflight_failure_writes_construction_defect_before_complet
                     allow_untrusted_code=config.allow_untrusted_code,
                 ),
                 items,
-                server_factory=factory,
+                replace(options, server_factory=factory),
             )
 
         monkeypatch.setattr(check_run, "run_live_items", run_real_live_items)
@@ -508,6 +362,7 @@ def test_check_smoke_records_streaming_status_failure_from_live_server(
         def run_real_live_items(
             config: LiveRunnerConfig,
             items: Sequence[LiveItem],
+            options: LiveRunOptions,
         ) -> LiveExecutionResult:
             return live_runner.run_live_items(
                 LiveRunnerConfig(
@@ -521,7 +376,7 @@ def test_check_smoke_records_streaming_status_failure_from_live_server(
                     allow_untrusted_code=config.allow_untrusted_code,
                 ),
                 items,
-                server_factory=factory,
+                replace(options, server_factory=factory),
             )
 
         monkeypatch.setattr(check_run, "run_live_items", run_real_live_items)
@@ -580,7 +435,7 @@ def test_live_runner_classifies_health_timeout_as_infrastructure_and_stops_only_
                 poll_interval_seconds=0.01,
             ),
             (),
-            server_factory=factory,
+            LiveRunOptions(server_factory=factory),
         )
 
     assert caught.value.kind == "startup-timeout"
@@ -609,7 +464,7 @@ def test_live_runner_classifies_child_crash_and_still_stops_that_child(tmp_path:
                 poll_interval_seconds=0.01,
             ),
             (),
-            server_factory=factory,
+            LiveRunOptions(server_factory=factory),
         )
 
     assert caught.value.kind == "server-crash"
@@ -784,7 +639,11 @@ def test_full_reference_artifact_runs_independent_reference_and_candidate_passes
         "server_defaults_disabled": True,
     }
 
-    def fake_run_live_items(*_args: object, **_kwargs: object) -> LiveExecutionResult:
+    def fake_run_live_items(
+        _config: LiveRunnerConfig,
+        _items: Sequence[LiveItem],
+        _options: LiveRunOptions,
+    ) -> LiveExecutionResult:
         calls.append(len(calls) + 1)
         return LiveExecutionResult(
             [
@@ -817,10 +676,19 @@ def test_full_reference_artifact_runs_independent_reference_and_candidate_passes
             allow_untrusted_code=True,
         ),
         (LiveItem("ifbench-066", "instruction", {"prompt": "stub"}),),
-        candidate_sha256="c" * 64,
-        reference=reference,
-        reference_run=None,
-        manifest_sha256="f" * 64,
+        FullLiveRequest(
+            candidate_sha256="c" * 64,
+            reference=reference,
+            reference_run=None,
+            manifest_sha256="f" * 64,
+            progress=FullLiveProgress(
+                journal=ItemJournal(tmp_path / "run" / "items.jsonl"),
+                rows=(),
+                execution_path=tmp_path / "run" / "execution.json",
+                reference_execution=None,
+                candidate_execution=None,
+            ),
+        ),
     )
 
     assert calls == [1, 2]

@@ -52,6 +52,7 @@ class ServerController(Protocol):
 
 ServerFactory = Callable[[list[str], Path, Path], ServerController]
 CycleExecutor = Callable[[LiveHttpConfig, JsonObject], list[JsonObject]]
+CycleReady = Callable[[JsonObject, JsonObject], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,7 +62,16 @@ class ServerCycleResult:
     start: JsonObject
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
+class ServerCycleOptions:
+    port: int
+    api_key: str
+    launch: ServerFactory
+    execute: CycleExecutor
+    ready: CycleReady
+
+
+@dataclass(frozen=True, slots=True)
 class _JobServerController:
     launched: LaunchedServer
 
@@ -85,37 +95,39 @@ class _JobServerController:
 
 def run_server_cycle(
     config: LiveRunnerConfig,
-    *,
-    port: int,
-    api_key: str,
-    launch: ServerFactory,
-    execute: CycleExecutor,
+    options: ServerCycleOptions,
 ) -> ServerCycleResult:
     launch_config = LceLaunchConfig(
         model_file=config.model_file,
         run_dir=config.run_dir,
         host=config.host,
-        port=port,
-        api_key=api_key,
+        port=options.port,
+        api_key=options.api_key,
         server_bin=config.server_bin,
         model_id=config.model_id,
     )
-    controller = launch(
+    controller = options.launch(
         lce_server_argv(launch_config),
         config.server_bin.parent,
         config.run_dir / "serve.log",
     )
-    base_url = f"http://{config.host}:{port}"
+    base_url = f"http://{config.host}:{options.port}"
     start_id = uuid.uuid4().hex
     try:
-        props = _wait_for_health_and_props(controller, config, base_url=base_url, api_key=api_key)
-        http_config = LiveHttpConfig(base_url, api_key, config.model_id, start_id)
+        props = _wait_for_health_and_props(
+            controller,
+            config,
+            base_url=base_url,
+            api_key=options.api_key,
+        )
+        http_config = LiveHttpConfig(base_url, options.api_key, config.model_id, start_id)
         start: JsonObject = {
             "effective_server_config": props,
             "pid": controller.pid,
             "server_start_id": start_id,
         }
-        return ServerCycleResult(execute(http_config, props), props, start)
+        options.ready(props, start)
+        return ServerCycleResult(options.execute(http_config, props), props, start)
     except InfrastructureFailure:
         raise
     except ConstructionDefect as error:
@@ -164,8 +176,8 @@ def _wait_for_health_and_props(
                     props = cast(JsonObject, raw_props)
                     _validate_props(props, config.model_file)
                     return props
-            except httpx.TransportError:
-                pass
+            except httpx.TransportError as error:
+                _ = error
             time.sleep(config.poll_interval_seconds)
     raise InfrastructureFailure("startup-timeout", "llama-server did not become healthy before the deadline")
 
