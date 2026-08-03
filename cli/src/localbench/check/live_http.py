@@ -100,9 +100,11 @@ async def _generate_live_item(
     max_tokens = params.get("max_tokens")
     if not isinstance(answer_budget, int) or not isinstance(max_tokens, int):
         raise CheckError(f"module {module!r} has invalid generation parameters")
+    messages = _messages(module, source)
+    rendered_prompt = prompt_renderer.render(messages)
     benchmark: BenchmarkItem = {
         "id": item_id,
-        "messages": _messages(module, source),
+        "messages": messages,
         "sampling_params": {
             "cache_prompt": False,
             "frequency_penalty": 0,
@@ -155,7 +157,11 @@ async def _generate_live_item(
         "finish_reason": result.get("finish_reason"),
         "latency_seconds": result.get("latency_seconds"),
         "parsed_tool_calls": parsed_calls,
-        "protocol_flag": _protocol_flag(reasoning, result.get("thinking_forced")),
+        "protocol_flag": _protocol_flag(
+            reasoning,
+            result.get("thinking_forced"),
+            rendered_prompt,
+        ),
         "reasoning_text": reasoning,
         "server_start_id": config.server_start_id,
         "text": response,
@@ -251,10 +257,17 @@ def _determinism_primary(source: JsonObject, generation: JsonObject) -> bool:
     } in calls
 
 
-def _protocol_flag(reasoning: JsonValue | None, forced: JsonValue | None) -> str | None:
+def _protocol_flag(
+    reasoning: JsonValue | None,
+    forced: JsonValue | None,
+    rendered_prompt: str,
+) -> str | None:
     if forced is True:
         return "think-budget-exhausted"
-    return None if isinstance(reasoning, str) and "<think>" in reasoning else "think-markers-absent"
+    has_open = rendered_prompt.rstrip().endswith("<think>") or (
+        isinstance(reasoning, str) and "<think>" in reasoning
+    )
+    return None if has_open else "think-markers-absent"
 
 
 def _source_text(source: JsonObject, key: str) -> str:
