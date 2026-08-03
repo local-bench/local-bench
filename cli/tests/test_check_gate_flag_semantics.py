@@ -115,9 +115,21 @@ def test_budget_control_requires_inline_evidence_within_declared_budget() -> Non
         },
     )
 
+    preopened = grade_response(
+        "sanity-gates",
+        source,
+        {
+            "text": "red",
+            "protocol_flag": None,
+            "reasoning_text": "reasoning from a template-pre-opened think phase",
+            "usage": {"reasoning_tokens": 597},
+        },
+    )
+
     assert absent["correct"] is False
     assert exhausted["correct"] is True
     assert over_budget["correct"] is False
+    assert preopened["correct"] is True
 
 
 def test_determinism_compares_frozen_fields_despite_protocol_flag() -> None:

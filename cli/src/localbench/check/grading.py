@@ -163,7 +163,7 @@ def _grade_gate(
             isinstance(answer, str)
             and answer in response
             and isinstance(reasoning, str)
-            and "<think>" in reasoning
+            and bool(reasoning.strip())
             and protocol_flag in {None, "none", "think-budget-exhausted"}
             and budget_respected
         )
