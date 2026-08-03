@@ -5,13 +5,16 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from localbench._types import JsonObject, JsonValue
-from localbench.check.budget import generation_parameters
+from localbench.check.budget import HEADROOM, THINK_BUDGET, generation_parameters
 from localbench.check.execution import collect_lce_identity
 from localbench.check.live_coding import require_coding_consent, verify_coding_rows
 from localbench.check.live_http import (
     LiveHttpConfig,
     build_live_prompt_renderer,
     generate_live_item,
+    live_prompt_character_count,
+    render_live_prompt,
+    tokenize_live_prompt,
 )
 from localbench.check.live_server import (
     InfrastructureFailure,
@@ -24,7 +27,10 @@ from localbench.check.live_server import (
 )
 from localbench.prompt_rendering import PromptRenderer
 from localbench.check.stateful_live import run_stateful_item
-from localbench.check.types import CheckError
+from localbench.check.types import CheckError, ConstructionDefect
+
+PREFLIGHT_LONGEST_ITEMS = 10
+LCE_CONTEXT_TOKENS = 32768
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +110,7 @@ def _execute_items(
     props: JsonObject,
 ) -> list[JsonObject]:
     renderer = build_live_prompt_renderer(http_config, props)
+    _run_fit_preflight(items, http_config, renderer)
     return [
         {
             "candidate": _generate_runtime_item(http_config, item, renderer),
@@ -114,6 +121,46 @@ def _execute_items(
         }
         for item in items
     ]
+
+
+def select_fit_preflight_items(items: Sequence[LiveItem]) -> tuple[LiveItem, ...]:
+    ordered = sorted(
+        items,
+        key=lambda item: (-live_prompt_character_count(item.module, item.source), item.item_id),
+    )
+    selected = ordered[:PREFLIGHT_LONGEST_ITEMS]
+    selected_ids = {item.item_id for item in selected}
+    needles = sorted(
+        (
+            item
+            for item in items
+            if item.source.get("category") == "long-context-needle" and item.item_id not in selected_ids
+        ),
+        key=lambda item: item.item_id,
+    )
+    return (*selected, *needles)
+
+
+def _run_fit_preflight(
+    items: Sequence[LiveItem],
+    http_config: LiveHttpConfig,
+    renderer: PromptRenderer,
+) -> None:
+    for item in select_fit_preflight_items(items):
+        prompt = render_live_prompt(item.module, item.source, renderer)
+        prompt_tokens = tokenize_live_prompt(http_config, prompt)
+        params = generation_parameters(item.module)
+        answer_budget = params.get("answer_budget_tokens")
+        if not isinstance(answer_budget, int):
+            raise CheckError(f"module {item.module!r} has invalid generation parameters")
+        total = prompt_tokens + THINK_BUDGET + answer_budget + HEADROOM
+        if total > LCE_CONTEXT_TOKENS:
+            detail = (
+                f"prompt fit preflight failed for {item.item_id}: "
+                f"{prompt_tokens} + {THINK_BUDGET} + {answer_budget} + {HEADROOM} "
+                f"= {total} > {LCE_CONTEXT_TOKENS}"
+            )
+            raise ConstructionDefect("prompt-fit", detail)
 
 
 def _generate_runtime_item(

@@ -26,6 +26,7 @@ GATE_COUNTS = {
 }
 DETERMINISM_FIELDS = ("token_ids", "finish_reason", "parsed_tool_calls", "scorer_result")
 PADDING_ALGORITHM: Final = "sha256-wordbank-padding-v1"
+CONSTRUCTION_TOKENS_PER_WORD_BOUND: Final = 1.45
 PADDING_WORDS: Final = (
     "acacia",
     "amber",
@@ -132,11 +133,18 @@ def _materialize_gate(source: JsonObject) -> JsonObject:
     item_id = _required_str(source, "item_id")
     prompt = _required_str(source, "prompt")
     needle = _required_str(source, "needle")
-    target_tokens = source.get("target_tokens")
+    nominal_target_tokens = source.get("nominal_target_tokens")
+    pinned_word_count = source.get("pinned_word_count")
+    tokens_per_word_bound = source.get("construction_tokens_per_word_bound")
     padding = source.get("padding")
     expected = source.get("expected")
-    if not isinstance(target_tokens, int) or target_tokens < 3:
-        raise ChecksetBuildError("Long-context target_tokens must be an integer of at least three.")
+    if not isinstance(nominal_target_tokens, int) or nominal_target_tokens < 3:
+        raise ChecksetBuildError("Long-context nominal_target_tokens must be an integer of at least three.")
+    if tokens_per_word_bound != CONSTRUCTION_TOKENS_PER_WORD_BOUND:
+        raise ChecksetBuildError("Long-context construction tokens-per-word bound must be pinned to 1.45.")
+    expected_word_count = nominal_target_tokens * 100 // 145
+    if not isinstance(pinned_word_count, int) or pinned_word_count != expected_word_count:
+        raise ChecksetBuildError("Long-context pinned_word_count must equal floor(nominal_target_tokens / 1.45).")
     if not isinstance(padding, dict) or not isinstance(expected, dict):
         raise ChecksetBuildError("Long-context gates require padding and expected objects.")
     algorithm = padding.get("algorithm")
@@ -148,22 +156,22 @@ def _materialize_gate(source: JsonObject) -> JsonObject:
         raise ChecksetBuildError("Long-context padding depth_ppm must be between zero and one million.")
     if expected.get("answer") != needle:
         raise ChecksetBuildError("Long-context expected answer must equal its needle.")
-    needle_index = target_tokens * depth_ppm // 1_000_000
-    if needle_index <= 0 or needle_index >= target_tokens - 1:
+    needle_index = pinned_word_count * depth_ppm // 1_000_000
+    if needle_index <= 0 or needle_index >= pinned_word_count - 1:
         raise ChecksetBuildError("Long-context needle must have non-empty prefix and suffix padding.")
-    tokens = [_padding_word(seed, item_id, index) for index in range(target_tokens)]
-    tokens[needle_index] = f"NEEDLE={needle}"
-    context = " ".join(tokens)
+    words = [_padding_word(seed, item_id, index) for index in range(pinned_word_count)]
+    words[needle_index] = f"NEEDLE={needle}"
+    context = " ".join(words)
     record = dict(source)
     record["prompt"] = f"{prompt}\n<context>\n{context}\n</context>"
     record["needle_embedding"] = {
         "algorithm": PADDING_ALGORITHM,
-        "depth_ratio": round(needle_index / (target_tokens - 1), 6),
-        "needle_token_index": needle_index,
-        "prefix_tokens": needle_index,
-        "suffix_tokens": target_tokens - needle_index - 1,
+        "depth_ratio": round(needle_index / (pinned_word_count - 1), 6),
+        "needle_word_index": needle_index,
+        "prefix_words": needle_index,
+        "suffix_words": pinned_word_count - needle_index - 1,
         "window_sha256": hashlib.sha256(context.encode("utf-8")).hexdigest(),
-        "window_tokens": target_tokens,
+        "window_words": pinned_word_count,
     }
     return record
 

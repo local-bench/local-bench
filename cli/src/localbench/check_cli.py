@@ -33,6 +33,8 @@ class _ChecksetArgs(_CommandArgs, Protocol):
     repo_root: Path
     output: Path
     offline_upstream: bool
+    freeze: bool
+    reviewed_draft_sha: str | None
 
 
 def default_manifest_path() -> Path:
@@ -72,6 +74,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             checkset_args.repo_root,
             checkset_args.output,
             offline_upstream=checkset_args.offline_upstream,
+            freeze=checkset_args.freeze,
+            reviewed_draft_sha=checkset_args.reviewed_draft_sha,
         )
         print(message)
         return exit_code
@@ -109,6 +113,8 @@ def _parser() -> argparse.ArgumentParser:
     _ = build.add_argument("--repo-root", type=Path, default=Path.cwd())
     _ = build.add_argument("--output", type=Path, default=Path("checkset/check-set-v1.manifest.json"))
     _ = build.add_argument("--offline-upstream", action="store_true", help=argparse.SUPPRESS)
+    _ = build.add_argument("--freeze", action="store_true", help=argparse.SUPPRESS)
+    _ = build.add_argument("--reviewed-draft-sha", help=argparse.SUPPRESS)
     return parser
 
 

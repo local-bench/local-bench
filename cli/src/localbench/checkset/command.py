@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from localbench.checkset.build import build_t2_scaffold, emit_manifest
+from localbench.checkset.build import build_t2_scaffold, emit_manifest, validate_reviewed_draft_sha
 from localbench.checkset.gates import build_sanity_gates
 from localbench.checkset.models import ChecksetBuildError, JsonObject, ModuleRecord
 from localbench.checkset.sources import build_local_modules
@@ -21,7 +21,19 @@ from localbench.checkset.upstream import (
 )
 
 
-def build_command(repo_root: Path, output: Path, *, offline_upstream: bool, freeze: bool = False) -> tuple[int, str]:
+def build_command(
+    repo_root: Path,
+    output: Path,
+    *,
+    offline_upstream: bool,
+    freeze: bool = False,
+    reviewed_draft_sha: str | None = None,
+) -> tuple[int, str]:
+    if freeze:
+        try:
+            reviewed_draft_sha = validate_reviewed_draft_sha(reviewed_draft_sha)
+        except ChecksetBuildError as error:
+            return 2, str(error)
     local_modules, exclusions = build_local_modules(repo_root)
     stateful_module, stateful = build_stateful(repo_root)
     gates_module, sanity_gates = build_sanity_gates(repo_root)
@@ -82,6 +94,7 @@ def build_command(repo_root: Path, output: Path, *, offline_upstream: bool, free
                 source_metadata=metadata,
                 pool_exclusions=exclusions,
                 freeze=freeze,
+                reviewed_draft_sha=reviewed_draft_sha,
             )
         except ChecksetBuildError as error:
             if not freeze:

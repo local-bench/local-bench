@@ -38,7 +38,10 @@ class _StubState:
         self.health_calls: int = 0
         self.props_calls: int = 0
         self.requests: list[JsonObject] = []
+        self.request_paths: list[str] = []
         self.completion_error: tuple[int, str] | None = None
+        self.oversized_prompt_marker: str | None = None
+        self.oversized_prompt_tokens: int = 3
 
 
 class _StubHandler(BaseHTTPRequestHandler):
@@ -74,11 +77,19 @@ class _StubHandler(BaseHTTPRequestHandler):
         assert isinstance(raw_body, dict)
         body = cast(JsonObject, raw_body)
         self.state.requests.append(body)
+        self.state.request_paths.append(self.path)
         if self.path == "/apply-template":
             self._json(200, {"prompt": f"rendered:{body['messages']}"})
             return
         if self.path == "/tokenize":
-            self._json(200, {"tokens": [31, 32, 33]})
+            content = body.get("content")
+            marker = self.state.oversized_prompt_marker
+            count = (
+                self.state.oversized_prompt_tokens
+                if isinstance(content, str) and isinstance(marker, str) and marker in content
+                else 3
+            )
+            self._json(200, {"tokens": [31, 32, 33] if count == 3 else list(range(count))})
             return
         if self.path == "/v1/completions":
             completion_error = self.state.completion_error
@@ -254,7 +265,12 @@ def test_live_runner_streams_forced_budget_and_restarts_determinism_canary(
     assert all(isinstance(value, int) for value in requested_budgets)
     assert set(cast(list[int], requested_budgets)) == {4096, 512}
     assert all(request["temperature"] == 0 and request["seed"] == 1234 for request in completions)
-    tokenized = [request.get("content") for request in state.requests if "content" in request]
+    tokenized = [
+        content
+        for request in state.requests
+        for content in [request.get("content")]
+        if isinstance(content, str) and content.startswith("<think>")
+    ]
     assert tokenized == ["<think>stub reasoning101", "<think>stub reasoning101"]
     assert result.execution["effective_server_config"] == {
         "backend": "CUDA",
@@ -264,6 +280,192 @@ def test_live_runner_streams_forced_budget_and_restarts_determinism_canary(
         "total_slots": 1,
     }
     assert result.execution["prompt_template_sha256"] == hashlib.sha256(b"{{ messages }}").hexdigest()
+    first_completion = state.request_paths.index("/v1/completions")
+    assert state.request_paths[:first_completion] == ["/apply-template", "/tokenize"]
+
+
+def test_fit_preflight_selects_ten_longest_with_deterministic_ties_and_all_needles() -> None:
+    items = tuple(
+        LiveItem(f"item-{index:02d}", "instruction", {"prompt": "x" * (index + 1)})
+        for index in range(15)
+    ) + tuple(
+        LiveItem(
+            item_id,
+            "sanity-gates",
+            {"category": "long-context-needle", "prompt": "short"},
+        )
+        for item_id in (
+            "gate-long-context-08192",
+            "gate-long-context-16384",
+            "gate-long-context-24576",
+        )
+    )
+
+    selected = live_runner.select_fit_preflight_items(items)
+    selected_ids = [item.item_id for item in selected]
+
+    assert selected_ids[:10] == [f"item-{index:02d}" for index in range(14, 4, -1)]
+    assert selected_ids[10:] == [
+        "gate-long-context-08192",
+        "gate-long-context-16384",
+        "gate-long-context-24576",
+    ]
+
+
+def test_fit_preflight_real_http_covers_full_selected_set_before_generation(tmp_path: Path) -> None:
+    # Given twelve differently sized non-needle items and three short needle gates.
+    model = tmp_path / "model.gguf"
+    binary = tmp_path / "llama-server.exe"
+    _ = model.write_bytes(b"model")
+    _ = binary.write_bytes(b"server")
+    state = _StubState(model)
+    stopped: list[int] = []
+    non_needles = tuple(
+        LiveItem(
+            f"item-{index:02d}",
+            "instruction",
+            {"prompt": f"NON_NEEDLE_{index:02d}_" + "x" * (100 + index)},
+        )
+        for index in range(12)
+    )
+    needles = tuple(
+        LiveItem(
+            item_id,
+            "sanity-gates",
+            {"category": "long-context-needle", "prompt": marker},
+        )
+        for item_id, marker in (
+            ("gate-long-context-08192", "NEEDLE_08192"),
+            ("gate-long-context-16384", "NEEDLE_16384"),
+            ("gate-long-context-24576", "NEEDLE_24576"),
+        )
+    )
+
+    def factory(_argv: list[str], _cwd: Path, _log_path: Path) -> ServerController:
+        return _FakeController(8110, stopped)
+
+    # When the live runner performs a successful run through the threaded HTTP stub.
+    with _stub_server(state) as (host, port):
+        _ = run_live_items(
+            LiveRunnerConfig(
+                model_file=model,
+                run_dir=tmp_path / "run",
+                server_bin=binary,
+                host=host,
+                port=port,
+                startup_timeout_seconds=2,
+                poll_interval_seconds=0.01,
+            ),
+            (*non_needles, *needles),
+            server_factory=factory,
+        )
+
+    # Then each independently expected candidate is rendered and tokenized before generation.
+    expected_markers = tuple(f"NON_NEEDLE_{index:02d}_" for index in range(11, 1, -1)) + (
+        "NEEDLE_08192",
+        "NEEDLE_16384",
+        "NEEDLE_24576",
+    )
+    events = tuple(zip(state.request_paths, state.requests, strict=True))
+    first_completion = next(index for index, (path, _) in enumerate(events) if path == "/v1/completions")
+    preflight_events = events[:first_completion]
+    assert sum(path == "/tokenize" for path, _ in preflight_events) == len(expected_markers)
+    for marker in expected_markers:
+        apply_indices = tuple(
+            index
+            for index, (path, body) in enumerate(preflight_events)
+            if path == "/apply-template" and marker in json.dumps(body, sort_keys=True)
+        )
+        tokenize_indices = tuple(
+            index
+            for index, (path, body) in enumerate(preflight_events)
+            if path == "/tokenize" and marker in json.dumps(body, sort_keys=True)
+        )
+        assert apply_indices
+        assert len(tokenize_indices) == 1
+        assert min(apply_indices) < tokenize_indices[0] < first_completion
+    assert stopped == [8110]
+
+
+def test_check_smoke_preflight_failure_writes_construction_defect_before_completion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    key = b"general.architecture"
+    value = b"qwen3"
+    model = tmp_path / "fixture-Q5_K_M.gguf"
+    _ = model.write_bytes(
+        b"GGUF"
+        + struct.pack("<IQQ", 3, 0, 1)
+        + struct.pack("<Q", len(key))
+        + key
+        + struct.pack("<I", 8)
+        + struct.pack("<Q", len(value))
+        + value
+    )
+    binary = tmp_path / "llama-server.exe"
+    _ = binary.write_bytes(b"server")
+    state = _StubState(model)
+    state.oversized_prompt_marker = "MORETON-24576"
+    state.oversized_prompt_tokens = 28001
+    stopped: list[int] = []
+
+    def factory(_argv: list[str], _cwd: Path, _log_path: Path) -> ServerController:
+        return _FakeController(9099, stopped)
+
+    run_dir = tmp_path / "run"
+    repo_root = Path(__file__).resolve().parents[2]
+    manifest = repo_root / "checkset" / "check-set-v1.manifest.json"
+
+    with _stub_server(state) as (host, port):
+
+        def run_real_live_items(
+            config: LiveRunnerConfig,
+            items: Sequence[LiveItem],
+        ) -> LiveExecutionResult:
+            return live_runner.run_live_items(
+                LiveRunnerConfig(
+                    model_file=config.model_file,
+                    run_dir=config.run_dir,
+                    server_bin=binary,
+                    host=host,
+                    port=port,
+                    startup_timeout_seconds=2,
+                    poll_interval_seconds=0.01,
+                    allow_untrusted_code=config.allow_untrusted_code,
+                ),
+                items,
+                server_factory=factory,
+            )
+
+        monkeypatch.setattr(check_run, "run_live_items", run_real_live_items)
+        with pytest.raises(InfrastructureFailure) as caught:
+            _ = run_check(
+                CheckRequest(
+                    artifact=model,
+                    manifest=manifest,
+                    parent=None,
+                    dry_run=False,
+                    out=run_dir,
+                    resume=None,
+                    smoke=True,
+                )
+            )
+
+    expected_message = (
+        "prompt fit preflight failed for gate-long-context-24576: "
+        "28001 + 4096 + 512 + 256 = 32865 > 32768"
+    )
+    assert caught.value.failure_class == "construction-defect"
+    assert caught.value.kind == "prompt-fit"
+    assert caught.value.detail == expected_message
+    assert read_json(run_dir / "infrastructure-failure.json") == {
+        "failure_class": "construction-defect",
+        "kind": "prompt-fit",
+        "message": expected_message,
+    }
+    assert "/v1/completions" not in state.request_paths
+    assert stopped == [9099]
 
 
 def test_check_smoke_records_streaming_status_failure_from_live_server(
@@ -340,11 +542,12 @@ def test_check_smoke_records_streaming_status_failure_from_live_server(
 
     # Then the existing failure policy classifies and records the exact server response.
     expected_message = f"live completion failed for ifbench-066: HTTP 400: {response_body}"
-    assert caught.value.failure_class == "infrastructure"
+    assert caught.value.failure_class == "construction-defect"
     assert caught.value.kind == "execution"
     assert caught.value.detail == expected_message
+    assert not isinstance(caught.value.__cause__, TypeError)
     assert read_json(run_dir / "infrastructure-failure.json") == {
-        "failure_class": "infrastructure",
+        "failure_class": "construction-defect",
         "kind": "execution",
         "message": expected_message,
     }

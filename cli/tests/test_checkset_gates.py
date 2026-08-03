@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from collections import Counter
 from copy import deepcopy
 from pathlib import Path
@@ -30,13 +31,22 @@ def test_authored_sanity_gates_match_the_locked_eighteen_item_taxonomy() -> None
         "determinism": 3,
     }
     needles = [
-        value
+        (nominal, words, bound)
         for record in definition_objects
         if record["category"] == "long-context-needle"
-        for value in [record.get("target_tokens")]
-        if isinstance(value, int)
+        for nominal, words, bound in [
+            (
+                record.get("nominal_target_tokens"),
+                record.get("pinned_word_count"),
+                record.get("construction_tokens_per_word_bound"),
+            )
+        ]
     ]
-    assert needles == [8192, 16384, 24576]
+    assert needles == [
+        (8192, 5649, 1.45),
+        (16384, 11299, 1.45),
+        (24576, 16948, 1.45),
+    ]
 
 
 def test_long_context_needles_are_embedded_at_recorded_mid_context_depth() -> None:
@@ -56,16 +66,18 @@ def test_long_context_needles_are_embedded_at_recorded_mid_context_depth() -> No
         embedding = record["needle_embedding"]
         assert isinstance(prompt, str) and isinstance(expected, dict) and isinstance(embedding, dict)
         context = prompt.split("<context>\n", maxsplit=1)[1].split("\n</context>", maxsplit=1)[0]
-        context_tokens = context.split()
-        needle_index = embedding["needle_token_index"]
-        window_tokens = embedding["window_tokens"]
+        context_words = context.split()
+        needle_index = embedding["needle_word_index"]
+        window_words = embedding["window_words"]
         depth_ratio = embedding["depth_ratio"]
         assert embedding["algorithm"] == "sha256-wordbank-padding-v1"
-        assert isinstance(needle_index, int) and isinstance(window_tokens, int)
+        assert isinstance(needle_index, int) and isinstance(window_words, int)
         assert isinstance(depth_ratio, float) and 0.4 <= depth_ratio <= 0.6
-        assert len(context_tokens) == window_tokens == record["target_tokens"]
-        assert context_tokens[needle_index] == f"NEEDLE={expected['answer']}"
-        assert needle_index < len(context_tokens) - 1
+        assert len(context_words) == window_words == record["pinned_word_count"]
+        assert context_words[needle_index] == f"NEEDLE={expected['answer']}"
+        assert context_words.count(f"NEEDLE={expected['answer']}") == 1
+        assert needle_index < len(context_words) - 1
+        assert hashlib.sha256(context.encode("utf-8")).hexdigest() == embedding["window_sha256"]
 
 
 def test_repetition_gates_pin_loop_detection_and_required_stop_contracts() -> None:

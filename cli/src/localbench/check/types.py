@@ -33,3 +33,13 @@ class ReferenceEdition:
 
 class CheckError(RuntimeError):
     pass
+
+
+class ConstructionDefect(CheckError):
+    kind: str
+    detail: str
+
+    def __init__(self, kind: str, detail: str) -> None:
+        super().__init__(detail)
+        self.kind = kind
+        self.detail = detail

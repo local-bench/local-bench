@@ -12,7 +12,7 @@ import httpx
 from localbench._types import JsonObject
 from localbench.check.execution import DEFAULT_LCE_SERVER_BIN, LceLaunchConfig, lce_server_argv
 from localbench.check.live_http import LiveHttpConfig
-from localbench.check.types import CheckError
+from localbench.check.types import CheckError, ConstructionDefect
 from localbench.serving.process import JobController, LaunchedServer, allocate_port, launch_llama_cpp
 from localbench.serving.teardown import teardown_owned_server
 
@@ -118,6 +118,8 @@ def run_server_cycle(
         return ServerCycleResult(execute(http_config, props), props, start)
     except InfrastructureFailure:
         raise
+    except ConstructionDefect as error:
+        raise InfrastructureFailure(error.kind, error.detail, failure_class="construction-defect") from error
     except (CheckError, httpx.HTTPError, OSError, RuntimeError, ValueError) as error:
         raise InfrastructureFailure("execution", str(error)) from error
     finally:

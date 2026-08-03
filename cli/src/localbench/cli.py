@@ -324,6 +324,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.output,
             offline_upstream=args.offline_upstream,
             freeze=args.freeze,
+            reviewed_draft_sha=args.reviewed_draft_sha,
         )
         print(message)
         return exit_code
@@ -897,6 +898,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     checkset_build_parser.add_argument("--offline-upstream", action="store_true", help=argparse.SUPPRESS)
     checkset_build_parser.add_argument("--freeze", action="store_true", help=argparse.SUPPRESS)
+    checkset_build_parser.add_argument("--reviewed-draft-sha", help=argparse.SUPPRESS)
     return parser
 
 

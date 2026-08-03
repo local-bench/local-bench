@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
@@ -12,9 +13,13 @@ from localbench.submissions.canon import canonical_json_bytes
 
 SPEC_SHA256: Final = "d8bbf9c6d5bb96c82c9827dc7e736cceaa2a1876b8ae1e9c0ee305b65b608629"
 LOCKED_UTC: Final = "2026-08-03T00:00:00Z"
-REVIEWED_DRAFT_SHA256: Final = "cedfc2ce159d5bbd3430ebbf2ebf4314110f8f720227f7bbb31768017639c02c"
 REVIEWED_BY: Final = "orchestrator"
 REVIEWED_LOCAL: Final = "2026-08-03"
+SUPERSEDES: Final[JsonObject] = {
+    "previous_frozen_sha256": "96896021d6befb40187d8cef53a98beadde4cd2348c719ee0c492176e59cf0a7",
+    "reason": "pre-validation construction defect: deepest needle window exceeded LCE context under real tokenizers",
+    "corrected_local": "2026-08-03",
+}
 
 
 def build_t2_scaffold(
@@ -59,6 +64,7 @@ def emit_manifest(
     source_metadata: JsonObject,
     pool_exclusions: Sequence[JsonObject] = (),
     freeze: bool = False,
+    reviewed_draft_sha: str | None = None,
 ) -> JsonObject:
     validate_manifest_inputs(
         modules=modules,
@@ -83,31 +89,39 @@ def emit_manifest(
         }
     )
     if freeze:
-        document = _freeze_reviewed_draft(document)
+        document = _freeze_reviewed_draft(document, reviewed_draft_sha)
     _write_canonical(output, document, sidecar=True)
     return document
 
 
-def _freeze_reviewed_draft(document: JsonObject) -> JsonObject:
+def _freeze_reviewed_draft(document: JsonObject, reviewed_draft_sha: str | None) -> JsonObject:
+    reviewed_draft_sha = validate_reviewed_draft_sha(reviewed_draft_sha)
     draft_sha256 = hashlib.sha256(_canonical_bytes(document)).hexdigest()
-    if draft_sha256 != REVIEWED_DRAFT_SHA256:
+    if draft_sha256 != reviewed_draft_sha:
         raise ChecksetBuildError(
             "refusing to freeze unreviewed check-set-v1 draft: "
-            f"fresh sha256 {draft_sha256} does not match reviewed {REVIEWED_DRAFT_SHA256}"
+            f"fresh sha256 {draft_sha256} does not match reviewed {reviewed_draft_sha}"
         )
     frozen = dict(document)
     frozen.update(
         {
             "draft": False,
             "review": {
-                "draft_sha256": REVIEWED_DRAFT_SHA256,
+                "draft_sha256": reviewed_draft_sha,
                 "reviewed_by": REVIEWED_BY,
                 "reviewed_local": REVIEWED_LOCAL,
             },
             "status": "frozen",
+            "supersedes": dict(SUPERSEDES),
         }
     )
     return frozen
+
+
+def validate_reviewed_draft_sha(reviewed_draft_sha: str | None) -> str:
+    if reviewed_draft_sha is None or re.fullmatch(r"[0-9a-fA-F]{64}", reviewed_draft_sha) is None:
+        raise ChecksetBuildError("reviewed draft sha256 must be a 64-character hexadecimal value")
+    return reviewed_draft_sha.lower()
 
 
 def _canonical_bytes(document: JsonValue) -> bytes:

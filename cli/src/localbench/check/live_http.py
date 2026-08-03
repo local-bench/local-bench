@@ -11,7 +11,7 @@ import httpx
 from localbench._types import BenchmarkItem, ChatMessage, JsonObject, JsonValue
 from localbench.budget_forcing import run_forced_item
 from localbench.check.budget import THINK_BUDGET, generation_parameters
-from localbench.check.types import CheckError
+from localbench.check.types import CheckError, ConstructionDefect
 from localbench.prompt_rendering import LlamaApplyTemplatePromptRenderer, PromptRenderer
 
 
@@ -67,6 +67,26 @@ def generate_live_item(
     )
 
 
+def live_prompt_character_count(module: str, source: JsonObject) -> int:
+    return sum(len(message["content"]) for message in _messages(module, source))
+
+
+def render_live_prompt(module: str, source: JsonObject, prompt_renderer: PromptRenderer) -> str:
+    return prompt_renderer.render(_messages(module, source))
+
+
+def tokenize_live_prompt(config: LiveHttpConfig, prompt: str) -> int:
+    headers = {"Authorization": f"Bearer {config.api_key}"}
+    with httpx.Client(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
+        response = client.post(
+            f"{config.base_url}/tokenize",
+            headers=headers,
+            json={"add_special": False, "content": prompt},
+        )
+        _ = response.raise_for_status()
+        return len(_token_ids(response.json()))
+
+
 async def _generate_live_item(
     config: LiveHttpConfig,
     *,
@@ -115,7 +135,10 @@ async def _generate_live_item(
         )
         error = result.get("error")
         if isinstance(error, str):
-            raise CheckError(f"live completion failed for {item_id}: {error}")
+            detail = f"live completion failed for {item_id}: {error}"
+            if "exceed_context_size_error" in error:
+                raise ConstructionDefect("execution", detail)
+            raise CheckError(detail)
         response = result.get("response_text")
         reasoning = result.get("reasoning_text")
         if not isinstance(response, str):
@@ -151,7 +174,11 @@ async def _tokenize(client: httpx.AsyncClient, config: LiveHttpConfig, text: str
         json={"add_special": False, "content": text},
     )
     _ = response.raise_for_status()
-    raw_payload = cast(object, response.json())
+    return _token_ids(response.json())
+
+
+def _token_ids(raw_response: JsonValue) -> list[JsonValue]:
+    raw_payload = cast(object, raw_response)
     payload = cast(JsonObject, raw_payload) if isinstance(raw_payload, dict) else None
     tokens = payload.get("tokens") if isinstance(payload, dict) else None
     if not isinstance(tokens, list) or not all(isinstance(token, int) for token in tokens):
