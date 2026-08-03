@@ -658,6 +658,7 @@ name = "local-bench-ai"
 version = "1.0.0.dev0"
 source = { editable = "." }
 dependencies = [
+    { name = "httpx" },
     { name = "math-verify" },
 ]
 
@@ -697,6 +698,7 @@ dev = [
 requires-dist = [
     { name = "anyio", marker = "extra == 'legacy'", specifier = ">=4" },
     { name = "datasets", marker = "extra == 'build'", specifier = ">=2.20" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "httpx", marker = "extra == 'legacy'", specifier = ">=0.27" },
     { name = "huggingface-hub", marker = "extra == 'hf'", specifier = ">=0.30" },
     { name = "jinja2", marker = "extra == 'dev'", specifier = ">=3.1" },

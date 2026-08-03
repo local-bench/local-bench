@@ -51,9 +51,9 @@ def test_packaged_manifest_is_the_complete_draft() -> None:
     assert manifest.read_bytes() == (Path(__file__).resolve().parents[2] / "checkset" / "check-set-v1.manifest.json").read_bytes()
 
 
-def test_v2_default_install_has_only_the_check_runtime_dependency() -> None:
+def test_v2_default_install_has_the_live_check_runtime_dependencies() -> None:
     pyproject = tomllib.loads((Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8"))
 
     assert pyproject["project"]["version"] == "1.0.0.dev0"
-    assert pyproject["project"]["dependencies"] == ["math-verify>=0.9.0"]
+    assert pyproject["project"]["dependencies"] == ["httpx>=0.27", "math-verify>=0.9.0"]
     assert pyproject["project"]["scripts"]["localbench"] == "localbench.check_cli:main"

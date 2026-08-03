@@ -30,7 +30,7 @@ import json
 import re
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Final, assert_never
+from typing import TYPE_CHECKING, Final, cast, final
 
 import httpx
 
@@ -52,6 +52,7 @@ from localbench._types import (
     Usage,
 )
 from localbench.prompt_rendering import PromptRenderer, ReasoningActivation
+from localbench.streaming_completion import StreamingStatusError, post_streaming_completion
 
 if TYPE_CHECKING:
     from localbench.execution_contract import ResolvedExecutionContract
@@ -83,15 +84,10 @@ GEMMA4_FORCING: Final = ForcingFormat(
 
 
 def forcing_format_for_activation(activation: ReasoningActivation) -> ForcingFormat:
-    match activation:
-        case "gemma4":
-            return GEMMA4_FORCING
-        case "qwen3" | "granite" | "nemotron" | "r1":
-            return QWEN_FORCING
-        case unreachable:
-            assert_never(unreachable)
+    return GEMMA4_FORCING if activation == "gemma4" else QWEN_FORCING
 
 
+@final
 class _ForcedStatus(Exception):
     """An HTTP status failure during a forced completion pass."""
 
@@ -114,6 +110,9 @@ def render_qwen3_chat_prompt(messages: list[ChatMessage]) -> str:
 
 def answer_budget_for(item: BenchmarkItem, think_budget: int) -> int:
     """Tokens left for the forced answer after the thinking budget, with a floor."""
+    answer_reserve = item.get("answer_reserve")
+    if isinstance(answer_reserve, int) and not isinstance(answer_reserve, bool) and answer_reserve > 0:
+        return answer_reserve
     total_cap = item.get("max_tokens")
     if not isinstance(total_cap, int) or isinstance(total_cap, bool):
         raise ValueError("ranked capped-thinking forcing requires integer max_tokens")
@@ -132,9 +131,13 @@ async def run_forced_item(
     backoff_base: float,
     prompt_renderer: PromptRenderer | None = None,
     forcing_format: ForcingFormat = QWEN_FORCING,
+    stream: bool = False,
 ) -> ItemResult:
     """Run one item with two-pass thinking-budget forcing; never raises on request failure."""
-    think_budget = int(item["think_budget"])  # type: ignore[typeddict-item]
+    raw_think_budget = item.get("think_budget")
+    if not isinstance(raw_think_budget, int) or isinstance(raw_think_budget, bool):
+        raise ValueError("ranked capped-thinking forcing requires integer think_budget")
+    think_budget = raw_think_budget
     answer_budget = answer_budget_for(item, think_budget)
     decoding = _forcing_decoding(item["sampling_params"])
     prompt = (
@@ -160,6 +163,7 @@ async def run_forced_item(
                     think_budget=think_budget,
                     answer_budget=answer_budget,
                     forcing_format=forcing_format,
+                    stream=stream,
                 )
                 return item_result(item, started_at, started_perf, attempt, parsed=parsed)
             except _ForcedStatus as exc:
@@ -204,17 +208,26 @@ async def _forced_two_pass(
     think_budget: int,
     answer_budget: int,
     forcing_format: ForcingFormat,
+    stream: bool = False,
 ) -> ParsedCompletion:
     """Execute the think pass and the forced-answer pass; return a merged completion."""
     think_data = await _post_completion(
-        client, url, headers, model, prompt, think_budget, decoding, [forcing_format.close],
+        client, url, headers, model, prompt, think_budget, decoding, [forcing_format.close], stream=stream,
     )
     think_text, think_finish, think_usage, think_timings = _extract_completion(think_data)
     forced = think_finish != "stop"
 
     answer_prompt = f"{prompt}{think_text}{forcing_format.forced_close}"
     answer_data = await _post_completion(
-        client, url, headers, model, answer_prompt, answer_budget, decoding, list(forcing_format.answer_stop),
+        client,
+        url,
+        headers,
+        model,
+        answer_prompt,
+        answer_budget,
+        decoding,
+        list(forcing_format.answer_stop),
+        stream=stream,
     )
     answer_text, answer_finish, answer_usage, answer_timings = _extract_completion(answer_data)
     for stop in forcing_format.answer_stop:
@@ -246,7 +259,8 @@ def _split_reopened_reasoning(answer_text: str, forcing_format: ForcingFormat) -
         return answer_text[: last.end()], answer_text[last.end():]
     if forcing_format.close not in answer_text:
         return "", answer_text
-    return answer_text.rsplit(forcing_format.close, 1)
+    prefix, suffix = answer_text.rsplit(forcing_format.close, 1)
+    return prefix, suffix
 
 
 async def _post_completion(
@@ -259,14 +273,33 @@ async def _post_completion(
     decoding: JsonObject,
     stop: list[str],
     timeout_budget: TimeoutBudget | None = None,
+    *,
+    stream: bool = False,
 ) -> JsonObject:
+    stop_values: list[JsonValue] = [value for value in stop]
     body: JsonObject = {
         "model": model,
         "prompt": prompt,
         "max_tokens": max_tokens,
-        "stop": stop,
+        "stop": stop_values,
         **decoding,
     }
+    if stream:
+        body["stream"] = True
+        try:
+            return await post_streaming_completion(
+                client,
+                url,
+                headers=headers,
+                body=body,
+                timeout=(
+                    client.timeout
+                    if timeout_budget is None
+                    else timeout_budget.httpx_timeout(max_tokens)
+                ),
+            )
+        except StreamingStatusError as error:
+            raise _ForcedStatus(str(error), retryable=is_retryable_status(error.status_code)) from error
     response = await client.post(
         url,
         headers=headers,
@@ -281,10 +314,10 @@ async def _post_completion(
         raise _ForcedStatus(http_error(response), retryable=True)
     if response.status_code >= 400:
         raise _ForcedStatus(http_error(response), retryable=False)
-    data = response.json()
+    data = cast(object, response.json())
     if not isinstance(data, dict):
         raise ResponseParseError("completion response is not an object")
-    return data
+    return cast(JsonObject, data)
 
 
 def _extract_completion(data: JsonObject) -> tuple[str, str | None, Usage, JsonObject | None]:
@@ -313,11 +346,15 @@ def _sum_usage(first: Usage, second: Usage) -> Usage:
             return None
         return (left or 0) + (right or 0)
 
-    return {
+    usage: Usage = {
         "prompt_tokens": _add("prompt_tokens"),
         "completion_tokens": _add("completion_tokens"),
         "total_tokens": _add("total_tokens"),
     }
+    reasoning_tokens = first.get("completion_tokens")
+    if reasoning_tokens is not None:
+        usage["reasoning_tokens"] = reasoning_tokens
+    return usage
 
 
 def _combine_server_timings(*timings: JsonObject | None) -> JsonObject | None:

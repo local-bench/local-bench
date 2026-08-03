@@ -18,6 +18,9 @@ def check_command(
     reference_bundle: Path | None,
     reference_public_key: str | None,
     reference_checkset_edition: str | None,
+    smoke: bool = False,
+    reference_run: Path | None = None,
+    allow_untrusted_code: bool = False,
 ) -> tuple[int, str]:
     try:
         run_dir, record = run_check(
@@ -31,6 +34,9 @@ def check_command(
                 reference_bundle=reference_bundle,
                 reference_public_key=reference_public_key,
                 reference_checkset_edition=reference_checkset_edition,
+                smoke=smoke,
+                reference_run=reference_run,
+                allow_untrusted_code=allow_untrusted_code,
             )
         )
     except (CheckError, ReferenceEditionError, OSError, ValueError) as error:

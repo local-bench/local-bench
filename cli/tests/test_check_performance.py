@@ -60,13 +60,13 @@ def test_naturalistic_task_telemetry_records_every_item_without_relabeling_contr
                 "usage": {"prompt_tokens": 100, "reasoning_tokens": 2},
                 "latency_seconds": 1.25,
             },
-            "generation_parameters": {"think_budget": 4096},
+            "generation_parameters": {"think_budget_tokens": 4096},
         },
         {
             "item_id": "m-1",
             "module": "math",
             "candidate": {"token_ids": [4, 5], "latency_seconds": 0.5},
-            "generation_parameters": {"think_budget": 4096},
+            "generation_parameters": {"think_budget_tokens": 4096},
         },
     ]
 

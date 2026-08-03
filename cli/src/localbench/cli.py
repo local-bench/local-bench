@@ -306,12 +306,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.file,
             parent=args.parent,
             dry_run=args.dry_run,
+            smoke=args.smoke,
             manifest=args.manifest,
             out=args.out,
             resume=args.resume,
             reference_bundle=args.reference_bundle,
             reference_public_key=args.reference_public_key,
             reference_checkset_edition=args.reference_checkset_edition,
+            reference_run=args.reference_run,
+            allow_untrusted_code=args.allow_untrusted_code,
         )
         print(message)
         return exit_code
@@ -347,6 +350,7 @@ def _parser() -> argparse.ArgumentParser:
     check_parser.add_argument("file", type=Path, help="candidate GGUF file")
     check_parser.add_argument("--parent", help="explicit parent/reference lineage id")
     check_parser.add_argument("--dry-run", action="store_true", help="run the complete pipeline with the mock runner")
+    check_parser.add_argument("--smoke", action="store_true", help="run the pinned non-scoring GPU validation subset")
     check_parser.add_argument("--resume", type=Path, help="explicitly resume an existing check run directory")
     check_parser.add_argument("--out", type=Path, help="new run directory")
     check_parser.add_argument(
@@ -356,7 +360,13 @@ def _parser() -> argparse.ArgumentParser:
         help=argparse.SUPPRESS,
     )
     check_parser.add_argument("--reference-bundle", type=Path, help="signed immutable reference-edition bundle")
+    check_parser.add_argument("--reference-run", type=Path, help="complete immutable run for the signed reference")
     check_parser.add_argument("--reference-public-key", help="trusted Ed25519 reference-edition public key")
+    check_parser.add_argument(
+        "--allow-untrusted-code",
+        action="store_true",
+        help="consent to execute generated coding answers in the restricted Docker sandbox",
+    )
     check_parser.add_argument("--reference-checkset-edition", help=argparse.SUPPRESS)
     run_parser = subparsers.add_parser("run", help="run a local benchmark suite")
     run_parser.add_argument("--endpoint", help="OpenAI-compatible base URL")

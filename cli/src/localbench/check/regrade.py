@@ -19,6 +19,7 @@ def grade_item_rows(rows: list[JsonObject]) -> tuple[list[JsonObject], JsonObjec
         reference = _required_object(row, "reference")
         source = row.get("source_item")
         repeated = row.get("candidate_repeat")
+        reference_repeated = row.get("reference_repeat")
         if isinstance(source, dict):
             candidate_grade = grade_response(
                 module,
@@ -26,7 +27,14 @@ def grade_item_rows(rows: list[JsonObject]) -> tuple[list[JsonObject], JsonObjec
                 candidate,
                 repeated_generation=repeated if isinstance(repeated, dict) else None,
             )
-            reference_grade = grade_response(module, source, reference)
+            reference_grade = grade_response(
+                module,
+                source,
+                reference,
+                repeated_generation=(
+                    reference_repeated if isinstance(reference_repeated, dict) else None
+                ),
+            )
         else:
             candidate_grade = grade_mock_generation(candidate)
             reference_grade = grade_mock_generation(reference)

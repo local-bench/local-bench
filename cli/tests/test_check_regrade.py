@@ -3,7 +3,8 @@ from __future__ import annotations
 import struct
 from pathlib import Path
 
-from localbench.check.regrade import regrade_run
+from localbench._types import JsonObject
+from localbench.check.regrade import grade_item_rows, regrade_run
 from localbench.check.run import CheckRequest, run_check
 
 
@@ -80,3 +81,44 @@ def _fixture_gguf(path: Path) -> Path:
         + value
     )
     return path
+
+
+def test_regrade_uses_independent_reference_repeat_for_determinism_gate() -> None:
+    generation: JsonObject = {
+        "finish_reason": "stop",
+        "parsed_tool_calls": [],
+        "scorer_result": {"correct": True},
+        "server_start_id": "restart-a",
+        "text": "101",
+        "token_ids": [101],
+    }
+    repeated: JsonObject = dict(generation)
+    repeated["server_start_id"] = "restart-b"
+    rows: list[JsonObject] = [
+        {
+            "candidate": generation,
+            "candidate_repeat": repeated,
+            "item_id": "gate-determinism-short",
+            "module": "sanity-gates",
+            "reference": dict(generation),
+            "reference_repeat": dict(repeated),
+            "source_item": {
+                "category": "determinism",
+                "expected": {"answer": "101"},
+                "gate_kind": "validity",
+            },
+        }
+    ]
+
+    grades, summary = grade_item_rows(rows)
+
+    assert summary["candidate_correct"] == 1
+    assert summary["reference_correct"] == 1
+    reference_grade = grades[0]["reference"]
+    assert isinstance(reference_grade, dict)
+    assert reference_grade["correct"] is True
+    assert reference_grade["detail"] == {
+        "category": "determinism",
+        "gate_kind": "validity",
+        "scorer": "sanity-gates-exact",
+    }

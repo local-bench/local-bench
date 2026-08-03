@@ -8,7 +8,7 @@ version = "1.0.0.dev0"
 description = "Fixed local artifact comparison for local-bench.ai."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["math-verify>=0.9.0"]
+dependencies = ["httpx>=0.27", "math-verify>=0.9.0"]
 
 [project.urls]
 Homepage = "https://local-bench.ai"

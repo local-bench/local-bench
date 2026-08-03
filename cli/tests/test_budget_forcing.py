@@ -220,7 +220,12 @@ def test_forced_when_thinking_exceeds_budget() -> None:
         assert result["thinking_forced"] is True
         assert result["error"] is None
         # usage is summed across both passes
-        assert result["usage"] == {"prompt_tokens": 30, "completion_tokens": 8197, "total_tokens": 8227}
+        assert result["usage"] == {
+            "prompt_tokens": 30,
+            "completion_tokens": 8197,
+            "reasoning_tokens": 8192,
+            "total_tokens": 8227,
+        }
 
     asyncio.run(scenario())
 
@@ -517,7 +522,7 @@ def test_capped_thinking_without_think_budget_uses_chat_path() -> None:
                 "choices": [{"message": {"content": "Answer: A"}, "finish_reason": "stop"}],
                 "usage": {"prompt_tokens": 4, "completion_tokens": 2, "total_tokens": 6}})
 
-        record = await run_benchmark(
+        _ = await run_benchmark(
             base_url="http://local/v1", model="qwen", items=[_item(think_budget=None)],
             lane="capped-thinking", transport=httpx.MockTransport(handler))
 

@@ -92,7 +92,7 @@ def naturalistic_task_telemetry(items: Sequence[JsonObject]) -> JsonObject:
             raise CheckError("task telemetry requires candidate generation and parameter records")
         usage = generation.get("usage")
         token_ids = generation.get("token_ids")
-        think_budget = params.get("think_budget")
+        think_budget = params.get("think_budget_tokens")
         rows.append(
             {
                 "completion_tokens": len(token_ids) if isinstance(token_ids, list) else _optional_int(usage, "completion_tokens"),
@@ -147,6 +147,25 @@ def mock_performance(items: Sequence[JsonObject], execution: JsonObject) -> Json
     controlled["runner"] = "mock"
     return {
         "controlled": controlled,
+        "schema_version": "localbench-check-performance-record-v1",
+        "task_phase": naturalistic_task_telemetry(items),
+    }
+
+
+def live_task_performance(items: Sequence[JsonObject], execution: JsonObject) -> JsonObject:
+    return {
+        "controlled": {
+            "environment": {
+                "binary_sha256s": execution.get("binaries", {}),
+                "context_tokens": execution.get("context_tokens"),
+                "cuda": execution.get("cuda_version"),
+                "driver": execution.get("driver"),
+                "flags": execution.get("flags", []),
+                "framework": f"llama.cpp {execution.get('build', 'unknown')}",
+            },
+            "reason": "controlled perf probes are outside the T-C execution-runner pass",
+            "status": "not-run",
+        },
         "schema_version": "localbench-check-performance-record-v1",
         "task_phase": naturalistic_task_telemetry(items),
     }

@@ -1,0 +1,521 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import threading
+from collections.abc import Generator
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import ClassVar, cast, final, override
+
+import pytest
+
+import localbench.check.live_full as live_full
+
+from localbench.check.execution import DEFAULT_LCE_SERVER_BIN, LceLaunchConfig, lce_server_argv
+from localbench._types import JsonObject
+from localbench.check.live_full import run_full_live_check
+from localbench.check.live_runner import LiveExecutionResult
+from localbench.check.live_runner import LiveItem, run_live_items
+from localbench.check.live_reference import attach_reference_rows, validate_execution_pair
+from localbench.check.live_server import InfrastructureFailure, LiveRunnerConfig, ServerController
+from localbench.check.live_sources import PINNED_SMOKE_ITEMS, load_smoke_items
+from localbench.check.stateful_live import run_stateful_item
+from localbench.check.types import CheckError, ReferenceEdition
+from localbench.checkset.input_runs import read_json
+
+
+@final
+class _StubState:
+    def __init__(self, model_file: Path) -> None:
+        self.model_file: Path = model_file
+        self.health_failures_remaining: int = 0
+        self.health_calls: int = 0
+        self.props_calls: int = 0
+        self.requests: list[JsonObject] = []
+
+
+class _StubHandler(BaseHTTPRequestHandler):
+    state: ClassVar[_StubState]
+
+    def do_GET(self) -> None:  # noqa: N802
+        if self.path == "/health":
+            self.state.health_calls += 1
+            if self.state.health_failures_remaining:
+                self.state.health_failures_remaining -= 1
+                self._json(503, {"status": "loading"})
+            else:
+                self._json(200, {"status": "ok"})
+            return
+        if self.path == "/props":
+            self.state.props_calls += 1
+            self._json(
+                200,
+                {
+                    "backend": "CUDA",
+                    "chat_template": "{{ messages }}",
+                    "driver_version": "stub-driver",
+                    "model_path": str(self.state.model_file.resolve()),
+                    "total_slots": 1,
+                },
+            )
+            return
+        self._json(404, {"error": "not found"})
+
+    def do_POST(self) -> None:  # noqa: N802
+        size = int(self.headers.get("Content-Length", "0"))
+        raw_body = cast(object, json.loads(self.rfile.read(size)))
+        assert isinstance(raw_body, dict)
+        body = cast(JsonObject, raw_body)
+        self.state.requests.append(body)
+        if self.path == "/apply-template":
+            self._json(200, {"prompt": f"rendered:{body['messages']}"})
+            return
+        if self.path == "/tokenize":
+            self._json(200, {"tokens": [31, 32, 33]})
+            return
+        if self.path == "/v1/completions":
+            stop = body.get("stop")
+            if stop == ["</think>"]:
+                self._sse("<think>stub reasoning", "length", completion_tokens=4096)
+            else:
+                assert "</think>" in str(body.get("prompt"))
+                self._sse("101", "stop", completion_tokens=1)
+            return
+        self._json(404, {"error": "not found"})
+
+    @override
+    def log_message(self, format: str, *args: object) -> None:
+        _ = format, args
+        return
+
+    def _json(self, status: int, payload: object) -> None:
+        data = json.dumps(payload).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        _ = self.wfile.write(data)
+
+    def _sse(self, text: str, finish_reason: str, *, completion_tokens: int) -> None:
+        payload = {
+            "choices": [{"finish_reason": finish_reason, "index": 0, "text": text}],
+            "usage": {
+                "completion_tokens": completion_tokens,
+                "prompt_tokens": 7,
+                "total_tokens": completion_tokens + 7,
+            },
+        }
+        data = f"data: {json.dumps(payload)}\n\ndata: [DONE]\n\n".encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        _ = self.wfile.write(data)
+
+
+@contextmanager
+def _stub_server(state: _StubState) -> Generator[tuple[str, int]]:
+    _StubHandler.state = state
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _StubHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        address = server.server_address
+        host, port = address[0], address[1]
+        assert isinstance(host, str) and isinstance(port, int)
+        yield host, port
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+
+class _FakeController:
+    pid: int
+    _stopped: list[int]
+
+    def __init__(self, pid: int, stopped: list[int]) -> None:
+        self.pid = pid
+        self._stopped = stopped
+
+    def poll(self) -> int | None:
+        return None
+
+    def stop(self) -> None:
+        self._stopped.append(self.pid)
+
+
+@final
+class _CrashedController(_FakeController):
+    @override
+    def poll(self) -> int | None:
+        return 23
+
+
+def test_lce_argv_pins_binary_context_batch_and_all_normative_flags(tmp_path: Path) -> None:
+    config = LceLaunchConfig(
+        model_file=tmp_path / "model.gguf",
+        run_dir=tmp_path,
+        host="127.0.0.1",
+        port=8088,
+        api_key="secret",
+    )
+
+    argv = lce_server_argv(config)
+
+    assert DEFAULT_LCE_SERVER_BIN == Path(r"C:\Users\Michael\llamacpp\b10076\llama-server.exe")
+    assert argv[0] == str(DEFAULT_LCE_SERVER_BIN)
+    for pair in (("--ctx-size", "32768"), ("--batch-size", "1"), ("--parallel", "1")):
+        index = argv.index(pair[0])
+        assert argv[index : index + 2] == list(pair)
+    for pair in (("-ctk", "f16"), ("-ctv", "f16"), ("--fit", "off"), ("-lv", "4")):
+        index = argv.index(pair[0])
+        assert argv[index : index + 2] == list(pair)
+
+
+def test_live_runner_streams_forced_budget_and_restarts_determinism_canary(
+    tmp_path: Path,
+) -> None:
+    model = tmp_path / "model.gguf"
+    binary = tmp_path / "llama-server.exe"
+    _ = model.write_bytes(b"model")
+    _ = binary.write_bytes(b"server")
+    state = _StubState(model)
+    stopped: list[int] = []
+    launched_argv: list[list[str]] = []
+
+    def factory(argv: list[str], _cwd: Path, _log_path: Path) -> ServerController:
+        launched_argv.append(argv)
+        state.health_failures_remaining = 1
+        return _FakeController(8100 + len(launched_argv), stopped)
+
+    item = LiveItem(
+        item_id="gate-determinism-short",
+        module="sanity-gates",
+        source={
+            "category": "determinism",
+            "expected": {"answer": "101"},
+            "gate_kind": "validity",
+            "item_id": "gate-determinism-short",
+            "prompt": "Return the next prime after 100.",
+        },
+    )
+    with _stub_server(state) as (host, port):
+        result = run_live_items(
+            LiveRunnerConfig(
+                model_file=model,
+                run_dir=tmp_path / "run",
+                server_bin=binary,
+                host=host,
+                port=port,
+                startup_timeout_seconds=2,
+                poll_interval_seconds=0.01,
+            ),
+            (item,),
+            server_factory=factory,
+        )
+
+    assert len(launched_argv) == 2
+    assert stopped == [8101, 8102]
+    assert state.health_calls >= 4
+    assert state.props_calls == 2
+    row = result.items[0]
+    candidate = row["candidate"]
+    repeated = row["candidate_repeat"]
+    assert isinstance(candidate, dict) and isinstance(repeated, dict)
+    assert candidate["server_start_id"] != repeated["server_start_id"]
+    assert candidate["protocol_flag"] == "think-budget-exhausted"
+    assert candidate["token_ids"] == [31, 32, 33]
+    completions = [request for request in state.requests if request.get("stream") is True]
+    assert len(completions) == 4
+    requested_budgets = [request.get("max_tokens") for request in completions]
+    assert all(isinstance(value, int) for value in requested_budgets)
+    assert set(cast(list[int], requested_budgets)) == {4096, 512}
+    assert all(request["temperature"] == 0 and request["seed"] == 1234 for request in completions)
+    tokenized = [request.get("content") for request in state.requests if "content" in request]
+    assert tokenized == ["<think>stub reasoning101", "<think>stub reasoning101"]
+    assert result.execution["effective_server_config"] == {
+        "backend": "CUDA",
+        "chat_template": "{{ messages }}",
+        "driver_version": "stub-driver",
+        "model_path": str(model.resolve()),
+        "total_slots": 1,
+    }
+    assert result.execution["prompt_template_sha256"] == hashlib.sha256(b"{{ messages }}").hexdigest()
+
+
+def test_live_runner_classifies_health_timeout_as_infrastructure_and_stops_only_owned_pid(
+    tmp_path: Path,
+) -> None:
+    model = tmp_path / "model.gguf"
+    binary = tmp_path / "llama-server.exe"
+    _ = model.write_bytes(b"model")
+    _ = binary.write_bytes(b"server")
+    state = _StubState(model)
+    state.health_failures_remaining = 10_000
+    stopped: list[int] = []
+
+    def factory(_argv: list[str], _cwd: Path, _log_path: Path) -> ServerController:
+        return _FakeController(9123, stopped)
+
+    with _stub_server(state) as (host, port), pytest.raises(InfrastructureFailure) as caught:
+        _ = run_live_items(
+            LiveRunnerConfig(
+                model_file=model,
+                run_dir=tmp_path / "run",
+                server_bin=binary,
+                host=host,
+                port=port,
+                startup_timeout_seconds=0.05,
+                poll_interval_seconds=0.01,
+            ),
+            (),
+            server_factory=factory,
+        )
+
+    assert caught.value.kind == "startup-timeout"
+    assert caught.value.failure_class == "infrastructure"
+    assert stopped == [9123]
+
+
+def test_live_runner_classifies_child_crash_and_still_stops_that_child(tmp_path: Path) -> None:
+    model = tmp_path / "model.gguf"
+    binary = tmp_path / "llama-server.exe"
+    _ = model.write_bytes(b"model")
+    _ = binary.write_bytes(b"server")
+    stopped: list[int] = []
+
+    def factory(_argv: list[str], _cwd: Path, _log_path: Path) -> ServerController:
+        return _CrashedController(9456, stopped)
+
+    with pytest.raises(InfrastructureFailure) as caught:
+        _ = run_live_items(
+            LiveRunnerConfig(
+                model_file=model,
+                run_dir=tmp_path / "run",
+                server_bin=binary,
+                port=65431,
+                startup_timeout_seconds=0.05,
+                poll_interval_seconds=0.01,
+            ),
+            (),
+            server_factory=factory,
+        )
+
+    assert caught.value.kind == "server-crash"
+    assert stopped == [9456]
+
+
+def test_full_live_runner_requires_explicit_coding_sandbox_consent(tmp_path: Path) -> None:
+    item = LiveItem("bcbh-002", "coding", {"instruct_prompt": "write code"})
+
+    with pytest.raises(CheckError, match="allow-untrusted-code"):
+        _ = run_live_items(
+            LiveRunnerConfig(model_file=tmp_path / "model.gguf", run_dir=tmp_path / "run"),
+            (item,),
+        )
+
+
+def test_smoke_selection_is_pinned_few_items_plus_all_sanity_gates() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    manifest = repo_root / "checkset" / "check-set-v1.manifest.json"
+
+    items = load_smoke_items(repo_root, manifest)
+
+    assert [item.item_id for item in items[: len(PINNED_SMOKE_ITEMS)]] == list(PINNED_SMOKE_ITEMS)
+    gates = [item for item in items if item.module == "sanity-gates"]
+    assert len(items) == len(PINNED_SMOKE_ITEMS) + 18
+    assert len(gates) == 18
+
+
+def test_stateful_live_runner_uses_one_call_per_turn_and_reveals_inspect_output_after_call() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    manifest = read_json(repo_root / "checkset" / "check-set-v1.manifest.json")
+    stateful = manifest["stateful"]
+    assert isinstance(stateful, dict)
+    instances = stateful["instances"]
+    assert isinstance(instances, list)
+    source = cast(
+        JsonObject,
+        next(
+        instance
+        for instance in instances
+        if isinstance(instance, dict) and instance.get("template") == "config migration"
+        ),
+    )
+    accepted = source["accepted_equivalent_trajectories"]
+    inspect_output = source["inspect_output"]
+    assert isinstance(accepted, list) and isinstance(accepted[0], list)
+    assert isinstance(inspect_output, dict)
+    trajectory = accepted[0]
+    prompts: list[str] = []
+    calls = iter(trajectory)
+
+    def generate(turn_source: JsonObject) -> JsonObject:
+        prompt = turn_source["prompt"]
+        assert isinstance(prompt, str)
+        prompts.append(prompt)
+        if turn_source.get("stateful_final") is True:
+            return {"finish_reason": "stop", "parsed_tool_calls": [], "text": "DONE", "token_ids": [9]}
+        call = next(calls)
+        assert isinstance(call, dict)
+        return {
+            "finish_reason": "stop",
+            "parsed_tool_calls": [call],
+            "protocol_flag": None,
+            "text": json.dumps({"calls": [call]}),
+            "token_ids": [1],
+            "usage": {"completion_tokens": 1, "prompt_tokens": 1, "total_tokens": 2},
+        }
+
+    generation = run_stateful_item(source, generate)
+
+    hidden_value = next(iter(inspect_output.values()))
+    assert isinstance(hidden_value, str)
+    assert hidden_value not in prompts[0]
+    assert hidden_value in prompts[1]
+    assert generation["parsed_tool_calls"] == trajectory
+    assert generation["stateful_turns"] == len(trajectory) + 1
+
+
+def test_live_reference_pairing_copies_independent_restart_canary_evidence() -> None:
+    candidate: list[JsonObject] = [
+        {"item_id": "gate-determinism-short", "module": "sanity-gates", "candidate": {"text": "101"}}
+    ]
+    reference: list[JsonObject] = [
+        {
+            "item_id": "gate-determinism-short",
+            "module": "sanity-gates",
+            "candidate": {"server_start_id": "ref-a", "text": "101"},
+            "candidate_repeat": {"server_start_id": "ref-b", "text": "101"},
+        }
+    ]
+
+    paired = attach_reference_rows(candidate, reference)
+
+    assert paired[0]["reference"] == {"server_start_id": "ref-a", "text": "101"}
+    assert paired[0]["reference_repeat"] == {"server_start_id": "ref-b", "text": "101"}
+    assert paired[0]["reference"] is not reference[0]["candidate"]
+
+
+def test_live_reference_rejects_execution_config_drift() -> None:
+    candidate: JsonObject = {
+        "backend": "CUDA",
+        "batch_size": 1,
+        "binaries": {"llama-server.exe": "a" * 64},
+        "build": "b10076",
+        "commit": "305ba51",
+        "context_tokens": 32768,
+        "cuda_version": "13.3",
+        "driver": "stub-driver",
+        "edition": "LCE-1",
+        "flags": ["-ctk", "f16", "-ctv", "f16", "--fit", "off", "-lv", "4"],
+        "prompt_rendering": "cli-owned",
+        "repo_defaults_disabled": True,
+        "server_defaults_disabled": True,
+    }
+    reference = dict(candidate)
+    reference["batch_size"] = 2
+
+    with pytest.raises(CheckError, match="batch_size"):
+        validate_execution_pair(candidate, reference)
+
+
+def test_live_reference_records_candidate_template_drift_for_gate_scoring() -> None:
+    fixed: JsonObject = {
+        "backend": "CUDA",
+        "batch_size": 1,
+        "binaries": {"llama-server.exe": "a" * 64},
+        "build": "b10076",
+        "commit": "305ba51",
+        "context_tokens": 32768,
+        "cuda_version": "13.3",
+        "driver": "stub-driver",
+        "edition": "LCE-1",
+        "flags": ["-ctk", "f16", "-ctv", "f16", "--fit", "off", "-lv", "4"],
+        "prompt_rendering": "cli-owned",
+        "repo_defaults_disabled": True,
+        "server_defaults_disabled": True,
+    }
+    candidate: JsonObject = {
+        **fixed,
+        "effective_server_config": {"chat_template": "wrong", "model_path": "candidate.gguf"},
+        "prompt_template_sha256": "c" * 64,
+    }
+    reference: JsonObject = {
+        **fixed,
+        "effective_server_config": {"chat_template": "pinned", "model_path": "reference.gguf"},
+        "prompt_template_sha256": "d" * 64,
+    }
+
+    validate_execution_pair(candidate, reference)
+
+
+def test_full_reference_artifact_runs_independent_reference_and_candidate_passes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[int] = []
+    execution: JsonObject = {
+        "backend": "CUDA",
+        "batch_size": 1,
+        "binaries": {"llama-server.exe": "a" * 64},
+        "build": "b10076",
+        "commit": "305ba51",
+        "context_tokens": 32768,
+        "cuda_version": "13.3",
+        "driver": "stub-driver",
+        "edition": "LCE-1",
+        "effective_server_config": {"chat_template": "stub", "model_path": "ignored"},
+        "flags": ["-ctk", "f16", "-ctv", "f16", "--fit", "off", "-lv", "4"],
+        "prompt_rendering": "cli-owned",
+        "prompt_template_sha256": "b" * 64,
+        "repo_defaults_disabled": True,
+        "server_defaults_disabled": True,
+    }
+
+    def fake_run_live_items(*_args: object, **_kwargs: object) -> LiveExecutionResult:
+        calls.append(len(calls) + 1)
+        return LiveExecutionResult(
+            [
+                {
+                    "candidate": {"server_start_id": f"pass-{calls[-1]}", "text": str(calls[-1])},
+                    "item_id": "ifbench-066",
+                    "module": "instruction",
+                }
+            ],
+            dict(execution),
+        )
+
+    monkeypatch.setattr(live_full, "run_live_items", fake_run_live_items)
+    reference = ReferenceEdition(
+        edition_id="reference-v1",
+        family="qwen3",
+        artifact_sha256="c" * 64,
+        tokenizer_sha256="d" * 64,
+        template_sha256="b" * 64,
+        class_label="Q8 operational proxy",
+        created_utc="2026-08-03T00:00:00Z",
+        checkset_edition="check-set-v1",
+        execution_edition="LCE-1",
+    )
+
+    result = run_full_live_check(
+        LiveRunnerConfig(
+            model_file=tmp_path / "reference.gguf",
+            run_dir=tmp_path / "run",
+            allow_untrusted_code=True,
+        ),
+        (LiveItem("ifbench-066", "instruction", {"prompt": "stub"}),),
+        candidate_sha256="c" * 64,
+        reference=reference,
+        reference_run=None,
+        manifest_sha256="f" * 64,
+    )
+
+    assert calls == [1, 2]
+    assert result.items[0]["candidate"] == {"server_start_id": "pass-2", "text": "2"}
+    assert result.items[0]["reference"] == {"server_start_id": "pass-1", "text": "1"}
+    assert result.execution["reference_source"] == "independent-live-rerun"

@@ -18,12 +18,15 @@ class _CheckArgs(_CommandArgs, Protocol):
     file: Path
     parent: str | None
     dry_run: bool
+    smoke: bool
     manifest: Path
     out: Path | None
     resume: Path | None
     reference_bundle: Path | None
     reference_public_key: str | None
     reference_checkset_edition: str | None
+    reference_run: Path | None
+    allow_untrusted_code: bool
 
 
 class _ChecksetArgs(_CommandArgs, Protocol):
@@ -49,12 +52,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             check_args.file,
             parent=check_args.parent,
             dry_run=check_args.dry_run,
+            smoke=check_args.smoke,
             manifest=check_args.manifest,
             out=check_args.out,
             resume=check_args.resume,
             reference_bundle=check_args.reference_bundle,
             reference_public_key=check_args.reference_public_key,
             reference_checkset_edition=check_args.reference_checkset_edition,
+            reference_run=check_args.reference_run,
+            allow_untrusted_code=check_args.allow_untrusted_code,
         )
         print(message)
         return exit_code
@@ -84,11 +90,18 @@ def _parser() -> argparse.ArgumentParser:
     _ = check.add_argument("file", type=Path, help="candidate GGUF file")
     _ = check.add_argument("--parent", help="explicit parent/reference lineage id")
     _ = check.add_argument("--dry-run", action="store_true", help="run the complete pipeline with deterministic fixtures")
+    _ = check.add_argument("--smoke", action="store_true", help="run the pinned non-scoring GPU validation subset")
     _ = check.add_argument("--resume", type=Path, help="explicitly resume an existing run directory")
     _ = check.add_argument("--out", type=Path, help="new run directory")
     _ = check.add_argument("--manifest", type=Path, default=default_manifest_path(), help=argparse.SUPPRESS)
     _ = check.add_argument("--reference-bundle", type=Path, help="signed immutable reference-edition bundle")
+    _ = check.add_argument("--reference-run", type=Path, help="complete immutable run for the signed reference")
     _ = check.add_argument("--reference-public-key", help="trusted Ed25519 reference-edition public key")
+    _ = check.add_argument(
+        "--allow-untrusted-code",
+        action="store_true",
+        help="consent to execute generated coding answers in the restricted Docker sandbox",
+    )
     _ = check.add_argument("--reference-checkset-edition", help=argparse.SUPPRESS)
     checkset = subparsers.add_parser("checkset", help=argparse.SUPPRESS)
     checkset_subparsers = checkset.add_subparsers(dest="checkset_command", required=True)
