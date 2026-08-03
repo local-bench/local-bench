@@ -5,121 +5,221 @@
       "name": "booking ledger",
       "primary_id_argument": "booking_id",
       "related_id_arguments": ["guest_id", "room_id"],
-      "states": ["requested", "held", "confirmed"],
+      "states": ["requested", "held", "confirmed", "cancelled", "expired"],
+      "features": ["cyclic-with-guard", "trap-transition"],
+      "path_variants": [{"selector_key": "hold_policy", "selector_value": "release_then_rehold", "tools": ["hold_booking", "release_booking", "rehold_booking", "confirm_booking"]}],
       "transitions": [
-        {"from": "requested", "to": "held", "tool": "hold_booking", "required": ["booking_id", "room_id"]},
-        {"from": "held", "to": "confirmed", "tool": "confirm_booking", "required": ["booking_id", "guest_id"]}
+        {"from": "requested", "to": "held", "tool": "hold_booking", "required": ["booking_id", "room_id", "hold_code"]},
+        {"from": "held", "to": "requested", "tool": "release_booking", "required": ["booking_id", "release_reason"]},
+        {"from": "requested", "to": "held", "tool": "rehold_booking", "required": ["booking_id", "room_id", "rehold_code"]},
+        {"from": "held", "to": "confirmed", "tool": "confirm_booking", "required": ["booking_id", "guest_id", "confirmation_code"]},
+        {"from": "requested", "to": "cancelled", "tool": "cancel_booking", "required": ["booking_id", "cancel_reason"], "kind": "trap"},
+        {"from": "requested", "to": "expired", "tool": "expire_booking", "required": ["booking_id", "expiry_code"], "kind": "distractor"}
       ]
     },
     {
       "name": "inventory",
       "primary_id_argument": "sku_id",
       "related_id_arguments": ["bin_id", "order_id"],
-      "states": ["counted", "reserved", "decremented"],
+      "states": ["counted", "audited", "reconciled", "reserved", "decremented", "quarantined", "discarded"],
+      "features": ["linear-with-guard"],
+      "path_variants": [{"selector_key": "stock_policy", "selector_value": "audited_commit", "tools": ["audit_stock", "reconcile_stock", "reserve_stock", "commit_stock"]}],
       "transitions": [
-        {"from": "counted", "to": "reserved", "tool": "reserve_stock", "required": ["sku_id", "bin_id", "quantity"]},
-        {"from": "reserved", "to": "decremented", "tool": "commit_stock", "required": ["sku_id", "order_id", "quantity"]}
+        {"from": "counted", "to": "audited", "tool": "audit_stock", "required": ["sku_id", "bin_id", "audit_code"]},
+        {"from": "audited", "to": "reconciled", "tool": "reconcile_stock", "required": ["sku_id", "bin_id", "reconcile_code"]},
+        {"from": "reconciled", "to": "reserved", "tool": "reserve_stock", "required": ["sku_id", "order_id", "quantity"]},
+        {"from": "reserved", "to": "decremented", "tool": "commit_stock", "required": ["sku_id", "order_id", "quantity", "commit_code"]},
+        {"from": "counted", "to": "quarantined", "tool": "quarantine_stock", "required": ["sku_id", "quarantine_code"], "kind": "distractor"},
+        {"from": "counted", "to": "discarded", "tool": "discard_stock", "required": ["sku_id", "discard_code"], "kind": "distractor"},
+        {"from": "audited", "to": "quarantined", "tool": "quarantine_audited_stock", "required": ["sku_id", "quarantine_code"], "kind": "distractor"}
       ]
     },
     {
       "name": "ticket triage",
       "primary_id_argument": "ticket_id",
       "related_id_arguments": ["queue_id", "agent_id"],
-      "states": ["new", "classified", "assigned", "resolved"],
+      "states": ["new", "classified", "urgent_queue", "standard_queue", "assigned", "verified", "resolved", "closed", "deleted"],
+      "features": ["branching"],
+      "path_variants": [
+        {"selector_key": "priority_band", "selector_value": "urgent", "tools": ["classify_ticket", "route_urgent_ticket", "assign_urgent_ticket", "verify_resolution", "resolve_ticket"]},
+        {"selector_key": "priority_band", "selector_value": "standard", "tools": ["classify_ticket", "route_standard_ticket", "assign_standard_ticket", "verify_resolution", "resolve_ticket"]}
+      ],
       "transitions": [
         {"from": "new", "to": "classified", "tool": "classify_ticket", "required": ["ticket_id", "priority"]},
-        {"from": "classified", "to": "assigned", "tool": "assign_ticket", "required": ["ticket_id", "queue_id", "agent_id"]},
-        {"from": "assigned", "to": "resolved", "tool": "resolve_ticket", "required": ["ticket_id", "resolution_code"]}
+        {"from": "classified", "to": "urgent_queue", "tool": "route_urgent_ticket", "required": ["ticket_id", "queue_id", "escalation_code"]},
+        {"from": "classified", "to": "standard_queue", "tool": "route_standard_ticket", "required": ["ticket_id", "queue_id", "routing_code"]},
+        {"from": "urgent_queue", "to": "assigned", "tool": "assign_urgent_ticket", "required": ["ticket_id", "agent_id", "ack_code"]},
+        {"from": "standard_queue", "to": "assigned", "tool": "assign_standard_ticket", "required": ["ticket_id", "agent_id", "ack_code"]},
+        {"from": "assigned", "to": "verified", "tool": "verify_resolution", "required": ["ticket_id", "verification_code"]},
+        {"from": "verified", "to": "resolved", "tool": "resolve_ticket", "required": ["ticket_id", "resolution_code"]},
+        {"from": "new", "to": "closed", "tool": "close_untriaged_ticket", "required": ["ticket_id", "close_code"], "kind": "distractor"},
+        {"from": "new", "to": "deleted", "tool": "delete_ticket", "required": ["ticket_id", "delete_code"], "kind": "distractor"}
       ]
     },
     {
       "name": "bank-lite ops",
       "primary_id_argument": "transfer_id",
       "related_id_arguments": ["source_account_id", "destination_account_id"],
-      "states": ["draft", "authorized", "posted"],
+      "states": ["draft", "screened", "authorized", "settled", "posted", "archived", "rejected", "voided"],
+      "features": ["linear-with-guard"],
+      "path_variants": [{"selector_key": "transfer_policy", "selector_value": "screen_settle_archive", "tools": ["screen_transfer", "authorize_transfer", "settle_transfer", "post_transfer", "archive_transfer"]}],
       "transitions": [
-        {"from": "draft", "to": "authorized", "tool": "authorize_transfer", "required": ["transfer_id", "source_account_id", "amount_cents"]},
-        {"from": "authorized", "to": "posted", "tool": "post_transfer", "required": ["transfer_id", "destination_account_id", "amount_cents"]}
+        {"from": "draft", "to": "screened", "tool": "screen_transfer", "required": ["transfer_id", "source_account_id", "screening_code"]},
+        {"from": "screened", "to": "authorized", "tool": "authorize_transfer", "required": ["transfer_id", "source_account_id", "amount_cents"]},
+        {"from": "authorized", "to": "settled", "tool": "settle_transfer", "required": ["transfer_id", "destination_account_id", "settlement_code"]},
+        {"from": "settled", "to": "posted", "tool": "post_transfer", "required": ["transfer_id", "destination_account_id", "amount_cents"]},
+        {"from": "posted", "to": "archived", "tool": "archive_transfer", "required": ["transfer_id", "archive_code"]},
+        {"from": "draft", "to": "rejected", "tool": "reject_transfer", "required": ["transfer_id", "reject_code"], "kind": "distractor"},
+        {"from": "draft", "to": "voided", "tool": "void_transfer", "required": ["transfer_id", "void_code"], "kind": "distractor"},
+        {"from": "screened", "to": "rejected", "tool": "flag_screened_transfer", "required": ["transfer_id", "screening_code"], "kind": "distractor"}
       ]
     },
     {
       "name": "calendar constraints",
       "primary_id_argument": "event_id",
       "related_id_arguments": ["calendar_id", "room_id"],
-      "states": ["proposed", "checked", "scheduled"],
+      "states": ["proposed", "checked", "room_reserved", "remote_linked", "notified", "scheduled", "cancelled", "conflicted"],
+      "features": ["branching"],
+      "path_variants": [
+        {"selector_key": "venue_mode", "selector_value": "room", "tools": ["check_conflicts", "reserve_room", "notify_room_attendees", "schedule_room_event"]},
+        {"selector_key": "venue_mode", "selector_value": "remote", "tools": ["check_conflicts", "create_remote_link", "notify_remote_attendees", "schedule_remote_event"]}
+      ],
       "transitions": [
         {"from": "proposed", "to": "checked", "tool": "check_conflicts", "required": ["event_id", "calendar_id", "slot"]},
-        {"from": "checked", "to": "scheduled", "tool": "schedule_event", "required": ["event_id", "room_id", "slot"]}
+        {"from": "checked", "to": "room_reserved", "tool": "reserve_room", "required": ["event_id", "room_id", "reservation_code"]},
+        {"from": "checked", "to": "remote_linked", "tool": "create_remote_link", "required": ["event_id", "link_code"]},
+        {"from": "room_reserved", "to": "notified", "tool": "notify_room_attendees", "required": ["event_id", "notice_code"]},
+        {"from": "remote_linked", "to": "notified", "tool": "notify_remote_attendees", "required": ["event_id", "notice_code"]},
+        {"from": "notified", "to": "scheduled", "tool": "schedule_room_event", "required": ["event_id", "calendar_id", "slot"]},
+        {"from": "notified", "to": "scheduled", "tool": "schedule_remote_event", "required": ["event_id", "calendar_id", "slot"]},
+        {"from": "proposed", "to": "cancelled", "tool": "cancel_event", "required": ["event_id", "cancel_code"], "kind": "distractor"},
+        {"from": "proposed", "to": "conflicted", "tool": "force_conflict", "required": ["event_id", "conflict_code"], "kind": "distractor"}
       ]
     },
     {
       "name": "config migration",
       "primary_id_argument": "config_id",
       "related_id_arguments": ["schema_id", "environment_id"],
-      "states": ["legacy", "validated", "migrated"],
+      "states": ["legacy", "backed_up", "validated", "staged", "migrated", "rolled_back", "deleted"],
+      "features": ["linear-with-guard", "inspect-first"],
+      "inspect_hidden_arguments": ["migration_token"],
+      "path_variants": [{"selector_key": "migration_mode", "selector_value": "validated_staging", "tools": ["backup_config", "validate_config", "stage_config", "migrate_config"]}],
       "transitions": [
-        {"from": "legacy", "to": "validated", "tool": "validate_config", "required": ["config_id", "schema_id", "revision"]},
-        {"from": "validated", "to": "migrated", "tool": "migrate_config", "required": ["config_id", "environment_id", "revision"]}
+        {"from": "legacy", "to": "backed_up", "tool": "backup_config", "required": ["config_id", "environment_id", "backup_code"]},
+        {"from": "backed_up", "to": "validated", "tool": "validate_config", "required": ["config_id", "schema_id", "revision", "migration_token"]},
+        {"from": "validated", "to": "staged", "tool": "stage_config", "required": ["config_id", "environment_id", "migration_token"]},
+        {"from": "staged", "to": "migrated", "tool": "migrate_config", "required": ["config_id", "environment_id", "revision", "migration_token"]},
+        {"from": "legacy", "to": "rolled_back", "tool": "rollback_legacy_config", "required": ["config_id", "rollback_code"], "kind": "distractor"},
+        {"from": "legacy", "to": "deleted", "tool": "delete_config", "required": ["config_id", "delete_code"], "kind": "distractor"}
       ]
     },
     {
       "name": "shipment tracking",
       "primary_id_argument": "shipment_id",
       "related_id_arguments": ["carrier_id", "destination_id"],
-      "states": ["created", "dispatched", "delivered"],
+      "states": ["created", "labeled", "dispatched", "delivered", "lost", "returned"],
+      "features": ["trap-transition"],
+      "path_variants": [{"selector_key": "shipping_mode", "selector_value": "tracked_delivery", "tools": ["label_shipment", "dispatch_shipment", "confirm_delivery"]}],
       "transitions": [
-        {"from": "created", "to": "dispatched", "tool": "dispatch_shipment", "required": ["shipment_id", "carrier_id", "tracking_code"]},
-        {"from": "dispatched", "to": "delivered", "tool": "confirm_delivery", "required": ["shipment_id", "destination_id", "tracking_code"]}
+        {"from": "created", "to": "labeled", "tool": "label_shipment", "required": ["shipment_id", "carrier_id", "tracking_code"]},
+        {"from": "labeled", "to": "dispatched", "tool": "dispatch_shipment", "required": ["shipment_id", "carrier_id", "dispatch_code"]},
+        {"from": "dispatched", "to": "delivered", "tool": "confirm_delivery", "required": ["shipment_id", "destination_id", "delivery_code"]},
+        {"from": "created", "to": "lost", "tool": "mark_shipment_lost", "required": ["shipment_id", "loss_code"], "kind": "trap"},
+        {"from": "created", "to": "returned", "tool": "return_shipment", "required": ["shipment_id", "return_code"], "kind": "distractor"}
       ]
     },
     {
       "name": "library loans",
       "primary_id_argument": "loan_id",
       "related_id_arguments": ["book_id", "patron_id"],
-      "states": ["available", "reserved", "loaned"],
+      "states": ["available", "eligibility_checked", "reserved_standard", "reserved_restricted", "loaned", "withdrawn", "reference_only"],
+      "features": ["branching"],
+      "path_variants": [
+        {"selector_key": "patron_class", "selector_value": "standard", "tools": ["check_patron_eligibility", "reserve_standard_book", "issue_standard_loan"]},
+        {"selector_key": "patron_class", "selector_value": "research", "tools": ["check_patron_eligibility", "reserve_restricted_book", "issue_restricted_loan"]}
+      ],
       "transitions": [
-        {"from": "available", "to": "reserved", "tool": "reserve_book", "required": ["loan_id", "book_id", "patron_id"]},
-        {"from": "reserved", "to": "loaned", "tool": "issue_loan", "required": ["loan_id", "patron_id", "due_day"]}
+        {"from": "available", "to": "eligibility_checked", "tool": "check_patron_eligibility", "required": ["loan_id", "patron_id", "eligibility_code"]},
+        {"from": "eligibility_checked", "to": "reserved_standard", "tool": "reserve_standard_book", "required": ["loan_id", "book_id", "patron_id"]},
+        {"from": "eligibility_checked", "to": "reserved_restricted", "tool": "reserve_restricted_book", "required": ["loan_id", "book_id", "patron_id", "approval_code"]},
+        {"from": "reserved_standard", "to": "loaned", "tool": "issue_standard_loan", "required": ["loan_id", "patron_id", "due_day"]},
+        {"from": "reserved_restricted", "to": "loaned", "tool": "issue_restricted_loan", "required": ["loan_id", "patron_id", "due_day", "approval_code"]},
+        {"from": "available", "to": "withdrawn", "tool": "withdraw_book", "required": ["loan_id", "withdraw_code"], "kind": "distractor"},
+        {"from": "available", "to": "reference_only", "tool": "mark_reference_only", "required": ["loan_id", "reference_code"], "kind": "distractor"}
       ]
     },
     {
       "name": "seat allocation",
       "primary_id_argument": "allocation_id",
       "related_id_arguments": ["seat_id", "passenger_id"],
-      "states": ["open", "held", "allocated"],
+      "states": ["open", "verified", "checked", "aisle_held", "window_held", "allocated", "cancelled", "blocked"],
+      "features": ["branching", "inspect-first"],
+      "inspect_hidden_arguments": ["seat_token"],
+      "path_variants": [
+        {"selector_key": "seat_class", "selector_value": "aisle", "tools": ["verify_passenger", "check_seat_rules", "hold_aisle_seat", "allocate_aisle_seat"]},
+        {"selector_key": "seat_class", "selector_value": "window", "tools": ["verify_passenger", "check_seat_rules", "hold_window_seat", "allocate_window_seat"]}
+      ],
       "transitions": [
-        {"from": "open", "to": "held", "tool": "hold_seat", "required": ["allocation_id", "seat_id"]},
-        {"from": "held", "to": "allocated", "tool": "allocate_seat", "required": ["allocation_id", "passenger_id", "seat_id"]}
+        {"from": "open", "to": "verified", "tool": "verify_passenger", "required": ["allocation_id", "passenger_id", "seat_token"]},
+        {"from": "verified", "to": "checked", "tool": "check_seat_rules", "required": ["allocation_id", "passenger_id", "seat_token"]},
+        {"from": "checked", "to": "aisle_held", "tool": "hold_aisle_seat", "required": ["allocation_id", "seat_id", "seat_token"]},
+        {"from": "checked", "to": "window_held", "tool": "hold_window_seat", "required": ["allocation_id", "seat_id", "seat_token"]},
+        {"from": "aisle_held", "to": "allocated", "tool": "allocate_aisle_seat", "required": ["allocation_id", "passenger_id", "seat_id", "seat_token"]},
+        {"from": "window_held", "to": "allocated", "tool": "allocate_window_seat", "required": ["allocation_id", "passenger_id", "seat_id", "seat_token"]},
+        {"from": "open", "to": "cancelled", "tool": "cancel_allocation", "required": ["allocation_id", "cancel_code"], "kind": "distractor"},
+        {"from": "open", "to": "blocked", "tool": "block_seat", "required": ["allocation_id", "seat_id", "block_code"], "kind": "distractor"}
       ]
     },
     {
       "name": "subscription lifecycle",
       "primary_id_argument": "subscription_id",
       "related_id_arguments": ["plan_id", "customer_id"],
-      "states": ["trial", "approved", "active"],
+      "states": ["trial", "identity_checked", "payment_checked", "approved", "provisioned", "active", "notified", "cancelled", "suspended"],
+      "features": ["linear-with-guard"],
+      "path_variants": [{"selector_key": "activation_policy", "selector_value": "full_verification", "tools": ["verify_customer", "verify_payment", "approve_subscription", "provision_subscription", "activate_subscription", "notify_customer"]}],
       "transitions": [
-        {"from": "trial", "to": "approved", "tool": "approve_subscription", "required": ["subscription_id", "customer_id", "plan_id"]},
-        {"from": "approved", "to": "active", "tool": "activate_subscription", "required": ["subscription_id", "plan_id", "start_day"]}
+        {"from": "trial", "to": "identity_checked", "tool": "verify_customer", "required": ["subscription_id", "customer_id", "identity_code"]},
+        {"from": "identity_checked", "to": "payment_checked", "tool": "verify_payment", "required": ["subscription_id", "customer_id", "payment_code"]},
+        {"from": "payment_checked", "to": "approved", "tool": "approve_subscription", "required": ["subscription_id", "plan_id", "approval_code"]},
+        {"from": "approved", "to": "provisioned", "tool": "provision_subscription", "required": ["subscription_id", "plan_id", "provision_code"]},
+        {"from": "provisioned", "to": "active", "tool": "activate_subscription", "required": ["subscription_id", "plan_id", "start_day"]},
+        {"from": "active", "to": "notified", "tool": "notify_customer", "required": ["subscription_id", "customer_id", "notice_code"]},
+        {"from": "trial", "to": "cancelled", "tool": "cancel_subscription", "required": ["subscription_id", "cancel_code"], "kind": "distractor"},
+        {"from": "trial", "to": "suspended", "tool": "suspend_subscription", "required": ["subscription_id", "suspend_code"], "kind": "distractor"}
       ]
     },
     {
       "name": "warehouse picking",
       "primary_id_argument": "pick_id",
       "related_id_arguments": ["order_id", "bin_id"],
-      "states": ["queued", "picked", "packed"],
+      "states": ["queued", "located", "picked", "weighed", "packed", "sealed", "quarantined", "cancelled"],
+      "features": ["linear-with-guard", "trap-transition"],
+      "path_variants": [{"selector_key": "pick_policy", "selector_value": "weigh_before_pack", "tools": ["locate_order", "pick_order", "weigh_order", "pack_order", "seal_package"]}],
       "transitions": [
-        {"from": "queued", "to": "picked", "tool": "pick_order", "required": ["pick_id", "order_id", "bin_id", "quantity"]},
-        {"from": "picked", "to": "packed", "tool": "pack_order", "required": ["pick_id", "order_id", "package_code"]}
+        {"from": "queued", "to": "located", "tool": "locate_order", "required": ["pick_id", "order_id", "bin_id"]},
+        {"from": "located", "to": "picked", "tool": "pick_order", "required": ["pick_id", "order_id", "bin_id", "quantity"]},
+        {"from": "picked", "to": "weighed", "tool": "weigh_order", "required": ["pick_id", "weight_code"]},
+        {"from": "weighed", "to": "packed", "tool": "pack_order", "required": ["pick_id", "order_id", "package_code"]},
+        {"from": "packed", "to": "sealed", "tool": "seal_package", "required": ["pick_id", "seal_code"]},
+        {"from": "queued", "to": "quarantined", "tool": "quarantine_pick", "required": ["pick_id", "quarantine_code"], "kind": "trap"},
+        {"from": "queued", "to": "cancelled", "tool": "cancel_pick", "required": ["pick_id", "cancel_code"], "kind": "distractor"}
       ]
     },
     {
       "name": "access-control admin",
       "primary_id_argument": "request_id",
       "related_id_arguments": ["user_id", "role_id"],
-      "states": ["requested", "approved", "granted"],
+      "states": ["requested", "approved", "closed", "role_defined", "role_staged", "role_granted", "denied", "revoked"],
+      "features": ["multi-entity"],
+      "multi_entity": {"primary_initial": "requested", "primary_final": "closed", "secondary_argument": "role_id", "secondary_initial": "role_defined", "secondary_final": "role_granted"},
+      "path_variants": [{"selector_key": "grant_policy", "selector_value": "request_before_role", "tools": ["approve_access", "stage_role", "grant_role", "close_access_request"]}],
       "transitions": [
-        {"from": "requested", "to": "approved", "tool": "approve_access", "required": ["request_id", "user_id", "role_id"]},
-        {"from": "approved", "to": "granted", "tool": "grant_role", "required": ["request_id", "user_id", "role_id", "scope"]}
+        {"entity": "primary", "from": "requested", "to": "approved", "tool": "approve_access", "required": ["request_id", "user_id", "approval_code"]},
+        {"entity": "secondary", "from": "role_defined", "to": "role_staged", "tool": "stage_role", "required": ["request_id", "role_id", "scope"], "guard": {"entity": "primary", "state": "approved"}},
+        {"entity": "secondary", "from": "role_staged", "to": "role_granted", "tool": "grant_role", "required": ["request_id", "user_id", "role_id", "scope"]},
+        {"entity": "primary", "from": "approved", "to": "closed", "tool": "close_access_request", "required": ["request_id", "close_code"], "guard": {"entity": "secondary", "state": "role_granted"}},
+        {"entity": "primary", "from": "requested", "to": "denied", "tool": "deny_access", "required": ["request_id", "deny_code"], "kind": "distractor"},
+        {"entity": "secondary", "from": "role_defined", "to": "revoked", "tool": "revoke_role", "required": ["request_id", "role_id", "revoke_code"], "kind": "distractor"}
       ]
     }
   ]
