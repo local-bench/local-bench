@@ -74,10 +74,32 @@ policy; a capability missing only from the candidate is a failure.
 KLD is separate from the verdict. It is reported as `in-band`, `out-of-band`, or
 `unavailable`, and is unavailable when the pinned reference weights are not local.
 
-## Draft manifest
+## Minting a reference edition
 
-The bundled manifest is deliberately marked `"draft": true`. Its selections,
-authored state machines, sanity gates, hashes, policies, and preregistration are
-complete, but the edition is not frozen until content review accepts it. A draft
-manifest is suitable for deterministic dry-run and review; it must not be presented
-as a frozen public edition.
+After a completed live run or non-scoring smoke run, mint the signed reference
+edition from its receipt-validated execution identity:
+
+```text
+localbench reference mint \
+  --edition-id qwen36-27b-reference-v1 \
+  --family qwen3 \
+  --class-label "Q5_K_M operational proxy" \
+  --created-utc 2026-08-04T00:00:00Z \
+  --artifact reference-Q5_K_M.gguf \
+  --from-execution reference-smoke-run \
+  --signing-key reference-key.pem \
+  --store reference-editions
+```
+
+The reference edition's template digest is always the raw SHA-256 of the
+server-effective template string captured in `execution.prompt_template_sha256`.
+Its tokenizer digest comes from the run's artifact identity. The command verifies
+the run receipt and supplied artifact bytes before signing, and rejects dry-run or
+modified records. Artifact-record `template_sha256` and `tokenizer_sha256` fields
+remain GGUF metadata identity and are not substituted for runtime template identity.
+
+## Frozen manifest
+
+The bundled `check-set-v1` manifest is frozen. Source and packaged copies are
+byte-identical and its SHA-256 is pinned by the test suite; running or minting does
+not modify it.

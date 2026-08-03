@@ -77,10 +77,17 @@ def _validate_record(record: JsonObject) -> None:
         if not isinstance(record.get(key), dict):
             raise CheckError(f"check record field {key!r} must be an object")
     items = record.get("items")
-    if not isinstance(items, list) or len(items) != 594:
-        raise CheckError("complete check record must contain all 594 executed items")
     grading = record["grading"]
-    if not isinstance(grading, dict) or grading.get("status") != "complete" or grading.get("n_items") != 594:
+    lifecycle = record["lifecycle"]
+    if not isinstance(items, list) or not isinstance(grading, dict) or not isinstance(lifecycle, dict):
+        raise CheckError("check record completion fields are invalid")
+    if lifecycle.get("status") == "smoke-executed":
+        if not items or grading.get("status") != "non-scoring" or grading.get("n_items") != len(items):
+            raise CheckError("complete smoke record must contain non-scoring executed items")
+        return
+    if len(items) != 594:
+        raise CheckError("complete check record must contain all 594 executed items")
+    if grading.get("status") != "complete" or grading.get("n_items") != 594:
         raise CheckError("complete check record must contain complete 594-item grading")
 
 

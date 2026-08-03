@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Protocol, cast
 
 from localbench.check.command import check_command
+from localbench.check.reference import ReferenceEditionError
+from localbench.check.reference_mint import ReferenceMintRequest, mint_reference_from_execution
+from localbench.check.types import CheckError
 
 
 class _CommandArgs(Protocol):
@@ -35,6 +38,17 @@ class _ChecksetArgs(_CommandArgs, Protocol):
     offline_upstream: bool
     freeze: bool
     reviewed_draft_sha: str | None
+
+
+class _ReferenceMintArgs(_CommandArgs, Protocol):
+    edition_id: str
+    family: str
+    class_label: str
+    created_utc: str
+    artifact: Path
+    from_execution: Path
+    signing_key: Path
+    store: Path
 
 
 def default_manifest_path() -> Path:
@@ -79,6 +93,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         print(message)
         return exit_code
+    if args.command == "reference":
+        mint_args = cast(_ReferenceMintArgs, args)
+        try:
+            path = mint_reference_from_execution(
+                ReferenceMintRequest(
+                    edition_id=mint_args.edition_id,
+                    family=mint_args.family,
+                    class_label=mint_args.class_label,
+                    created_utc=mint_args.created_utc,
+                    artifact=mint_args.artifact,
+                    execution_run=mint_args.from_execution,
+                    signing_key=mint_args.signing_key,
+                    store=mint_args.store,
+                )
+            )
+        except (CheckError, ReferenceEditionError, OSError, ValueError) as error:
+            print(f"error: {error}")
+            return 2
+        print(f"reference edition written to {path}")
+        return 0
     parser.print_help()
     return 2
 
@@ -115,6 +149,21 @@ def _parser() -> argparse.ArgumentParser:
     _ = build.add_argument("--offline-upstream", action="store_true", help=argparse.SUPPRESS)
     _ = build.add_argument("--freeze", action="store_true", help=argparse.SUPPRESS)
     _ = build.add_argument("--reviewed-draft-sha", help=argparse.SUPPRESS)
+    reference = subparsers.add_parser("reference", help="manage signed reference editions")
+    reference_subparsers = reference.add_subparsers(dest="reference_command", required=True)
+    mint = reference_subparsers.add_parser("mint", help="mint an edition from a completed execution")
+    _ = mint.add_argument("--edition-id", required=True)
+    _ = mint.add_argument("--family", required=True)
+    _ = mint.add_argument(
+        "--class-label",
+        required=True,
+        choices=("BF16 source", "Q8 operational proxy", "Q5_K_M operational proxy"),
+    )
+    _ = mint.add_argument("--created-utc", required=True)
+    _ = mint.add_argument("--artifact", type=Path, required=True)
+    _ = mint.add_argument("--from-execution", type=Path, required=True)
+    _ = mint.add_argument("--signing-key", type=Path, required=True)
+    _ = mint.add_argument("--store", type=Path, required=True)
     return parser
 
 
