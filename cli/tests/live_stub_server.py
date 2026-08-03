@@ -16,6 +16,7 @@ from localbench.check.live_server import ServerController
 class StubState:
     def __init__(self, model_file: Path) -> None:
         self.model_file: Path = model_file
+        self.chat_template: str = "{{ messages }}"
         self.health_failures_remaining: int = 0
         self.health_calls: int = 0
         self.props_calls: int = 0
@@ -46,7 +47,7 @@ class _StubHandler(BaseHTTPRequestHandler):
                 200,
                 {
                     "backend": "CUDA",
-                    "chat_template": "{{ messages }}",
+                    "chat_template": self.state.chat_template,
                     "driver_version": "stub-driver",
                     "model_path": str(self.state.model_file.resolve()),
                     "total_slots": 1,

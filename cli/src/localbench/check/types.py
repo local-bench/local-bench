@@ -35,6 +35,10 @@ class CheckError(RuntimeError):
     pass
 
 
+class SignedEditionValidationError(CheckError):
+    pass
+
+
 class ConstructionDefect(CheckError):
     kind: str
     detail: str

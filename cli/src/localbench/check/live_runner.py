@@ -12,6 +12,7 @@ from localbench.check.live_http import (
     LiveHttpConfig,
     build_live_prompt_renderer,
     generate_live_item,
+    render_live_prompt,
 )
 from localbench.check.live_preflight import run_fit_preflight, select_fit_preflight_items as select_fit_preflight_items
 from localbench.check.live_runner_types import LiveItem as LiveItem
@@ -38,6 +39,7 @@ class LiveExecutionResult:
 
 RowSink = Callable[[JsonObject], None]
 ExecutionSink = Callable[[JsonObject], None]
+PreGenerationValidator = Callable[[JsonObject], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +48,7 @@ class LiveRunOptions:
     previous_execution: JsonObject | None = None
     row_sink: RowSink | None = None
     execution_sink: ExecutionSink | None = None
+    pre_generation_validator: PreGenerationValidator | None = None
     server_factory: ServerFactory | None = None
 
 
@@ -66,12 +69,21 @@ def run_live_items(
     starts = _server_starts(options.previous_execution)
     execution = options.previous_execution
 
-    def ready(props: JsonObject, start: JsonObject) -> None:
-        nonlocal execution
-        starts.append(start)
-        execution = _execution_identity(config, props, starts)
-        if options.execution_sink is not None:
-            options.execution_sink(execution)
+    def ready_for(cycle_items: Sequence[LiveItem]) -> Callable[[LiveHttpConfig, JsonObject, JsonObject], None]:
+        def ready(http_config: LiveHttpConfig, props: JsonObject, start: JsonObject) -> None:
+            nonlocal execution
+            if options.pre_generation_validator is not None and cycle_items:
+                renderer = build_live_prompt_renderer(http_config, props)
+                first = cycle_items[0]
+                _ = render_live_prompt(first.module, first.source, renderer)
+            starts.append(start)
+            execution = _execution_identity(config, props, starts)
+            if options.execution_sink is not None:
+                options.execution_sink(execution)
+            if options.pre_generation_validator is not None:
+                options.pre_generation_validator(execution)
+
+        return ready
 
     if pending or not rows_by_id:
         first = run_server_cycle(
@@ -80,7 +92,7 @@ def run_live_items(
                 port=port,
                 api_key=api_key,
                 launch=launch,
-                ready=ready,
+                ready=ready_for(pending),
                 execute=lambda http_config, props: _execute_items(
                     pending,
                     http_config,
@@ -119,7 +131,7 @@ def run_live_items(
                 port=port,
                 api_key=api_key,
                 launch=launch,
-                ready=ready,
+                ready=ready_for(repeat_pending),
                 execute=lambda http_config, props: _execute_items(
                     repeat_pending,
                     http_config,

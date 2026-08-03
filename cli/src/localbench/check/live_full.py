@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from localbench.check.live_reference import (
     load_live_reference_run,
     validate_execution_pair,
     validate_reference_execution,
+    validate_signed_reference_execution,
 )
 from localbench.check.live_runner import LiveItem, LiveRunOptions, run_live_items
 from localbench.check.run_progress import ItemJournal, write_full_execution_progress
@@ -36,6 +38,7 @@ class FullLiveRequest:
     candidate_sha256: str
     reference: ReferenceEdition
     reference_run: Path | None
+    manifest_edition: str
     manifest_sha256: str
     progress: FullLiveProgress
 
@@ -52,10 +55,21 @@ def run_full_live_check(
         allow_untrusted_code=config.allow_untrusted_code,
     )
     reference_execution = request.progress.reference_execution
+    signed_validator: Callable[[JsonObject], None] | None = None
     if request.candidate_sha256 == request.reference.artifact_sha256:
         if request.reference_run is not None:
             raise CheckError("--reference-run is not used when checking the reference artifact itself")
         reference_rows = _reference_runner_rows(request.progress.rows)
+
+        def validate_signed(execution: JsonObject) -> None:
+            validate_signed_reference_execution(
+                execution,
+                request.reference,
+                artifact_sha256=request.candidate_sha256,
+                checkset_edition=request.manifest_edition,
+            )
+
+        signed_validator = validate_signed
         if len(reference_rows) != len(items):
             reference_result = run_live_items(
                 config,
@@ -69,6 +83,7 @@ def run_full_live_check(
                         reference=execution,
                         candidate=request.progress.candidate_execution,
                     ),
+                    pre_generation_validator=signed_validator,
                 ),
             )
             reference_rows = reference_result.items
@@ -105,6 +120,7 @@ def run_full_live_check(
                 reference=reference_execution,
                 candidate=execution,
             ),
+            pre_generation_validator=signed_validator,
         ),
     )
     validate_execution_pair(candidate_result.execution, reference_execution)

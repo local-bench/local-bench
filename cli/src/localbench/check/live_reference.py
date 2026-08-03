@@ -7,7 +7,7 @@ from typing import Final, cast
 
 from localbench._types import JsonObject, JsonValue
 from localbench.check.receipt import validate_run_dir
-from localbench.check.types import CheckError, ReferenceEdition
+from localbench.check.types import CheckError, ReferenceEdition, SignedEditionValidationError
 from localbench.checkset.input_runs import read_json
 
 _PAIR_IDENTITY_KEYS: Final = (
@@ -101,7 +101,25 @@ def validate_execution_pair(candidate: JsonObject, reference: JsonObject) -> Non
 
 def validate_reference_execution(execution: JsonObject, reference: ReferenceEdition) -> None:
     if execution.get("prompt_template_sha256") != reference.template_sha256:
-        raise CheckError("reference execution prompt template does not match the signed reference edition")
+        raise SignedEditionValidationError(
+            "reference execution prompt template does not match the signed reference edition"
+        )
+
+
+def validate_signed_reference_execution(
+    execution: JsonObject,
+    reference: ReferenceEdition,
+    *,
+    artifact_sha256: str,
+    checkset_edition: str,
+) -> None:
+    if artifact_sha256 != reference.artifact_sha256:
+        raise SignedEditionValidationError("artifact does not match the signed reference edition")
+    if checkset_edition != reference.checkset_edition:
+        raise SignedEditionValidationError("check-set does not match the signed reference edition")
+    if execution.get("edition") != reference.execution_edition:
+        raise SignedEditionValidationError("execution does not match the signed reference edition")
+    validate_reference_execution(execution, reference)
 
 
 def _comparable_props(value: JsonValue | None) -> JsonObject | None:

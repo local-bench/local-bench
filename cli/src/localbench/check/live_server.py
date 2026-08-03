@@ -12,7 +12,7 @@ import httpx
 from localbench._types import JsonObject
 from localbench.check.execution import DEFAULT_LCE_SERVER_BIN, LceLaunchConfig, lce_server_argv
 from localbench.check.live_http import LiveHttpConfig
-from localbench.check.types import CheckError, ConstructionDefect
+from localbench.check.types import CheckError, ConstructionDefect, SignedEditionValidationError
 from localbench.serving.process import JobController, LaunchedServer, allocate_port, launch_llama_cpp
 from localbench.serving.teardown import teardown_owned_server
 
@@ -52,7 +52,7 @@ class ServerController(Protocol):
 
 ServerFactory = Callable[[list[str], Path, Path], ServerController]
 CycleExecutor = Callable[[LiveHttpConfig, JsonObject], list[JsonObject]]
-CycleReady = Callable[[JsonObject, JsonObject], None]
+CycleReady = Callable[[LiveHttpConfig, JsonObject, JsonObject], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,9 +126,11 @@ def run_server_cycle(
             "pid": controller.pid,
             "server_start_id": start_id,
         }
-        options.ready(props, start)
+        options.ready(http_config, props, start)
         return ServerCycleResult(options.execute(http_config, props), props, start)
     except InfrastructureFailure:
+        raise
+    except SignedEditionValidationError:
         raise
     except ConstructionDefect as error:
         raise InfrastructureFailure(error.kind, error.detail, failure_class="construction-defect") from error

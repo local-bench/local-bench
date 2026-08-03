@@ -131,6 +131,7 @@ def run_check(request: CheckRequest) -> tuple[Path, JsonObject]:
                     candidate_sha256=required_str(identity, "sha256"),
                     reference=reference,
                     reference_run=request.reference_run,
+                    manifest_edition=required_str(manifest, "edition"),
                     manifest_sha256=manifest_sha256,
                     progress=FullLiveProgress(
                         journal=journal,

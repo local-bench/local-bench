@@ -680,6 +680,7 @@ def test_full_reference_artifact_runs_independent_reference_and_candidate_passes
             candidate_sha256="c" * 64,
             reference=reference,
             reference_run=None,
+            manifest_edition="check-set-v1",
             manifest_sha256="f" * 64,
             progress=FullLiveProgress(
                 journal=ItemJournal(tmp_path / "run" / "items.jsonl"),
