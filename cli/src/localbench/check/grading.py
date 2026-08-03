@@ -127,9 +127,32 @@ def _grade_gate(
             and response.rstrip().endswith(stop_marker)
             and (not isinstance(forbidden, str) or forbidden not in response)
         )
-    elif category in {"budget-control", "template-canary", "long-context-needle"}:
+    elif category in {"template-canary", "long-context-needle"}:
         answer = expected.get("answer")
-        correct = isinstance(answer, str) and answer in response and generation.get("protocol_flag") in {None, "none"}
+        correct = isinstance(answer, str) and answer in response
+    elif category == "budget-control":
+        answer = expected.get("answer")
+        think_budget = expected.get("think_budget")
+        reasoning = generation.get("reasoning_text")
+        usage = generation.get("usage")
+        reasoning_tokens = usage.get("reasoning_tokens") if isinstance(usage, dict) else None
+        protocol_flag = generation.get("protocol_flag")
+        budget_respected = (
+            isinstance(think_budget, int)
+            and not isinstance(think_budget, bool)
+            and isinstance(reasoning_tokens, int)
+            and not isinstance(reasoning_tokens, bool)
+            and 0 <= reasoning_tokens <= think_budget
+            and (protocol_flag != "think-budget-exhausted" or reasoning_tokens == think_budget)
+        )
+        correct = (
+            isinstance(answer, str)
+            and answer in response
+            and isinstance(reasoning, str)
+            and "<think>" in reasoning
+            and protocol_flag in {None, "none", "think-budget-exhausted"}
+            and budget_respected
+        )
     elif category == "repetition":
         answer = expected.get("answer")
         stop_marker = expected.get("stop_marker")
@@ -153,7 +176,6 @@ def _grade_gate(
                 correct = (
                     response.strip() == answer
                     and response.rstrip().endswith(stop_marker)
-                    and generation.get("protocol_flag") in {None, "none"}
                     and not loop_detected
                 )
     elif category == "determinism":
