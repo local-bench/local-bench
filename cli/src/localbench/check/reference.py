@@ -84,7 +84,7 @@ def load_reference_bundle(path: Path, *, expected_public_key: str) -> ReferenceE
 def _validate_edition(edition: ReferenceEdition) -> None:
     if _EDITION_ID.fullmatch(edition.edition_id) is None:
         raise ReferenceEditionError("reference edition id is invalid")
-    if edition.class_label not in {"BF16 source", "Q8 operational proxy"}:
+    if edition.class_label not in {"BF16 source", "Q8 operational proxy", "Q5_K_M operational proxy"}:
         raise ReferenceEditionError("reference class label is invalid")
     for digest in (edition.artifact_sha256, edition.tokenizer_sha256, edition.template_sha256):
         if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):

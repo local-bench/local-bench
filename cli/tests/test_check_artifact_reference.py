@@ -87,6 +87,27 @@ def test_reference_store_round_trips_signed_immutable_bundle(tmp_path: Path) -> 
         _ = store_reference_bundle(tmp_path / "store", changed)
 
 
+def test_reference_accepts_q5km_operational_proxy_label(tmp_path: Path) -> None:
+    key_path = tmp_path / "reference-key.pem"
+    public_key = write_private_key(key_path, seed=b"r" * 32)
+    edition = ReferenceEdition(
+        edition_id="qwen36-27b-reference-v1",
+        family="qwen3",
+        artifact_sha256="a" * 64,
+        tokenizer_sha256="b" * 64,
+        template_sha256="c" * 64,
+        class_label="Q5_K_M operational proxy",
+        created_utc="2026-08-03T00:00:00Z",
+        checkset_edition="check-set-v1",
+        execution_edition="LCE-1",
+    )
+
+    path = store_reference_bundle(tmp_path / "store", create_reference_bundle(edition, key_path))
+    loaded = load_reference_bundle(path, expected_public_key=public_key)
+
+    assert loaded.class_label == "Q5_K_M operational proxy"
+
+
 def test_reference_loader_rejects_wrong_signer(tmp_path: Path) -> None:
     key_path = tmp_path / "reference-key.pem"
     _ = write_private_key(key_path, seed=b"r" * 32)
