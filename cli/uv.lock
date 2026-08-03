@@ -655,13 +655,9 @@ wheels = [
 
 [[package]]
 name = "local-bench-ai"
-version = "0.4.14"
+version = "1.0.0.dev0"
 source = { editable = "." }
 dependencies = [
-    { name = "anyio" },
-    { name = "httpx" },
-    { name = "jsonschema" },
-    { name = "langdetect" },
     { name = "math-verify" },
 ]
 
@@ -679,34 +675,48 @@ hf = [
     { name = "jinja2" },
     { name = "transformers" },
 ]
+legacy = [
+    { name = "anyio" },
+    { name = "httpx" },
+    { name = "jsonschema" },
+    { name = "langdetect" },
+]
 
 [package.dev-dependencies]
 dev = [
+    { name = "anyio" },
+    { name = "httpx" },
     { name = "jinja2" },
+    { name = "jsonschema" },
+    { name = "langdetect" },
     { name = "nltk" },
     { name = "pytest" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "anyio", specifier = ">=4" },
+    { name = "anyio", marker = "extra == 'legacy'", specifier = ">=4" },
     { name = "datasets", marker = "extra == 'build'", specifier = ">=2.20" },
-    { name = "httpx", specifier = ">=0.27" },
+    { name = "httpx", marker = "extra == 'legacy'", specifier = ">=0.27" },
     { name = "huggingface-hub", marker = "extra == 'hf'", specifier = ">=0.30" },
     { name = "jinja2", marker = "extra == 'dev'", specifier = ">=3.1" },
     { name = "jinja2", marker = "extra == 'hf'", specifier = ">=3.1" },
-    { name = "jsonschema", specifier = ">=4.23,<5" },
-    { name = "langdetect", specifier = ">=1.0.9" },
+    { name = "jsonschema", marker = "extra == 'legacy'", specifier = ">=4.23,<5" },
+    { name = "langdetect", marker = "extra == 'legacy'", specifier = ">=1.0.9" },
     { name = "math-verify", specifier = ">=0.9.0" },
     { name = "nltk", marker = "extra == 'dev'", specifier = ">=3.9" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
     { name = "transformers", marker = "extra == 'hf'", specifier = ">=4.51" },
 ]
-provides-extras = ["build", "dev", "hf"]
+provides-extras = ["build", "dev", "hf", "legacy"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "anyio", specifier = ">=4" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "jinja2", specifier = ">=3.1" },
+    { name = "jsonschema", specifier = ">=4.23,<5" },
+    { name = "langdetect", specifier = ">=1.0.9" },
     { name = "nltk", specifier = ">=3.9" },
     { name = "pytest", specifier = ">=8" },
 ]

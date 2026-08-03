@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.0.dev0 - 2026-08-03
+
+- Starts the v2 era with one public workflow: `localbench check <file>`, a fixed,
+  paired comparison against an immutable family reference edition.
+- Adds the deterministic 600-item authored check-set, offline regrading, paired
+  simultaneous inference, artifact-class-specific verdicts, KLD reporting, and
+  controlled performance telemetry.
+- Adds a zero-GPU `--dry-run` that exercises generations, grading, statistics,
+  verdicts, KLD status, performance, records, and receipts byte-stably.
+- Drops the retired agentic appliance and legacy benchmark stack from the default
+  install surface. Its dependencies live in the `legacy` extra for source-history
+  compatibility; the v2 command installs only its scoring runtime.
+
 ## 0.4.14 - 2026-08-01
 
 - Documents the profile-owned deeper generic-thinking operating point:

@@ -13,6 +13,7 @@ from localbench.check.execution import mock_lce_identity
 from localbench.check.kld import unavailable_kld
 from localbench.check.performance import mock_performance
 from localbench.check.reference import load_reference_bundle
+from localbench.check.receipt import write_run_receipt
 from localbench.check.regrade import write_grades
 from localbench.check.types import CheckError, ReferenceEdition
 from localbench.checkset.input_runs import read_json
@@ -67,6 +68,7 @@ def run_check(request: CheckRequest) -> tuple[Path, JsonObject]:
     write_json_file(run_dir / "kld.json", kld)
     write_json_file(run_dir / "performance.json", performance)
     item_values: list[JsonValue] = [item for item in items]
+    published_verdict = verdict.get("verdict")
     record: JsonObject = {
         "artifact": identity,
         "comparison": {
@@ -74,7 +76,7 @@ def run_check(request: CheckRequest) -> tuple[Path, JsonObject]:
             "candidate_execution_edition": "LCE-1",
             "pairing_status": pairing_status,
             "reference_edition": reference.as_dict(),
-            "verdict": "pending-grading" if pairing_status == "paired" else "unpaired",
+            "verdict": published_verdict if pairing_status == "paired" and isinstance(published_verdict, str) else "unpaired",
         },
         "execution": execution,
         "failure_policy": {
@@ -97,6 +99,7 @@ def run_check(request: CheckRequest) -> tuple[Path, JsonObject]:
         "schema_version": "localbench-check-run-v1",
     }
     write_json_file(run_dir / "check-record.json", record)
+    _ = write_run_receipt(run_dir)
     return run_dir, record
 
 
@@ -182,7 +185,10 @@ def _mock_items(manifest: JsonObject) -> list[JsonObject]:
             }
             results.append(
                 {
-                    "candidate": {**generation, "mock_correct": digest[0] % 17 != 0},
+                    "candidate": {
+                        **generation,
+                        "mock_correct": True if module_name == "sanity-gates" else digest[0] % 17 != 0,
+                    },
                     "generation_parameters": params,
                     "item_id": item_id,
                     "module": module_name,
