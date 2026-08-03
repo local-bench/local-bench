@@ -323,6 +323,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.repo_root,
             args.output,
             offline_upstream=args.offline_upstream,
+            freeze=args.freeze,
         )
         print(message)
         return exit_code
@@ -895,6 +896,7 @@ def _parser() -> argparse.ArgumentParser:
         default=Path("checkset/check-set-v1.manifest.json"),
     )
     checkset_build_parser.add_argument("--offline-upstream", action="store_true", help=argparse.SUPPRESS)
+    checkset_build_parser.add_argument("--freeze", action="store_true", help=argparse.SUPPRESS)
     return parser
 
 

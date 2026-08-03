@@ -6,12 +6,17 @@ from pathlib import Path
 from typing import Final
 
 from localbench.checkset.manifest_validation import validate_manifest_inputs
-from localbench.checkset.models import JsonObject, JsonValue, ModuleRecord
+from localbench.checkset.models import ChecksetBuildError, JsonObject, JsonValue, ModuleRecord
 from localbench.checkset.policy import policy_blocks
 from localbench.submissions.canon import canonical_json_bytes
 
 SPEC_SHA256: Final = "d8bbf9c6d5bb96c82c9827dc7e736cceaa2a1876b8ae1e9c0ee305b65b608629"
 LOCKED_UTC: Final = "2026-08-03T00:00:00Z"
+REVIEWED_DRAFT_SHA256: Final = "cedfc2ce159d5bbd3430ebbf2ebf4314110f8f720227f7bbb31768017639c02c"
+REVIEWED_BY: Final = "orchestrator"
+REVIEWED_LOCAL: Final = "2026-08-03"
+
+
 def build_t2_scaffold(
     output: Path,
     *,
@@ -53,6 +58,7 @@ def emit_manifest(
     sanity_gates: JsonObject,
     source_metadata: JsonObject,
     pool_exclusions: Sequence[JsonObject] = (),
+    freeze: bool = False,
 ) -> JsonObject:
     validate_manifest_inputs(
         modules=modules,
@@ -76,12 +82,40 @@ def emit_manifest(
             "preregistration": {"spec_sha256": SPEC_SHA256, "locked_utc": LOCKED_UTC},
         }
     )
+    if freeze:
+        document = _freeze_reviewed_draft(document)
     _write_canonical(output, document, sidecar=True)
     return document
 
 
+def _freeze_reviewed_draft(document: JsonObject) -> JsonObject:
+    draft_sha256 = hashlib.sha256(_canonical_bytes(document)).hexdigest()
+    if draft_sha256 != REVIEWED_DRAFT_SHA256:
+        raise ChecksetBuildError(
+            "refusing to freeze unreviewed check-set-v1 draft: "
+            f"fresh sha256 {draft_sha256} does not match reviewed {REVIEWED_DRAFT_SHA256}"
+        )
+    frozen = dict(document)
+    frozen.update(
+        {
+            "draft": False,
+            "review": {
+                "draft_sha256": REVIEWED_DRAFT_SHA256,
+                "reviewed_by": REVIEWED_BY,
+                "reviewed_local": REVIEWED_LOCAL,
+            },
+            "status": "frozen",
+        }
+    )
+    return frozen
+
+
+def _canonical_bytes(document: JsonValue) -> bytes:
+    return canonical_json_bytes(document) + b"\n"
+
+
 def _write_canonical(output: Path, document: JsonValue, *, sidecar: bool) -> None:
-    data = canonical_json_bytes(document) + b"\n"
+    data = _canonical_bytes(document)
     output.parent.mkdir(parents=True, exist_ok=True)
     _ = output.write_bytes(data)
     if sidecar:

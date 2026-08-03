@@ -4,7 +4,7 @@ from pathlib import Path
 
 from localbench.checkset.build import build_t2_scaffold, emit_manifest
 from localbench.checkset.gates import build_sanity_gates
-from localbench.checkset.models import JsonObject, ModuleRecord
+from localbench.checkset.models import ChecksetBuildError, JsonObject, ModuleRecord
 from localbench.checkset.sources import build_local_modules
 from localbench.checkset.stateful import build_stateful
 from localbench.checkset.upstream import (
@@ -21,7 +21,7 @@ from localbench.checkset.upstream import (
 )
 
 
-def build_command(repo_root: Path, output: Path, *, offline_upstream: bool) -> tuple[int, str]:
+def build_command(repo_root: Path, output: Path, *, offline_upstream: bool, freeze: bool = False) -> tuple[int, str]:
     local_modules, exclusions = build_local_modules(repo_root)
     stateful_module, stateful = build_stateful(repo_root)
     gates_module, sanity_gates = build_sanity_gates(repo_root)
@@ -73,15 +73,25 @@ def build_command(repo_root: Path, output: Path, *, offline_upstream: bool) -> t
                     for item in aime
                 ]
     if not pending:
-        _ = emit_manifest(
-            output,
-            modules=modules,
-            stateful=stateful,
-            sanity_gates=sanity_gates,
-            source_metadata=metadata,
-            pool_exclusions=exclusions,
-        )
-        return 0, f"wrote deterministic complete draft to {output}"
+        try:
+            _ = emit_manifest(
+                output,
+                modules=modules,
+                stateful=stateful,
+                sanity_gates=sanity_gates,
+                source_metadata=metadata,
+                pool_exclusions=exclusions,
+                freeze=freeze,
+            )
+        except ChecksetBuildError as error:
+            if not freeze:
+                raise
+            return 2, str(error)
+        label = "frozen manifest" if freeze else "complete draft"
+        return 0, f"wrote deterministic {label} to {output}"
+    detail = ", ".join(pending)
+    if freeze:
+        return 2, f"refusing to freeze incomplete check-set-v1 draft; pending: {detail}"
     _ = build_t2_scaffold(
         output,
         modules=modules,
@@ -93,5 +103,4 @@ def build_command(repo_root: Path, output: Path, *, offline_upstream: bool) -> t
         stateful=stateful,
         sanity_gates=sanity_gates,
     )
-    detail = ", ".join(pending)
     return 2, f"wrote deterministic T2 scaffold to {output}; pending: {detail}"
