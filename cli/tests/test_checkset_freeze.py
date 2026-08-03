@@ -45,9 +45,9 @@ def test_freeze_records_review_when_fresh_draft_matches_reviewed_sha() -> None:
         },
         "status": "frozen",
         "supersedes": {
-            "previous_frozen_sha256": "482be15bf30485a07c0442ff7168f11778011a59c5cb58d017346993ee45b759",
-            "reason": "pre-validation gate content corrections from smoke evidence; zero scored results exist",
-            "corrected_local": "2026-08-03",
+            "previous_frozen_sha256": "177f3fa9ce8149026438ffed1777d62adea0e8dfd9d99721ff4fc4258ce24ef8",
+            "reason": "pre-validation wording correction from smoke evidence (budget-control-02 named its answer ambiguously); zero scored results exist",
+            "corrected_local": "2026-08-04",
         },
     }
 
