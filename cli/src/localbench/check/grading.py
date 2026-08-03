@@ -114,20 +114,34 @@ def _grade_gate(
     response = text if isinstance(text, str) else ""
     if not isinstance(expected, dict) or not isinstance(category, str):
         return _result(False, detail={"failure": "invalid-gate-source"})
+    response_words = _word_sequence(response)
     correct = False
     loop_detected: bool | None = None
     if category == "stop-token":
         required = expected.get("required")
         stop_marker = expected.get("stop_marker")
         forbidden = expected.get("forbidden_suffix")
-        correct = (
-            isinstance(required, str)
-            and isinstance(stop_marker, str)
-            and required in response
-            and response.rstrip().endswith(stop_marker)
-            and (not isinstance(forbidden, str) or forbidden not in response)
-        )
-    elif category in {"template-canary", "long-context-needle"}:
+        if isinstance(required, str) and isinstance(stop_marker, str):
+            required_words = _word_sequence(required)
+            marker_words = _word_sequence(stop_marker)
+            forbidden_words = _word_sequence(forbidden) if isinstance(forbidden, str) else ()
+            required_end = len(required_words)
+            tail = response_words[required_end:]
+            forbidden_absent = not forbidden_words or not any(
+                tail[index : index + len(forbidden_words)] == forbidden_words
+                for index in range(len(tail) - len(forbidden_words) + 1)
+            )
+            correct = (
+                bool(required_words)
+                and bool(marker_words)
+                and response_words[:required_end] == required_words
+                and response_words[-len(marker_words) :] == marker_words
+                and forbidden_absent
+            )
+    elif category == "template-canary":
+        answer = expected.get("answer")
+        correct = isinstance(answer, str) and response_words == _word_sequence(answer)
+    elif category == "long-context-needle":
         answer = expected.get("answer")
         correct = isinstance(answer, str) and answer in response
     elif category == "budget-control":
@@ -173,9 +187,12 @@ def _grade_gate(
                     ngram_size=ngram_size,
                     max_occurrences=max_occurrences,
                 )
+                answer_words = _word_sequence(answer)
+                marker_words = _word_sequence(stop_marker)
                 correct = (
-                    response.strip() == answer
-                    and response.rstrip().endswith(stop_marker)
+                    response_words == answer_words
+                    and bool(marker_words)
+                    and response_words[-len(marker_words) :] == marker_words
                     and not loop_detected
                 )
     elif category == "determinism":
@@ -201,11 +218,15 @@ def _grade_gate(
 
 
 def _has_ngram_loop(response: str, *, ngram_size: int, max_occurrences: int) -> bool:
-    tokens = re.findall(r"\w+|[^\w\s]", response.casefold(), flags=re.UNICODE)
+    tokens = _word_sequence(response.casefold())
     if len(tokens) < ngram_size:
         return False
     ngrams = Counter(tuple(tokens[index : index + ngram_size]) for index in range(len(tokens) - ngram_size + 1))
     return any(count > max_occurrences for count in ngrams.values())
+
+
+def _word_sequence(text: str) -> tuple[str, ...]:
+    return tuple(re.findall(r"\w+", text, flags=re.UNICODE))
 
 
 def _result(correct: bool, *, chance: float = 0.0, detail: JsonObject) -> JsonObject:
