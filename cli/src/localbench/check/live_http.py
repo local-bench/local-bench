@@ -193,7 +193,7 @@ def _messages(module: str, source: JsonObject) -> list[ChatMessage]:
             {"role": "system", "content": system},
             {"role": "user", "content": _source_text(source, "prompt")},
         ]
-    if module in {"tools-single", "tools-stateful"}:
+    if module in {"tools-single", "tools-stateful"} or isinstance(source.get("tools"), list):
         system = (
             "Return canonical JSON only: {\"calls\":[{\"name\":string,\"arguments\":object}]}. "
             "Use only the declared tools and include the complete required call sequence."
@@ -215,7 +215,7 @@ def _prompt(module: str, source: JsonObject) -> str:
         return _first_source_text(source, ("statement", "problem", "question", "prompt"))
     if module == "coding":
         return _first_source_text(source, ("instruct_prompt", "code_prompt"))
-    if module == "tools-single":
+    if module == "tools-single" or isinstance(source.get("tools"), list):
         return f"{_source_text(source, 'prompt')}\nDeclared tools:\n{_canonical(source.get('tools'))}"
     if module == "tools-stateful":
         return f"{_source_text(source, 'prompt')}\nDeclared tools:\n{_canonical(source.get('tool_schemas'))}"

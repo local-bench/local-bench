@@ -23,6 +23,20 @@ _SMOKE_MODULES: Final = {
     "tc-json-bfcl-025": "tools-single",
     "stateful-booking-ledger-000": "tools-stateful",
 }
+_GATE_TOOL_SCHEMAS: Final[dict[str, list[JsonObject]]] = {
+    "lookup": [
+        {
+            "description": "Return the deterministic fixture value for an id.",
+            "name": "lookup",
+            "parameters": {
+                "additionalProperties": False,
+                "properties": {"id": {"type": "string"}},
+                "required": ["id"],
+                "type": "object",
+            },
+        }
+    ]
+}
 
 
 def load_smoke_items(repo_root: Path, manifest_path: Path) -> tuple[LiveItem, ...]:
@@ -47,7 +61,7 @@ def load_smoke_items(repo_root: Path, manifest_path: Path) -> tuple[LiveItem, ..
             raise CheckError("manifest sanity-gate definition is invalid")
         item_id = _required_str(definition, "item_id")
         _verify_published("sanity-gates", item_id, definition, published)
-        selected.append(LiveItem(item_id, "sanity-gates", definition))
+        selected.append(LiveItem(item_id, "sanity-gates", _with_gate_tools(definition)))
     return tuple(selected)
 
 
@@ -120,13 +134,28 @@ def _all_local_sources(repo_root: Path, manifest: JsonObject) -> dict[str, JsonO
     instances = stateful.get("instances") if isinstance(stateful, dict) else None
     gates = manifest.get("sanity_gates")
     definitions = gates.get("definitions") if isinstance(gates, dict) else None
-    for records, label in ((instances, "stateful instances"), (definitions, "sanity gates")):
-        if not isinstance(records, list):
-            raise CheckError(f"manifest {label} are missing")
-        for record in records:
-            if isinstance(record, dict):
-                sources[_required_str(record, "item_id")] = record
+    if not isinstance(instances, list):
+        raise CheckError("manifest stateful instances are missing")
+    for instance in instances:
+        if isinstance(instance, dict):
+            sources[_required_str(instance, "item_id")] = instance
+    if not isinstance(definitions, list):
+        raise CheckError("manifest sanity gates are missing")
+    for definition in definitions:
+        if isinstance(definition, dict):
+            sources[_required_str(definition, "item_id")] = _with_gate_tools(definition)
     return sources
+
+
+def _with_gate_tools(source: JsonObject) -> JsonObject:
+    expected = source.get("expected")
+    tool = expected.get("tool") if isinstance(expected, dict) else None
+    if not isinstance(tool, str):
+        return dict(source)
+    schemas = _GATE_TOOL_SCHEMAS.get(tool)
+    if schemas is None:
+        raise CheckError(f"sanity gate tool schema is missing: {tool}")
+    return {**source, "tools": schemas}
 
 
 def _published_items(manifest: JsonObject) -> dict[tuple[str, str], str]:
